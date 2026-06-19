@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Best Gym in Neemuch | Gravity Fitness | Zumba · Yoga · Boxing · HIIT</title>
+  <meta name="description" content="Gravity Fitness — Neemuch's #1 gym. AC facility, certified trainers, Zumba, Yoga, Boxing, HIIT & Cycling. Book a FREE day pass online. Membership from ₹999/month. Open 5 AM–10 PM."/>
+  <meta name="keywords" content="gym in neemuch, best gym neemuch, fitness center neemuch, zumba neemuch, yoga neemuch, boxing neemuch, HIIT neemuch, gravity fitness, personal trainer neemuch"/>
+  <meta name="robots" content="index, follow"/>
+  <link rel="canonical" href="https://gravityfitness.in/"/>
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website"/>
+  <meta property="og:title"       content="Gravity Fitness Neemuch — Train Hard. Get Results."/>
+  <meta property="og:description" content="Neemuch's premier gym. Zumba, Yoga, Boxing, HIIT & more. Book a FREE day pass today!"/>
+  <meta property="og:image"       content="https://gravityfitness.in/assets/images/hero-fighter.png"/>
+  <meta property="og:url"         content="https://gravityfitness.in/"/>
+  <meta property="og:site_name"   content="Gravity Fitness Neemuch"/>
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary_large_image"/>
+  <meta name="twitter:title"       content="Gravity Fitness Neemuch"/>
+  <meta name="twitter:description" content="Neemuch's #1 gym. Book a FREE day pass online."/>
+  <meta name="twitter:image"       content="https://gravityfitness.in/assets/images/hero-fighter.png"/>
+  <!-- Fonts & Styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <!-- Preload hero -->
+  <link rel="preload" as="image" href="assets/images/hero-fighter.png"/>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- ══ GOOGLE ANALYTICS 4 ══════════════════════════════════════════
+       1. Go to analytics.google.com → Create Account → Web Property
+       2. Copy your Measurement ID (looks like G-XXXXXXXXXX)
+       3. Uncomment the two script tags below and replace G-XXXXXXXXXX
+  ════════════════════════════════════════════════════════════════════ -->
+ <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer=window.dataLayer||[];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js',new Date()); gtag('config','G-QCV4MEH4R4');
+  </script>
+
+  <!-- ══ FIREBASE ═════════════════════════════════════════════════════
+       1. Go to console.firebase.google.com → New Project
+       2. Add a Web App → Copy the firebaseConfig values
+       3. Open js/analytics.js and paste your config values
+       4. Uncomment the 3 script tags below
+  ════════════════════════════════════════════════════════════════════ -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-analytics-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-logo">GRAVITY<span>.</span></div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <div class="loader-text">Loading your fitness journey...</div>
+</div>
+
+<!-- HEADER -->
+<header class="header" id="header">
+  <div class="header-inner">
+    <a href="index.html" class="logo">GRAVITY<span>.</span></a>
+    <ul class="nav-tabs">
+      <li><a href="#classes">Classes</a></li>
+      <li><a href="#membership">Membership</a></li>
+      <li><a href="#schedule">Schedule</a></li>
+      <li><a href="pages/trainers.html">Trainers</a></li>
+      <li><a href="pages/gallery.html">Gallery</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+    <div class="header-right">
+      <div class="city-pill">
+        <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
+        Neemuch, MP
+      </div>
+      <button class="btn btn-primary" onclick="openBooking('free')">🎟 Free Day Pass</button>
+      <button class="hamburger" onclick="toggleMobileNav()">☰</button>
+    </div>
+  </div>
+</header>
+
+<!-- MOBILE NAV -->
+<nav class="mobile-nav" id="mobile-nav">
+  <button onclick="toggleMobileNav()" style="position:absolute;top:18px;right:20px;background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer;">✕</button>
+  <ul>
+    <li><a href="#classes" onclick="toggleMobileNav()">Classes</a></li>
+    <li><a href="#membership" onclick="toggleMobileNav()">Membership</a></li>
+    <li><a href="#schedule" onclick="toggleMobileNav()">Schedule</a></li>
+    <li><a href="pages/trainers.html">Trainers</a></li>
+    <li><a href="pages/gallery.html">Gallery</a></li>
+    <li><a href="#contact" onclick="toggleMobileNav()">Contact</a></li>
+  </ul>
+  <div style="margin-top:28px;display:flex;flex-direction:column;gap:10px;">
+    <button class="btn btn-primary" style="width:100%;" onclick="openBooking('free');toggleMobileNav()">🎟 Free Day Pass</button>
+    <button class="btn btn-outline" style="width:100%;" onclick="document.getElementById('membership').scrollIntoView({behavior:'smooth'});toggleMobileNav()">View Plans</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero has-photo" id="home">
+  <!-- HERO PHOTO -->
+  <div class="hero-photo-wrap">
+    <img src="assets/images/hero-fighter.png" alt="Gravity Fitness — Elite Physique" loading="eager"/>
+  </div>
+  <div class="hero-bg-text">FIT</div>
+  <div class="hero-eyebrow"><span></span> Neemuch's #1 Fitness Destination</div>
+  <h1>Transform Your Body<br>With <span class="lime">Expert</span> <span class="outline">Coaching</span></h1>
+
+  <!-- Social proof row -->
+  <div class="hero-social-proof">
+    <div class="hsp-rating">
+      <span class="hsp-stars">★★★★★</span>
+      <span class="hsp-num">4.9/5</span>
+      <span class="hsp-count">(200+ reviews)</span>
+    </div>
+    <div class="hsp-divider"></div>
+    <div class="hsp-stat"><div class="hsp-stat-num">2,000+</div><div class="hsp-stat-label">Members</div></div>
+    <div class="hsp-divider"></div>
+    <div class="hsp-stat"><div class="hsp-stat-num">100+</div><div class="hsp-stat-label">Transformations</div></div>
+    <div class="hsp-divider"></div>
+    <div class="hsp-stat"><div class="hsp-stat-num">5 Yrs</div><div class="hsp-stat-label">Trusted</div></div>
+  </div>
+
+  <!-- Value props -->
+  <div class="hero-value-props">
+    <div class="hero-vp">Certified Trainers — Strength, Yoga, Zumba, Boxing & More</div>
+    <div class="hero-vp">AC Premium Gym with 200+ Equipment Pieces</div>
+    <div class="hero-vp">Open 5 AM – 10 PM · Mon–Sat · No Joining Fee</div>
+    <div class="hero-vp">First Day Always Free — Walk In, No Commitment</div>
+  </div>
+
+  <div class="hero-actions">
+    <button class="btn btn-primary" onclick="openBooking('free');gTrack&&gTrack('hero_cta_click',{button:'free_pass'})">🎟 Claim Free Day Pass</button>
+    <button class="btn btn-outline" onclick="document.getElementById('membership').scrollIntoView({behavior:'smooth'});gTrack&&gTrack('hero_cta_click',{button:'view_plans'})">View Plans & Pricing →</button>
+  </div>
+
+  <div class="hero-stats">
+    <div><div class="stat-num" data-target="2000">0</div><div class="stat-label">Members</div></div>
+    <div><div class="stat-num" data-target="20">0</div><div class="stat-label">Expert Trainers</div></div>
+    <div><div class="stat-num" data-target="15">0</div><div class="stat-label">Class Types</div></div>
+    <div><div class="stat-num" data-target="5">0</div><div class="stat-label">Years Strong</div></div>
+  </div>
+</section>
+
+<!-- TICKER -->
+<div class="offer-ticker">
+  <div class="ticker-track">
+    <span class="ticker-item">🔥 First Month FREE <span>for new members</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">💪 Personal Training <span>from ₹999/session</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">🎯 Group Classes <span>included in all plans</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">🏆 AC Gym <span>premium equipment</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">🧘 Zumba & Yoga <span>every morning</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">⚡ Open 5 AM – 10 PM <span>7 days a week</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">🎟 Free Day Pass <span>no commitment needed</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">📲 Pay via UPI <span>or any card</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">🔥 First Month FREE <span>for new members</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">💪 Personal Training <span>from ₹999/session</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">🎯 Group Classes <span>included in all plans</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">🏆 AC Gym <span>premium equipment</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">🧘 Zumba & Yoga <span>every morning</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">⚡ Open 5 AM – 10 PM <span>7 days a week</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">🎟 Free Day Pass <span>no commitment needed</span> <span class="ticker-sep">·</span></span>
+    <span class="ticker-item">📲 Pay via UPI <span>or any card</span> <span class="ticker-sep">·</span></span>
+  </div>
+</div>
+
+<!-- URGENCY STRIP -->
+<div class="urgency-strip">
+  <div class="urgency-strip-inner" id="urgency-strip">
+    <!-- populated by analytics.js renderUrgencyBadges() -->
+    <span class="urgency-pill">🔥 23 free trials booked this week</span>
+    <span class="urgency-sep">·</span>
+    <span class="urgency-pill">⏳ Only 6 PT slots left this week</span>
+    <span class="urgency-sep">·</span>
+    <span class="urgency-pill">🎯 Next Zumba batch starts Monday</span>
+    <span class="urgency-sep">·</span>
+    <span class="urgency-pill">👥 2,000+ active members</span>
+    <span class="urgency-sep">·</span>
+    <span class="urgency-pill">🔥 23 free trials booked this week</span>
+    <span class="urgency-sep">·</span>
+    <span class="urgency-pill">⏳ Only 6 PT slots left this week</span>
+    <span class="urgency-sep">·</span>
+    <span class="urgency-pill">🎯 Next Zumba batch starts Monday</span>
+    <span class="urgency-sep">·</span>
+    <span class="urgency-pill">👥 2,000+ active members</span>
+  </div>
+</div>
+
+<!-- TRUST BAR -->
+<div class="trust-bar">
+  <div class="trust-bar-inner">
+    <div class="trust-item"><span class="ti-icon">⭐</span><strong>4.9/5</strong> <span>Rating</span></div>
+    <div class="trust-item"><span class="ti-icon">👥</span><strong>2,000+</strong> <span>Members</span></div>
+    <div class="trust-item"><span class="ti-icon">🏆</span><strong>5 Years</strong> <span>in Neemuch</span></div>
+    <div class="trust-item"><span class="ti-icon">❄️</span><strong>AC Gym</strong> <span>All Year</span></div>
+    <div class="trust-item"><span class="ti-icon">🎟</span><strong>First Day</strong> <span>Always Free</span></div>
+    <div class="trust-item"><span class="ti-icon">📲</span><strong>Book Online</strong> <span>Instantly</span></div>
+  </div>
+</div>
+
+<!-- PASS NAV -->
+<div class="pass-nav">
+  <div class="pass-nav-inner">
+    <button class="pass-tab active" onclick="filterClasses('all',this)">All Classes</button>
+    <button class="pass-tab" onclick="filterClasses('strength',this)">Strength</button>
+    <button class="pass-tab" onclick="filterClasses('cardio',this)">Cardio</button>
+    <button class="pass-tab" onclick="filterClasses('yoga',this)">Yoga</button>
+    <button class="pass-tab" onclick="filterClasses('zumba',this)">Zumba</button>
+    <button class="pass-tab" onclick="filterClasses('boxing',this)">Boxing</button>
+    <button class="pass-tab" onclick="filterClasses('hiit',this)">HIIT</button>
+    <button class="pass-tab" onclick="filterClasses('cycling',this)">Cycling</button>
+  </div>
+</div>
+
+<!-- CLASSES -->
+<section class="section" id="classes">
+  <div class="container"><div class="section-head reveal">
+    <div><div class="section-label">What we offer</div><h2 class="section-title">Classes for Every Goal</h2><p class="section-sub">From heavy iron to mindful movement — a session for every version of you.</p></div>
+    <button class="btn btn-outline" onclick="document.getElementById('schedule').scrollIntoView({behavior:'smooth'})">Full Schedule →</button>
+  </div></div>
+  <div class="cards-scroll">
+    <div class="workout-card" data-cat="hiit"><div class="card-thumb" style="background:linear-gradient(135deg,#2d0a0a,#1a0f00);"><span>⚡</span><span class="card-badge live-badge">● LIVE NOW</span></div><div class="card-body"><div class="card-instructor">Coach Swapnil</div><div class="card-title">Power HIIT</div><div class="card-meta"><span class="meta-pill">45 min</span><span class="meta-pill">Advanced</span><span class="meta-pill">12/15</span></div></div><div class="energy-bar-wrap"><div class="energy-label">Intensity</div><div class="energy-bar"><div class="energy-fill" style="width:95%"></div></div></div><div class="card-footer"><span style="font-size:.75rem;color:var(--muted);">7:00 AM · Today</span><button class="btn btn-primary" onclick="openBooking('class','Power HIIT','Swapnil','7:00 AM')">Book</button></div></div>
+    <div class="workout-card" data-cat="zumba"><div class="card-thumb" style="background:linear-gradient(135deg,#1a0a2e,#0a0a1a);"><span>💃</span></div><div class="card-body"><div class="card-instructor">Coach Priya M.</div><div class="card-title">Zumba Fiesta</div><div class="card-meta"><span class="meta-pill">60 min</span><span class="meta-pill">All levels</span><span class="meta-pill">8/20</span></div></div><div class="energy-bar-wrap"><div class="energy-label">Intensity</div><div class="energy-bar"><div class="energy-fill" style="width:65%"></div></div></div><div class="card-footer"><span style="font-size:.75rem;color:var(--muted);">8:30 AM · Today</span><button class="btn btn-primary" onclick="openBooking('class','Zumba Fiesta','Priya M.','8:30 AM')">Book</button></div></div>
+    <div class="workout-card" data-cat="yoga"><div class="card-thumb" style="background:linear-gradient(135deg,#0a1a2e,#050d1a);"><span>🧘</span></div><div class="card-body"><div class="card-instructor">Coach Ankita R.</div><div class="card-title">Morning Flow Yoga</div><div class="card-meta"><span class="meta-pill">60 min</span><span class="meta-pill">Beginner</span><span class="meta-pill">6/15</span></div></div><div class="energy-bar-wrap"><div class="energy-label">Intensity</div><div class="energy-bar"><div class="energy-fill" style="width:30%"></div></div></div><div class="card-footer"><span style="font-size:.75rem;color:var(--muted);">6:00 AM · Daily</span><button class="btn btn-primary" onclick="openBooking('class','Morning Flow Yoga','Ankita R.','6:00 AM')">Book</button></div></div>
+    <div class="workout-card" data-cat="strength"><div class="card-thumb" style="background:linear-gradient(135deg,#141414,#0c0c0c);"><span>🏋️</span></div><div class="card-body"><div class="card-instructor">Coach Jayant</div><div class="card-title">Heavy Iron</div><div class="card-meta"><span class="meta-pill">90 min</span><span class="meta-pill">Advanced</span><span class="meta-pill">Open</span></div></div><div class="energy-bar-wrap"><div class="energy-label">Intensity</div><div class="energy-bar"><div class="energy-fill" style="width:88%"></div></div></div><div class="card-footer"><span style="font-size:.75rem;color:var(--muted);">5 AM – 10 PM</span><button class="btn btn-primary" onclick="openBooking('class','Heavy Iron','Jayant','Open floor')">Book</button></div></div>
+    <div class="workout-card" data-cat="boxing"><div class="card-thumb" style="background:linear-gradient(135deg,#1a0a00,#0f0800);"><span>🥊</span><span class="card-badge" style="background:rgba(255,140,66,.85);color:#fff;">NEW</span></div><div class="card-body"><div class="card-instructor">Coach Harsh</div><div class="card-title">Boxing Basics</div><div class="card-meta"><span class="meta-pill">45 min</span><span class="meta-pill">Beginner</span><span class="meta-pill">4/10</span></div></div><div class="energy-bar-wrap"><div class="energy-label">Intensity</div><div class="energy-bar"><div class="energy-fill" style="width:75%"></div></div></div><div class="card-footer"><span style="font-size:.75rem;color:var(--muted);">6:00 PM · MWF</span><button class="btn btn-primary" onclick="openBooking('class','Boxing Basics','Harsh','6:00 PM')">Book</button></div></div>
+    <div class="workout-card" data-cat="cycling"><div class="card-thumb" style="background:linear-gradient(135deg,#001a2e,#000f1a);"><span>🚴</span></div><div class="card-body"><div class="card-instructor">Coach Sneha P.</div><div class="card-title">Rhythm Ride</div><div class="card-meta"><span class="meta-pill">45 min</span><span class="meta-pill">Intermediate</span><span class="meta-pill">10/12</span></div></div><div class="energy-bar-wrap"><div class="energy-label">Intensity</div><div class="energy-bar"><div class="energy-fill" style="width:80%"></div></div></div><div class="card-footer"><span style="font-size:.75rem;color:var(--muted);">7:30 AM · TTS</span><button class="btn btn-primary" onclick="openBooking('class','Rhythm Ride','Sneha P.','7:30 AM')">Book</button></div></div>
+    <div class="workout-card" data-cat="cardio"><div class="card-thumb" style="background:linear-gradient(135deg,#002e1a,#001a0f);"><span>🏃</span></div><div class="card-body"><div class="card-instructor">Coach Ravi T.</div><div class="card-title">Cardio Burn</div><div class="card-meta"><span class="meta-pill">30 min</span><span class="meta-pill">All levels</span><span class="meta-pill">Open</span></div></div><div class="energy-bar-wrap"><div class="energy-label">Intensity</div><div class="energy-bar"><div class="energy-fill" style="width:60%"></div></div></div><div class="card-footer"><span style="font-size:.75rem;color:var(--muted);">5 AM – 10 PM</span><button class="btn btn-primary" onclick="openBooking('class','Cardio Burn','Ravi T.','Open')">Book</button></div></div>
+    <div class="workout-card" data-cat="strength"><div class="card-thumb" style="background:linear-gradient(135deg,#1a1400,#0f0d00);"><span>💪</span></div><div class="card-body"><div class="card-instructor">Coach Jayant</div><div class="card-title">Body Sculpt</div><div class="card-meta"><span class="meta-pill">60 min</span><span class="meta-pill">Intermediate</span><span class="meta-pill">7/15</span></div></div><div class="energy-bar-wrap"><div class="energy-label">Intensity</div><div class="energy-bar"><div class="energy-fill" style="width:72%"></div></div></div><div class="card-footer"><span style="font-size:.75rem;color:var(--muted);">5:30 PM · Weekdays</span><button class="btn btn-primary" onclick="openBooking('class','Body Sculpt','Jayant','5:30 PM')">Book</button></div></div>
+  </div>
+</section>
+
+<!-- GYM POSTERS -->
+<section class="poster-section">
+  <div class="container"><div class="section-head reveal" style="margin-bottom:36px;"><div><div class="section-label">Motivation wall</div><h2 class="section-title">Fuel Your Mindset</h2></div></div></div>
+  <div class="posters-scroll">
+    <div class="poster-card">
+      <svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="p1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0a0a0a"/><stop offset="100%" stop-color="#1a1200"/></linearGradient><filter id="g1"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <rect width="300" height="400" fill="url(#p1)"/><rect x="0" y="0" width="300" height="4" fill="#C1FF6B"/>
+      <line x1="0" y1="80" x2="300" y2="80" stroke="#C1FF6B" stroke-opacity=".05"/><line x1="0" y1="160" x2="300" y2="160" stroke="#C1FF6B" stroke-opacity=".05"/><line x1="0" y1="240" x2="300" y2="240" stroke="#C1FF6B" stroke-opacity=".05"/>
+      <rect x="55" y="180" width="190" height="7" rx="3" fill="#C1FF6B" opacity=".4" filter="url(#g1)"/>
+      <rect x="35" y="170" width="20" height="30" rx="3" fill="#C1FF6B" opacity=".5"/><rect x="18" y="174" width="15" height="22" rx="2" fill="#C1FF6B" opacity=".35"/>
+      <rect x="245" y="170" width="20" height="30" rx="3" fill="#C1FF6B" opacity=".5"/><rect x="267" y="174" width="15" height="22" rx="2" fill="#C1FF6B" opacity=".35"/>
+      <path d="M140 183 Q120 193 80 184" stroke="#C1FF6B" stroke-width="9" stroke-linecap="round" fill="none" opacity=".28"/>
+      <path d="M160 183 Q180 193 220 184" stroke="#C1FF6B" stroke-width="9" stroke-linecap="round" fill="none" opacity=".28"/>
+      <circle cx="150" cy="192" r="16" fill="#C1FF6B" opacity=".15"/>
+      <text x="150" y="305" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="50" font-weight="900" fill="#C1FF6B" letter-spacing="-2" filter="url(#g1)">NO</text>
+      <text x="150" y="355" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="42" font-weight="900" fill="#fff" letter-spacing="-1">EXCUSES</text>
+      <text x="275" y="390" text-anchor="end" font-family="Arial,sans-serif" font-size="8" fill="#C1FF6B" opacity=".45" letter-spacing="2">GRAVITY FITNESS</text>
+      </svg>
+    </div>
+    <div class="poster-card">
+      <svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="p2" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#0a0010"/><stop offset="100%" stop-color="#16001a"/></linearGradient><radialGradient id="p2g" cx="50%" cy="45%" r="45%"><stop offset="0%" stop-color="#A855F7" stop-opacity=".22"/><stop offset="100%" stop-color="transparent"/></radialGradient></defs>
+      <rect width="300" height="400" fill="url(#p2)"/><rect width="300" height="400" fill="url(#p2g)"/>
+      <rect x="0" y="0" width="4" height="400" fill="#A855F7"/>
+      <line x1="0" y1="55" x2="200" y2="255" stroke="#A855F7" stroke-width="1" opacity=".1"/><line x1="10" y1="0" x2="290" y2="280" stroke="#A855F7" stroke-width="1" opacity=".08"/>
+      <text x="28" y="270" font-family="Arial Black,sans-serif" font-size="42" font-weight="900" fill="#A855F7">PUSH</text>
+      <text x="28" y="315" font-family="Arial Black,sans-serif" font-size="42" font-weight="900" fill="#fff" opacity=".9">YOUR</text>
+      <text x="28" y="360" font-family="Arial Black,sans-serif" font-size="42" font-weight="900" fill="#A855F7">LIMITS</text>
+      <text x="28" y="390" font-family="Arial,sans-serif" font-size="8" fill="#A855F7" opacity=".45" letter-spacing="3">GRAVITY FITNESS · NEEMUCH</text>
+      </svg>
+    </div>
+    <div class="poster-card">
+      <svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="p3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#001a0a"/><stop offset="100%" stop-color="#0a1a00"/></linearGradient><filter id="g3"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <rect width="300" height="400" fill="url(#p3)"/>
+      <g transform="translate(150,130)" opacity=".42"><rect x="-55" y="-7" width="110" height="14" rx="7" fill="#C1FF6B"/><rect x="-75" y="-20" width="22" height="40" rx="5" fill="#C1FF6B"/><rect x="-93" y="-14" width="16" height="28" rx="3" fill="#C1FF6B"/><rect x="53" y="-20" width="22" height="40" rx="5" fill="#C1FF6B"/><rect x="77" y="-14" width="16" height="28" rx="3" fill="#C1FF6B"/></g>
+      <text x="150" y="228" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="14" font-weight="900" fill="#C1FF6B" letter-spacing="5" opacity=".75">STRONGER</text>
+      <text x="150" y="284" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="52" font-weight="900" fill="#fff">EVERY</text>
+      <text x="150" y="342" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="52" font-weight="900" fill="#C1FF6B" filter="url(#g3)">DAY</text>
+      <rect x="0" y="397" width="300" height="3" fill="#C1FF6B"/>
+      </svg>
+    </div>
+    <div class="poster-card">
+      <svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="p4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#180000"/><stop offset="100%" stop-color="#0a0808"/></linearGradient><radialGradient id="p4g" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FF4D4D" stop-opacity=".18"/><stop offset="100%" stop-color="transparent"/></radialGradient></defs>
+      <rect width="300" height="400" fill="url(#p4)"/><rect width="300" height="400" fill="url(#p4g)"/>
+      <rect x="0" y="0" width="300" height="3" fill="#FF4D4D"/>
+      <polygon points="0,0 170,0 0,270" fill="#FF4D4D" opacity=".06"/>
+      <text x="22" y="190" font-family="Arial Black,sans-serif" font-size="58" font-weight="900" fill="#FF4D4D" opacity=".88">SWEAT</text>
+      <text x="22" y="248" font-family="Arial Black,sans-serif" font-size="58" font-weight="900" fill="#fff" opacity=".9">NOW.</text>
+      <text x="22" y="298" font-family="Arial Black,sans-serif" font-size="30" font-weight="900" fill="#FF4D4D" opacity=".62">SHINE</text>
+      <text x="22" y="334" font-family="Arial Black,sans-serif" font-size="30" font-weight="900" fill="#fff" opacity=".42">LATER.</text>
+      <line x1="22" y1="352" x2="80" y2="352" stroke="#FF4D4D" stroke-width="2" opacity=".45"/>
+      <text x="278" y="392" text-anchor="end" font-family="Arial,sans-serif" font-size="8" fill="#FF4D4D" opacity=".38" letter-spacing="2">GRAVITY FITNESS</text>
+      </svg>
+    </div>
+    <div class="poster-card">
+      <svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="p5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#001020"/><stop offset="100%" stop-color="#001428"/></linearGradient><radialGradient id="p5g" cx="50%" cy="40%" r="40%"><stop offset="0%" stop-color="#4DA6FF" stop-opacity=".28"/><stop offset="100%" stop-color="transparent"/></radialGradient></defs>
+      <rect width="300" height="400" fill="url(#p5)"/><rect width="300" height="400" fill="url(#p5g)"/>
+      <circle cx="150" cy="155" r="85" fill="none" stroke="#4DA6FF" stroke-width="1" opacity=".14"/>
+      <circle cx="150" cy="155" r="65" fill="none" stroke="#4DA6FF" stroke-width="1" opacity=".09"/>
+      <circle cx="150" cy="155" r="45" fill="#4DA6FF" opacity=".06"/>
+      <circle cx="150" cy="122" r="14" fill="#4DA6FF" opacity=".32"/>
+      <path d="M140 138 Q122 150 108 163 Q118 168 130 158 Q140 148 147 163 Q152 173 157 163 Q164 148 172 158 Q184 168 194 163 Q180 150 162 138 Z" fill="#4DA6FF" opacity=".26"/>
+      <text x="150" y="278" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="12" fill="#4DA6FF" letter-spacing="8" opacity=".65">MIND</text>
+      <line x1="65" y1="284" x2="235" y2="284" stroke="#4DA6FF" stroke-width="1" opacity=".18"/>
+      <text x="150" y="325" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="44" font-weight="900" fill="#fff">BODY</text>
+      <line x1="65" y1="333" x2="235" y2="333" stroke="#4DA6FF" stroke-width="1" opacity=".18"/>
+      <text x="150" y="365" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="12" fill="#4DA6FF" letter-spacing="8" opacity=".65">SOUL</text>
+      <rect x="0" y="0" width="3" height="400" fill="#4DA6FF" opacity=".55"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-strip">
+  <div class="stats-inner">
+    <div class="reveal"><div class="stat-big">200<span class="lime">+</span></div><div class="stat-big-label">Equipment Pieces</div></div>
+    <div class="reveal reveal-delay-1"><div class="stat-big">15<span class="lime">+</span></div><div class="stat-big-label">Class Types Weekly</div></div>
+    <div class="reveal reveal-delay-2"><div class="stat-big">4.9<span class="lime">★</span></div><div class="stat-big-label">Average Rating</div></div>
+    <div class="reveal reveal-delay-3"><div class="stat-big">5<span class="lime">AM</span></div><div class="stat-big-label">Earliest Class</div></div>
+  </div>
+</div>
+
+<!-- ══════════ PHOTO FEATURE 1 — PT Session ══════════ -->
+<section class="photo-feature reveal">
+  <div class="photo-feature__img lime-glow-frame">
+    <img src="assets/images/trainer-pt.jpg" alt="Personal training session at Gravity Fitness"/>
+    <div class="img-badge">Personal Training</div>
+  </div>
+  <div class="photo-feature__content">
+    <div class="big-num">01</div>
+    <div class="section-label">Expert Guidance</div>
+    <h3>One-on-One Coaching That Actually Works</h3>
+    <p>Our certified personal trainers don't just watch you lift — they design programmes around your body, your goals, and your lifestyle. Every session is intentional, every rep has a purpose.</p>
+    <div class="feat-tags">
+      <span class="feat-tag">Custom Plans</span>
+      <span class="feat-tag">Form Correction</span>
+      <span class="feat-tag">Goal Tracking</span>
+      <span class="feat-tag">Nutrition Support</span>
+    </div>
+    <button class="btn btn-primary" style="align-self:flex-start;margin-top:8px;" onclick="openBooking('plan','Pro','1499')">Book a PT Session →</button>
+  </div>
+</section>
+
+<!-- ══════════ PHOTO FEATURE 2 — Mirror / Women's Training ══════════ -->
+<section class="photo-feature reverse reveal">
+  <div class="photo-feature__img lime-glow-frame">
+    <img src="assets/images/trainer-mirror.jpg" alt="Women's strength training at Gravity Fitness" style="object-position:center center;"/>
+    <div class="img-badge">Strength Training</div>
+  </div>
+  <div class="photo-feature__content">
+    <div class="big-num">02</div>
+    <div class="section-label">For Every Body</div>
+    <h3>Strength Is for Everyone — Especially You</h3>
+    <p>Whether it's your first dumbbell or your hundredth deadlift, our floor is a judgement-free zone. Our trainers make sure every member feels confident, capable, and completely at home under the bar.</p>
+    <div class="feat-tags">
+      <span class="feat-tag">Women-Friendly</span>
+      <span class="feat-tag">Beginner to Elite</span>
+      <span class="feat-tag">200+ Equipment</span>
+      <span class="feat-tag">AC Facility</span>
+    </div>
+    <button class="btn btn-primary" style="align-self:flex-start;margin-top:8px;" onclick="openBooking('free')">🎟 Try It Free →</button>
+  </div>
+</section>
+
+<!-- ══════════ PARALLAX BANNER — Bodybuilder Cap Photo ══════════ -->
+<div class="parallax-banner" id="parallax-banner">
+  <div class="parallax-banner__bg" id="parallax-bg">
+    <img src="assets/images/bodybuilder-cap.jpg" alt="Gravity Fitness — Elite Results"/>
+  </div>
+  <div class="parallax-banner__content reveal">
+    <div class="big-quote">
+      Results don't happen by accident.<br>
+      They happen at <span>Gravity.</span>
+    </div>
+    <div class="quote-sub">2,000+ members transformed. Your turn.</div>
+    <div style="margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn btn-primary" style="font-size:1rem;padding:14px 30px;" onclick="openBooking('free')">Start Free Today →</button>
+      <a href="#membership" class="btn btn-outline" style="font-size:1rem;padding:14px 30px;color:#fff;border-color:rgba(255,255,255,.3);">View Plans</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ WHY GRAVITY — GYM FEATURES ══════════ -->
+<section class="section" style="background:var(--bg2);">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <div class="section-label">Why Gravity?</div>
+        <h2 class="section-title">Everything You Need,<br>Under One Roof</h2>
+        <p class="section-sub">Premium fitness experience at a price that makes sense for Neemuch.</p>
+      </div>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-icon">🏋️</div>
+        <div class="feature-title">200+ Equipment</div>
+        <div class="feature-desc">Latest machines, free weights, cables & functional training zone</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-icon">❄️</div>
+        <div class="feature-title">AC Facility</div>
+        <div class="feature-desc">Fully air-conditioned — train comfortably even in peak Neemuch summers</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-icon">🏆</div>
+        <div class="feature-title">Certified Trainers</div>
+        <div class="feature-desc">ACE, RYT & nationally certified coaches — not just gym instructors</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-icon">🚿</div>
+        <div class="feature-title">Clean Washrooms</div>
+        <div class="feature-desc">Separate, well-maintained changing rooms & washrooms for men & women</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-icon">🚗</div>
+        <div class="feature-title">Free Parking</div>
+        <div class="feature-desc">Secure two-wheeler & four-wheeler parking right outside the gym</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-icon">🔊</div>
+        <div class="feature-title">Premium Sound</div>
+        <div class="feature-desc">High-energy music system that makes every workout feel like a performance</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-icon">🥤</div>
+        <div class="feature-title">Supplements</div>
+        <div class="feature-desc">Protein, pre-workout & health supplements available at the front desk</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-icon">📲</div>
+        <div class="feature-title">Online Booking</div>
+        <div class="feature-desc">Book classes, pay memberships & get PDF invoices — all from your phone</div>
+      </div>
+      <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-icon">⏰</div>
+        <div class="feature-title">Open 5 AM–10 PM</div>
+        <div class="feature-desc">Earliest hours in Neemuch — perfect for early risers and late workers</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ TRANSFORMATION STORIES ══════════ -->
+<section class="section" style="background:var(--bg);">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <div class="section-label">Real Results</div>
+        <h2 class="section-title">100+ Member<br>Transformations</h2>
+        <p class="section-sub">These aren't stock photos. These are real Gravity members from Neemuch.</p>
+      </div>
+      <button class="btn btn-outline" onclick="openBooking('free')">Start Your Story →</button>
+    </div>
+    <div class="transform-grid">
+      <div class="transform-card reveal reveal-delay-1">
+        <div class="transform-header">
+          <div class="transform-avatar" style="background:#2a1a3a;">👨</div>
+          <div>
+            <div class="transform-name">Rohit Sharma</div>
+            <div class="transform-meta">Pro Member · Started Jan 2024</div>
+          </div>
+        </div>
+        <div class="transform-result">
+          <div><div class="transform-kg">-12 <span>kg lost</span></div></div>
+          <div class="transform-time">4 months<br><span style="color:var(--lime);font-size:.7rem;font-weight:700;">✓ Verified</span></div>
+        </div>
+        <div class="transform-quote">"Lost 12 kg in 4 months. Trainers know exactly how to push you. Best gym in Neemuch."</div>
+      </div>
+      <div class="transform-card reveal reveal-delay-2">
+        <div class="transform-header">
+          <div class="transform-avatar" style="background:#1a2a1a;">👩</div>
+          <div>
+            <div class="transform-name">Kavita Patel</div>
+            <div class="transform-meta">Elite Member · Started Mar 2024</div>
+          </div>
+        </div>
+        <div class="transform-result">
+          <div><div class="transform-kg">+8 <span>kg muscle</span></div></div>
+          <div class="transform-time">6 months<br><span style="color:var(--lime);font-size:.7rem;font-weight:700;">✓ Verified</span></div>
+        </div>
+        <div class="transform-quote">"Zumba classes are so fun. Priya ma'am is incredible. I never miss a single class."</div>
+      </div>
+      <div class="transform-card reveal reveal-delay-3">
+        <div class="transform-header">
+          <div class="transform-avatar" style="background:#2a1a0a;">🧑</div>
+          <div>
+            <div class="transform-name">Aditya Mehta</div>
+            <div class="transform-meta">Pro Member · Started Oct 2023</div>
+          </div>
+        </div>
+        <div class="transform-result">
+          <div><div class="transform-kg">-18 <span>kg lost</span></div></div>
+          <div class="transform-time">8 months<br><span style="color:var(--lime);font-size:.7rem;font-weight:700;">✓ Verified</span></div>
+        </div>
+        <div class="transform-quote">"Equipment is top-notch, always clean. Trainers genuinely care about your progress."</div>
+      </div>
+      <div class="transform-card reveal reveal-delay-1">
+        <div class="transform-header">
+          <div class="transform-avatar" style="background:#0a1a2a;">👩</div>
+          <div>
+            <div class="transform-name">Neha Gupta</div>
+            <div class="transform-meta">Pro Member · Started Aug 2024</div>
+          </div>
+        </div>
+        <div class="transform-result">
+          <div><div class="transform-kg">-9 <span>kg lost</span></div></div>
+          <div class="transform-time">3 months<br><span style="color:var(--lime);font-size:.7rem;font-weight:700;">✓ Verified</span></div>
+        </div>
+        <div class="transform-quote">"Morning yoga at 5 AM changed my life. I'm more energetic, focused, and confident."</div>
+      </div>
+    </div>
+
+    <!-- Transformation CTA -->
+    <div style="text-align:center;margin-top:44px;" class="reveal">
+      <div style="display:flex;align-items:center;justify-content:center;gap:32px;flex-wrap:wrap;margin-bottom:28px;">
+        <div style="text-align:center;">
+          <div style="font-size:2.4rem;font-weight:900;color:var(--white);">95<span style="color:var(--lime);">%</span></div>
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Member Retention</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:2.4rem;font-weight:900;color:var(--white);">100<span style="color:var(--lime);">+</span></div>
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Transformations</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:2.4rem;font-weight:900;color:var(--white);">12K<span style="color:var(--lime);">+</span></div>
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Workouts Completed</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="font-size:1rem;padding:14px 32px;" onclick="openBooking('free');gTrack&&gTrack('transformation_cta_click',{})">
+        🎟 Start My Transformation — First Day Free
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ BMI & CALORIE CALCULATOR ══════════ -->
+<section class="bmi-section" id="calculator">
+  <div class="container">
+    <div class="section-head reveal">
+      <div>
+        <div class="section-label">Free Tool</div>
+        <h2 class="section-title">BMI & Calorie Calculator</h2>
+        <p class="section-sub">Find out your BMI, daily calorie needs, and which Gravity plan suits you best.</p>
+      </div>
+    </div>
+    <div class="bmi-card reveal">
+      <div class="bmi-grid">
+        <div class="bmi-field">
+          <label>Weight (kg)</label>
+          <input type="number" id="bmi-weight" placeholder="e.g. 72" min="30" max="200"/>
+        </div>
+        <div class="bmi-field">
+          <label>Height (cm)</label>
+          <input type="number" id="bmi-height" placeholder="e.g. 170" min="100" max="250"/>
+        </div>
+        <div class="bmi-field">
+          <label>Age</label>
+          <input type="number" id="bmi-age" placeholder="e.g. 28" min="10" max="80"/>
+        </div>
+        <div class="bmi-field">
+          <label>Gender</label>
+          <select id="bmi-gender">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+        <div class="bmi-field" style="grid-column:1/-1;">
+          <label>My Goal</label>
+          <select id="bmi-goal">
+            <option value="lose">Lose Weight / Fat Loss</option>
+            <option value="maintain">Get Fit / Maintain</option>
+            <option value="gain">Build Muscle / Gain Weight</option>
+          </select>
+        </div>
+      </div>
+      <button class="plan-book-btn" onclick="calculateBMI()">Calculate My BMI & Recommended Plan →</button>
+      <div id="bmi-result" style="display:none;margin-top:20px;"></div>
+    </div>
+  </div>
+</section>
+
+<!-- MEMBERSHIP -->
+<section class="section" id="membership" style="background:var(--bg);">
+  <div class="container">
+    <div class="section-head reveal"><div><div class="section-label">Pricing</div><h2 class="section-title">No Hidden Charges</h2><p class="section-sub">All plans include AC gym, locker access, and group classes. Book & pay online.</p></div></div>
+    <div class="pricing-grid">
+      <div class="price-card free-day-card reveal reveal-delay-1">
+        <div class="price-name">Free Day Pass</div>
+        <div class="price-amount" style="color:var(--lime);">₹0</div>
+        <div class="price-duration">One-time · No commitment</div>
+        <ul class="price-features"><li>Full gym floor access</li><li>One group class included</li><li>Locker room access</li><li>Trainer introduction</li><li>First visit only</li></ul>
+        <button class="plan-book-btn" onclick="openBooking('free')">🎟 Book Free Day Pass</button>
+      </div>
+      <div class="price-card reveal reveal-delay-1">
+        <div class="price-name">Basic</div>
+        <div class="price-amount"><sup>₹</sup>999<sub>/mo</sub></div>
+        <div class="price-duration">Billed monthly · No joining fee</div>
+        <ul class="price-features"><li>Full gym floor access</li><li>AC facility included</li><li>Locker room access</li><li>2 Group classes/week</li><li>Fitness assessment</li></ul>
+        <button class="plan-book-btn outline" onclick="openBooking('plan','Basic','999')">Book & Pay →</button>
+      </div>
+      <div class="price-card featured reveal reveal-delay-2">
+        <div class="price-name">Pro</div>
+        <div class="price-amount"><sup>₹</sup>1,499<sub>/mo</sub></div>
+        <div class="price-duration">Billed monthly · No joining fee</div>
+        <ul class="price-features"><li>Everything in Basic</li><li>Unlimited group classes</li><li>1 PT session/month</li><li>Diet consultation</li><li>Progress tracking</li><li>Guest pass (1/month)</li></ul>
+        <button class="plan-book-btn" onclick="openBooking('plan','Pro','1499')">Book & Pay →</button>
+      </div>
+      <div class="price-card reveal reveal-delay-3">
+        <div class="price-name">Elite</div>
+        <div class="price-amount"><sup>₹</sup>2,499<sub>/mo</sub></div>
+        <div class="price-duration">Billed monthly · No joining fee</div>
+        <ul class="price-features"><li>Everything in Pro</li><li>4 PT sessions/month</li><li>Monthly body analysis</li><li>Customised meal plan</li><li>Priority class booking</li><li>Unlimited guest passes</li></ul>
+        <button class="plan-book-btn outline" onclick="openBooking('plan','Elite','2499')">Book & Pay →</button>
+      </div>
+    </div>
+<!-- SCHEDULE -->
+<section class="section" id="schedule">
+  <div class="container">
+    <div class="section-head reveal"><div><div class="section-label">Weekly Timetable</div><h2 class="section-title">Class Schedule</h2><p class="section-sub">Plan your week, never miss a session.</p></div></div>
+    <div class="schedule-wrap reveal">
+      <table class="schedule-table">
+        <thead><tr><th>Day</th><th>Time</th><th>Class</th><th>Trainer</th><th>Duration</th><th>Spots</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="day-col">Mon</td><td>6:00 AM</td><td>Morning Flow Yoga <span class="pill">Popular</span></td><td>Ankita R.</td><td>60 min</td><td>9 left</td><td><button class="btn btn-primary" style="padding:5px 14px;font-size:.73rem;" onclick="openBooking('class','Morning Flow Yoga','Ankita R.','6:00 AM')">Book</button></td></tr>
+          <tr><td class="day-col">Mon</td><td>7:00 AM</td><td>Power HIIT</td><td>Swapnil</td><td>45 min</td><td>3 left</td><td><button class="btn btn-primary" style="padding:5px 14px;font-size:.73rem;" onclick="openBooking('class','Power HIIT','Swapnil','7:00 AM')">Book</button></td></tr>
+          <tr><td class="day-col">Mon</td><td>6:00 PM</td><td>Boxing Basics <span class="pill">New</span></td><td>Harsh</td><td>45 min</td><td>6 left</td><td><button class="btn btn-primary" style="padding:5px 14px;font-size:.73rem;" onclick="openBooking('class','Boxing Basics','Harsh','6:00 PM')">Book</button></td></tr>
+          <tr><td class="day-col">Tue</td><td>7:30 AM</td><td>Rhythm Ride</td><td>Sneha P.</td><td>45 min</td><td>2 left</td><td><button class="btn btn-primary" style="padding:5px 14px;font-size:.73rem;" onclick="openBooking('class','Rhythm Ride','Sneha P.','7:30 AM')">Book</button></td></tr>
+          <tr><td class="day-col">Tue</td><td>5:30 PM</td><td>Body Sculpt <span class="pill">Popular</span></td><td>Jayant</td><td>60 min</td><td>8 left</td><td><button class="btn btn-primary" style="padding:5px 14px;font-size:.73rem;" onclick="openBooking('class','Body Sculpt','Jayant','5:30 PM')">Book</button></td></tr>
+          <tr><td class="day-col">Wed</td><td>8:30 AM</td><td>Zumba Fiesta</td><td>Priya M.</td><td>60 min</td><td>12 left</td><td><button class="btn btn-primary" style="padding:5px 14px;font-size:.73rem;" onclick="openBooking('class','Zumba Fiesta','Priya M.','8:30 AM')">Book</button></td></tr>
+          <tr><td class="day-col">Thu</td><td>7:30 AM</td><td>Rhythm Ride</td><td>Sneha P.</td><td>45 min</td><td>4 left</td><td><button class="btn btn-primary" style="padding:5px 14px;font-size:.73rem;" onclick="openBooking('class','Rhythm Ride','Sneha P.','7:30 AM')">Book</button></td></tr>
+          <tr><td class="day-col">Fri</td><td>8:30 AM</td><td>Zumba Fiesta <span class="pill">Popular</span></td><td>Priya M.</td><td>60 min</td><td>7 left</td><td><button class="btn btn-primary" style="padding:5px 14px;font-size:.73rem;" onclick="openBooking('class','Zumba Fiesta','Priya M.','8:30 AM')">Book</button></td></tr>
+          <tr><td class="day-col">Sat</td><td>7:00 AM</td><td>Power HIIT</td><td>Swapnil</td><td>45 min</td><td>8 left</td><td><button class="btn btn-primary" style="padding:5px 14px;font-size:.73rem;" onclick="openBooking('class','Power HIIT','Swapnil','7:00 AM')">Book</button></td></tr>
+          <tr><td class="day-col">Sun</td><td>9:00 AM</td><td>Sunday Yoga Flow</td><td>Ankita R.</td><td>75 min</td><td>11 left</td><td><button class="btn btn-primary" style="padding:5px 14px;font-size:.73rem;" onclick="openBooking('class','Sunday Yoga Flow','Ankita R.','9:00 AM')">Book</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="section" style="background:var(--bg);">
+  <div class="container">
+    <div class="section-head reveal"><div><div class="section-label">What members say</div><h2 class="section-title">Real Results, Real People</h2></div></div>
+    <div class="testimonials-grid">
+      <div class="testi-card reveal reveal-delay-1"><div class="testi-stars">★★★★★</div><div class="testi-text">"Lost 12 kg in 4 months. The trainers at Gravity know exactly how to push you without breaking you. Best gym in Neemuch by far."</div><div class="testi-author"><div class="testi-avatar" style="background:#2a1a3a;">👨</div><div><div class="testi-name">Rohit Sharma</div><div class="testi-since">Member since Jan 2024</div></div></div></div>
+      <div class="testi-card reveal reveal-delay-2"><div class="testi-stars">★★★★★</div><div class="testi-text">"The Zumba classes are so much fun! Priya ma'am is incredible. I've never enjoyed working out this much. The AC facility is a bonus."</div><div class="testi-author"><div class="testi-avatar" style="background:#1a2a1a;">👩</div><div><div class="testi-name">Kavita Patel</div><div class="testi-since">Member since Mar 2024</div></div></div></div>
+      <div class="testi-card reveal reveal-delay-3"><div class="testi-stars">★★★★★</div><div class="testi-text">"Best investment for my health. Equipment is top-notch, place is always clean, and trainers genuinely care about your progress."</div><div class="testi-author"><div class="testi-avatar" style="background:#2a1a0a;">🧑</div><div><div class="testi-name">Aditya Mehta</div><div class="testi-since">Member since Oct 2023</div></div></div></div>
+      <div class="testi-card reveal reveal-delay-4"><div class="testi-stars">★★★★★</div><div class="testi-text">"Opens at 5 AM! Morning yoga batch is exactly what I needed to start my day right. Highly recommend the Pro plan."</div><div class="testi-author"><div class="testi-avatar" style="background:#0a1a2a;">👩</div><div><div class="testi-name">Neha Gupta</div><div class="testi-since">Member since Aug 2024</div></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTAGRAM STRIP -->
+<section class="ig-strip">
+  <div class="container"><div class="section-head reveal" style="margin-bottom:24px;"><div><div class="section-label">Follow us</div><h2 class="section-title">@gravity_fitness_nmh</h2><p class="section-sub">See the energy. Follow us on Instagram.</p></div><a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" class="btn btn-outline">Open Instagram →</a></div></div>
+  <div class="ig-scroll">
+    <!-- Placeholder Instagram posts as SVG tiles -->
+    <a class="ig-post" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank">
+      <svg viewBox="0 0 200 200"><rect width="200" height="200" fill="#1a0a2e"/><text x="100" y="110" text-anchor="middle" font-size="60">💪</text><text x="100" y="150" text-anchor="middle" font-size="11" fill="#C1FF6B" font-family="Arial" font-weight="700">STRENGTH DAY</text></svg>
+      <div class="ig-post-overlay">📸</div>
+    </a>
+    <a class="ig-post" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank">
+      <svg viewBox="0 0 200 200"><rect width="200" height="200" fill="#0a1a2e"/><text x="100" y="110" text-anchor="middle" font-size="60">💃</text><text x="100" y="150" text-anchor="middle" font-size="11" fill="#C1FF6B" font-family="Arial" font-weight="700">ZUMBA BATCH</text></svg>
+      <div class="ig-post-overlay">📸</div>
+    </a>
+    <a class="ig-post" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank">
+      <svg viewBox="0 0 200 200"><rect width="200" height="200" fill="#001a0a"/><text x="100" y="110" text-anchor="middle" font-size="60">🧘</text><text x="100" y="150" text-anchor="middle" font-size="11" fill="#C1FF6B" font-family="Arial" font-weight="700">YOGA FLOW</text></svg>
+      <div class="ig-post-overlay">📸</div>
+    </a>
+    <a class="ig-post" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank">
+      <svg viewBox="0 0 200 200"><rect width="200" height="200" fill="#1a0a00"/><text x="100" y="110" text-anchor="middle" font-size="60">🥊</text><text x="100" y="150" text-anchor="middle" font-size="11" fill="#C1FF6B" font-family="Arial" font-weight="700">BOXING</text></svg>
+      <div class="ig-post-overlay">📸</div>
+    </a>
+    <a class="ig-post" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank">
+      <svg viewBox="0 0 200 200"><rect width="200" height="200" fill="#1a0000"/><text x="100" y="110" text-anchor="middle" font-size="60">⚡</text><text x="100" y="150" text-anchor="middle" font-size="11" fill="#C1FF6B" font-family="Arial" font-weight="700">HIIT TIME</text></svg>
+      <div class="ig-post-overlay">📸</div>
+    </a>
+    <a class="ig-post" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank">
+      <svg viewBox="0 0 200 200"><rect width="200" height="200" fill="#0a0a0a"/><text x="100" y="110" text-anchor="middle" font-size="60">🏋️</text><text x="100" y="150" text-anchor="middle" font-size="11" fill="#C1FF6B" font-family="Arial" font-weight="700">HEAVY IRON</text></svg>
+      <div class="ig-post-overlay">📸</div>
+    </a>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section">
+  <div class="container">
+    <div class="section-head reveal"><div><div class="section-label">Got questions?</div><h2 class="section-title">Frequently Asked</h2></div></div>
+    <div class="faq-list">
+      <div class="faq-item reveal"><button class="faq-q" onclick="toggleFaq(this)">Is there a joining fee? <span class="icon">+</span></button><div class="faq-a">No joining fee ever. You only pay the monthly or annual membership. Transparent, honest pricing with no surprises.</div></div>
+      <div class="faq-item reveal reveal-delay-1"><button class="faq-q" onclick="toggleFaq(this)">How does online payment work? <span class="icon">+</span></button><div class="faq-a">Once we set up Razorpay (see the guide in the Membership section), you'll pay securely via UPI, card, or net banking — India's most trusted gateway. For now, bookings go to WhatsApp and we confirm payment on your visit.</div></div>
+      <div class="faq-item reveal reveal-delay-2"><button class="faq-q" onclick="toggleFaq(this)">How do I get the invoice? <span class="icon">+</span></button><div class="faq-a">After every booking or payment, a PDF invoice is generated instantly in your browser — download it or share it directly to WhatsApp. It includes your name, plan, invoice number, and amount paid.</div></div>
+      <div class="faq-item reveal reveal-delay-2"><button class="faq-q" onclick="toggleFaq(this)">Can I freeze my membership? <span class="icon">+</span></button><div class="faq-a">Yes! Freeze for up to 30 days per year at no extra cost — perfect for travel or medical reasons. Inform us 3 days in advance on WhatsApp.</div></div>
+      <div class="faq-item reveal reveal-delay-3"><button class="faq-q" onclick="toggleFaq(this)">Are group classes included in all plans? <span class="icon">+</span></button><div class="faq-a">Basic includes 2 group classes/week. Pro and Elite include unlimited group classes. All plans include full gym floor access during operating hours.</div></div>
+      <div class="faq-item reveal reveal-delay-3"><button class="faq-q" onclick="toggleFaq(this)">Is the free day pass really free? <span class="icon">+</span></button><div class="faq-a">Yes! Book online with your name and phone, show up, and enjoy full gym access + one group class. Zero payment, zero commitment.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div style="padding:0 24px 72px;">
+  <div class="cta-strip reveal">
+    <h2>Ready to start your <span class="lime">fitness journey?</span><br>First day is on us.</h2>
+    <div class="cta-actions">
+      <button class="btn btn-primary" style="font-size:1rem;padding:14px 28px;" onclick="openBooking('free')">🎟 Book Free Day Pass</button>
+      <a href="https://wa.me/919876543210" target="_blank" class="btn btn-outline" style="font-size:1rem;padding:14px 28px;">💬 WhatsApp Us</a>
+    </div>
+  </div>
+</div>
+
+<!-- CONTACT -->
+<section class="section" id="contact" style="background:var(--bg);padding-top:60px;">
+  <div class="container">
+    <div class="section-head reveal"><div><div class="section-label">Find us</div><h2 class="section-title">Visit Gravity Fitness</h2></div></div>
+    <div class="contact-grid">
+      <div class="reveal-left">
+        <div class="contact-info-list">
+          <div class="contact-row"><div class="contact-icon">📍</div><div><div class="contact-row-title">Address</div><div class="contact-row-val">Ground Floor, Krishna Complex,<br>Jail Road, Neemuch, MP 458441</div></div></div>
+          <div class="contact-row"><div class="contact-icon">📞</div><div><div class="contact-row-title">Phone / WhatsApp</div><div class="contact-row-val"><a href="tel:+919876543210" style="color:var(--white);">+91 98765 43210</a></div></div></div>
+          <div class="contact-row"><div class="contact-icon">📧</div><div><div class="contact-row-title">Email</div><div class="contact-row-val"><a href="mailto:hello@gravityfitness.in" style="color:var(--white);">hello@gravityfitness.in</a></div></div></div>
+          <div class="contact-row"><div class="contact-icon">⏰</div><div><div class="contact-row-title">Hours</div><div class="contact-row-val">Mon–Sat: 5 AM – 10 PM<br>Sun: 6 AM – 8 PM</div></div></div>
+        </div>
+        <div class="social-links">
+          <a class="social-btn" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" title="Instagram">IG</a>
+          <a class="social-btn" href="#" title="Facebook">FB</a>
+          <a class="social-btn" href="#" title="YouTube">YT</a>
+          <a class="social-btn" href="https://wa.me/919876543210" target="_blank" title="WhatsApp">WA</a>
+        </div>
+      </div>
+      <div class="reveal-right">
+        <div class="map-frame"><iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3637.8!2d74.869!3d24.476!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjTCsDI4JzM0LjAiTiA3NMKwNTInMDguNCJF!5e0!3m2!1sen!2sin!4v1234567890" allowfullscreen loading="lazy"></iframe></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div class="footer-brand"><a href="index.html" class="logo">GRAVITY<span style="color:var(--lime)">.</span></a><p>Neemuch's premier fitness destination. World-class equipment, expert trainers, and a community that lifts each other up — literally.</p></div>
+      <div class="footer-col"><h4>Classes</h4><ul><li><a href="#classes">HIIT</a></li><li><a href="#classes">Zumba</a></li><li><a href="#classes">Yoga</a></li><li><a href="#classes">Boxing</a></li><li><a href="#classes">Cycling</a></li></ul></div>
+      <div class="footer-col"><h4>Pages</h4><ul><li><a href="pages/trainers.html">Our Trainers</a></li><li><a href="pages/gallery.html">Gallery</a></li><li><a href="#membership">Membership</a></li><li><a href="#" onclick="openBooking('free')">Free Day Pass</a></li></ul></div>
+      <div class="footer-col"><h4>Company</h4><ul><li><a href="#contact">Contact</a></li><li><a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank">Instagram</a></li><li><a href="#">Privacy Policy</a></li><li><a href="#">Refund Policy</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><span>© 2024 Gravity Fitness, Neemuch. All rights reserved.</span><span>📲 <a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" style="color:var(--lime);">@gravity_fitness_nmh</a></span></div>
+  </div>
+</footer>
+
+<a class="float-wa" href="https://wa.me/919876543210" target="_blank" title="WhatsApp" onclick="gTrack&&gTrack('whatsapp_click',{source:'float_btn'})">💬</a>
+
+<!-- 4-BUTTON STICKY MOBILE NAV -->
+<div class="mobile-sticky-nav">
+  <a class="msn-btn" href="tel:+919876543210">
+    <span class="msn-icon">📞</span>Call
+  </a>
+  <a class="msn-btn" href="https://maps.google.com/?q=24.476,74.869" target="_blank">
+    <span class="msn-icon">📍</span>Directions
+  </a>
+  <a class="msn-btn" href="https://wa.me/919876543210" target="_blank">
+    <span class="msn-icon">💬</span>WhatsApp
+  </a>
+  <button class="msn-btn primary" onclick="openBooking('free')">
+    <span class="msn-icon">🎟</span>Free Pass
+  </button>
+</div>
+
+<!-- EXIT INTENT MODAL -->
+<div id="exit-modal" onclick="if(event.target===this){this.classList.remove('open');document.body.style.overflow=''}">
+  <div class="exit-modal-box">
+    <button onclick="document.getElementById('exit-modal').classList.remove('open');document.body.style.overflow=''" style="position:absolute;top:14px;right:14px;background:var(--surface2);border:none;color:var(--muted);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:.85rem;">✕</button>
+    <div class="exit-emoji">⚡</div>
+    <h3>Wait — Don't Miss This!</h3>
+    <p>You're one step away from Neemuch's best gym. Your first day is completely free — no payment, no commitment.</p>
+    <div class="offer-box">
+      🎟 <strong>FREE Day Pass</strong><br>
+      Full gym access + 1 group class of your choice<br>
+      <span style="font-size:.78rem;color:var(--muted);">Valid for first-time visitors only</span>
+    </div>
+    <button class="plan-book-btn" onclick="document.getElementById('exit-modal').classList.remove('open');document.body.style.overflow='';openBooking('free')">
+      🎟 Claim My Free Day Pass →
+    </button>
+    <button class="btn btn-ghost" style="width:100%;margin-top:8px;font-size:.8rem;" onclick="document.getElementById('exit-modal').classList.remove('open');document.body.style.overflow=''">
+      No thanks, I'll skip my free day
+    </button>
+  </div>
+</div>
+<!-- BOOKING MODAL -->
+<div class="modal-overlay" id="booking-modal" onclick="if(event.target===this)closeModal('booking-modal')">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('booking-modal')">✕</button>
+    <div id="step-details">
+      <div class="pay-steps">
+        <div class="pay-step active"><div class="step-dot">1</div><div class="step-label">Details</div></div>
+        <div class="pay-step"><div class="step-dot">2</div><div class="step-label">Review</div></div>
+        <div class="pay-step"><div class="step-dot">3</div><div class="step-label">Confirm</div></div>
+        <div class="pay-step"><div class="step-dot">✓</div><div class="step-label">Invoice</div></div>
+      </div>
+      <h3 id="modal-title" style="margin-top:10px;color:var(--white);font-weight:900;">Book Your Pass</h3>
+      <p id="modal-subtitle" style="font-size:.82rem;color:var(--muted);margin-bottom:18px;"></p>
+      <div class="field"><label>Full Name *</label><input type="text" id="f-name" placeholder="Your full name"/></div>
+      <div class="field"><label>Phone / WhatsApp *</label><input type="tel" id="f-phone" placeholder="+91 00000 00000"/></div>
+      <div class="field"><label>Email Address *</label><input type="email" id="f-email" placeholder="your@email.com"/></div>
+      <div id="free-day-fields" style="display:none;">
+        <div class="field"><label>Preferred Visit Date *</label><input type="date" id="f-date"/></div>
+        <div class="field"><label>Preferred Time Slot *</label>
+          <div class="slots-grid">
+            <button type="button" class="slot-btn" onclick="selectSlot(this,'5:00 AM')">5:00 AM</button>
+            <button type="button" class="slot-btn" onclick="selectSlot(this,'6:00 AM')">6:00 AM</button>
+            <button type="button" class="slot-btn" onclick="selectSlot(this,'7:00 AM')">7:00 AM</button>
+            <button type="button" class="slot-btn" onclick="selectSlot(this,'8:30 AM')">8:30 AM</button>
+            <button type="button" class="slot-btn" onclick="selectSlot(this,'10:00 AM')">10:00 AM</button>
+            <button type="button" class="slot-btn full">12:00 PM</button>
+            <button type="button" class="slot-btn" onclick="selectSlot(this,'4:00 PM')">4:00 PM</button>
+            <button type="button" class="slot-btn" onclick="selectSlot(this,'5:30 PM')">5:30 PM</button>
+            <button type="button" class="slot-btn" onclick="selectSlot(this,'7:00 PM')">7:00 PM</button>
+          </div>
+          <input type="hidden" id="f-slot"/>
+        </div>
+      </div>
+      <div id="plan-duration-field" style="display:none;">
+        <div class="field"><label>Membership Duration</label>
+          <select id="f-duration" onchange="updatePrice()">
+            <option value="1">1 Month</option>
+            <option value="3">3 Months (save 5%)</option>
+            <option value="6">6 Months (save 10%)</option>
+            <option value="12">12 Months (save 16%)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Goals / Notes (optional)</label><input type="text" id="f-notes" placeholder="Weight loss, muscle gain, stress relief..."/></div>
+      <button type="button" class="plan-book-btn" onclick="goToReview()">Continue →</button>
+    </div>
+
+    <div id="step-review" style="display:none;">
+      <div class="pay-steps">
+        <div class="pay-step done"><div class="step-dot">✓</div><div class="step-label">Details</div></div>
+        <div class="pay-step active"><div class="step-dot">2</div><div class="step-label">Review</div></div>
+        <div class="pay-step"><div class="step-dot">3</div><div class="step-label">Confirm</div></div>
+        <div class="pay-step"><div class="step-dot">✓</div><div class="step-label">Invoice</div></div>
+      </div>
+      <h3 style="margin-top:10px;color:var(--white);font-weight:900;">Confirm Your Booking</h3>
+      <div class="booking-summary" id="summary-box"></div>
+      <!-- FREE booking -->
+      <div id="free-section" style="display:none;">
+        <button type="button" class="free-confirm-btn" onclick="confirmFreePass()">✅ Confirm Free Day Pass</button>
+        <p style="font-size:.75rem;color:var(--muted);margin-top:10px;text-align:center;">No payment needed. Confirmation goes to WhatsApp.</p>
+      </div>
+      <!-- PAID booking — Razorpay or WhatsApp fallback -->
+      <div id="paid-section" style="display:none;">
+        <div id="razorpay-section">
+          <!-- Replace the href values below with your actual Razorpay Payment Links -->
+          <!-- RAZORPAY_BASIC_URL  = https://rzp.io/l/YOUR-BASIC-LINK  -->
+          <!-- RAZORPAY_PRO_URL    = https://rzp.io/l/YOUR-PRO-LINK    -->
+          <!-- RAZORPAY_ELITE_URL  = https://rzp.io/l/YOUR-ELITE-LINK  -->
+          <button type="button" class="razorpay-btn-modal" id="rzp-pay-btn" onclick="proceedToRazorpay()">
+            <svg width="16" height="16" viewBox="0 0 40 40" fill="none"><path d="M20 0L0 40h14l6-12 6 12h14L20 0z" fill="#fff"/></svg>
+            Pay with Razorpay
+          </button>
+          <p style="font-size:.7rem;color:var(--muted);text-align:center;margin-top:6px;">UPI · Cards · Net Banking · Wallets</p>
+          <div style="display:flex;align-items:center;gap:8px;margin:12px 0;"><div style="flex:1;height:1px;background:var(--border);"></div><span style="font-size:.72rem;color:var(--muted);">or</span><div style="flex:1;height:1px;background:var(--border);"></div></div>
+        </div>
+        <button type="button" class="wa-confirm-btn" onclick="confirmWhatsApp()">
+          <span style="font-size:1.1rem;">💬</span> Book via WhatsApp (Pay on visit)
+        </button>
+        <p style="font-size:.72rem;color:var(--muted);margin-top:8px;text-align:center;">We'll confirm your slot and collect payment when you arrive.</p>
+      </div>
+      <button type="button" class="btn btn-ghost" style="width:100%;margin-top:10px;font-size:.8rem;" onclick="showStep('details')">← Edit Details</button>
+    </div>
+
+    <!-- WA-CONFIRM STEP (WhatsApp bookings — no invoice) -->
+    <div id="step-wa-confirm" style="display:none;">
+      <div class="pay-steps">
+        <div class="pay-step done"><div class="step-dot">✓</div><div class="step-label">Details</div></div>
+        <div class="pay-step done"><div class="step-dot">✓</div><div class="step-label">Review</div></div>
+        <div class="pay-step active"><div class="step-dot">✓</div><div class="step-label">Confirm</div></div>
+        <div class="pay-step"><div class="step-dot">4</div><div class="step-label">Invoice</div></div>
+      </div>
+      <div style="text-align:center;padding:20px 0 24px;">
+        <div style="font-size:2.8rem;margin-bottom:12px;">💬</div>
+        <h3 style="color:var(--white);font-weight:900;font-size:1.3rem;margin-bottom:8px;">Booking Sent to WhatsApp!</h3>
+        <p style="font-size:.86rem;color:var(--muted);line-height:1.7;max-width:320px;margin:0 auto 20px;">Your booking details have been sent to our gym WhatsApp. We'll confirm your slot and guide you through payment when you arrive.</p>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;text-align:left;margin-bottom:20px;">
+          <div style="font-size:.72rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Your Booking Summary</div>
+          <div id="wa-summary-display" style="font-size:.86rem;color:var(--off);line-height:1.9;"></div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(37,211,102,.08),rgba(37,211,102,.03));border:1px solid rgba(37,211,102,.2);border-radius:10px;padding:12px 16px;font-size:.8rem;color:rgba(255,255,255,.6);margin-bottom:4px;">
+          📋 <strong style="color:var(--off);">Invoice will be sent via WhatsApp</strong> once your payment is collected at the gym.
+        </div>
+      </div>
+      <a id="wa-reopen-link" href="#" target="_blank" class="wa-confirm-btn" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:1.1rem;">💬</span> Open WhatsApp Again
+      </a>
+      <button type="button" class="btn btn-ghost" style="width:100%;font-size:.82rem;" onclick="closeModal('booking-modal')">Done — Close</button>
+    </div>
+
+    <div id="step-invoice" style="display:none;">
+      <div class="pay-steps">
+        <div class="pay-step done"><div class="step-dot">✓</div><div class="step-label">Details</div></div>
+        <div class="pay-step done"><div class="step-dot">✓</div><div class="step-label">Review</div></div>
+        <div class="pay-step done"><div class="step-dot">✓</div><div class="step-label">Confirm</div></div>
+        <div class="pay-step active"><div class="step-dot">✓</div><div class="step-label">Invoice</div></div>
+      </div>
+      <div style="text-align:center;padding:14px 0 16px;">
+        <div style="font-size:2.2rem;" id="invoice-emoji">✅</div>
+        <h3 id="invoice-success-title" style="margin:8px 0 4px;color:var(--white);font-weight:900;">Booking Confirmed!</h3>
+        <p id="invoice-success-sub" style="font-size:.82rem;color:var(--muted);"></p>
+      </div>
+      <div class="invoice-box" id="invoice-preview"></div>
+      <div class="invoice-actions">
+        <button type="button" class="dl-btn primary" onclick="downloadInvoicePDF()">⬇ Download PDF</button>
+        <button type="button" class="dl-btn secondary" onclick="shareWhatsApp()">💬 Share Invoice</button>
+      </div>
+      <button type="button" class="btn btn-ghost" style="width:100%;margin-top:8px;font-size:.8rem;" onclick="closeModal('booking-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG — replace these with your Razorpay Payment Links ──
+const RAZORPAY_LINKS = {
+  Basic: '',   // e.g. 'https://rzp.io/l/gravity-basic'
+  Pro:   '',   // e.g. 'https://rzp.io/l/gravity-pro'
+  Elite: '',   // e.g. 'https://rzp.io/l/gravity-elite'
+};
+const WA_NUMBER = '919876543210';
+// ─────────────────────────────────────────────────────────────
+
+let B = {}, INV = {};
+
+function openBooking(type, plan, amount) {
+  B = { type };
+  if (type === 'free') {
+    B.title = '🎟 Free Day Pass'; B.subtitle = 'Walk in free — no payment required';
+    B.amount = 0; B.plan = 'Free Day Pass';
+  } else if (type === 'plan') {
+    B.plan = plan; B.baseAmount = parseInt(amount); B.amount = parseInt(amount);
+    B.duration = '1 Month'; B.title = plan + ' Membership'; B.subtitle = '₹' + parseInt(amount).toLocaleString('en-IN') + '/month';
+  } else {
+    B.plan = plan; B.trainer = amount; B.time = arguments[3];
+    B.amount = 0; B.title = 'Book: ' + plan; B.subtitle = 'with ' + amount + ' · ' + arguments[3];
+  }
+  document.getElementById('modal-title').textContent = B.title;
+  document.getElementById('modal-subtitle').textContent = B.subtitle;
+  document.getElementById('free-day-fields').style.display = type === 'free' ? '' : 'none';
+  document.getElementById('plan-duration-field').style.display = type === 'plan' ? '' : 'none';
+  ['f-name','f-phone','f-email','f-date','f-notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('f-slot').value = '';
+  document.querySelectorAll('.slot-btn.selected').forEach(b => b.classList.remove('selected'));
+  showStep('details');
+  openModal('booking-modal');
+}
+
+function updatePrice() {
+  if (B.type !== 'plan') return;
+  const m = parseInt(document.getElementById('f-duration').value);
+  const disc = {1:0, 3:.05, 6:.10, 12:.165}[m] || 0;
+  B.amount = Math.round(B.baseAmount * m * (1 - disc));
+  B.duration = m === 1 ? '1 Month' : m + ' Months';
+}
+
+function selectSlot(btn, slot) {
+  if (btn.classList.contains('full')) return;
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('f-slot').value = slot;
+}
+
+function goToReview() {
+  const name = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  if (!name || !phone || !email) { showToast('Please fill in Name, Phone, and Email.', '#FF4D4D'); return; }
+  if (B.type === 'free') {
+    const date = document.getElementById('f-date').value;
+    const slot = document.getElementById('f-slot').value;
+    if (!date) { showToast('Please select a visit date.', '#FF4D4D'); return; }
+    if (!slot) { showToast('Please select a time slot.', '#FF4D4D'); return; }
+    B.date = date; B.slot = slot;
+  }
+  if (B.type === 'plan') updatePrice();
+  B.name = name; B.phone = phone; B.email = email;
+  B.notes = document.getElementById('f-notes').value.trim();
+  B.invoiceNo = 'GF-' + Date.now().toString().slice(-6);
+  B.bookingDate = new Date().toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+
+  let rows = `<div class="summary-row"><span class="summary-label">Name</span><span class="summary-val">${name}</span></div>
+    <div class="summary-row"><span class="summary-label">Phone</span><span class="summary-val">${phone}</span></div>
+    <div class="summary-row"><span class="summary-label">Plan</span><span class="summary-val">${B.plan}</span></div>`;
+  if (B.duration) rows += `<div class="summary-row"><span class="summary-label">Duration</span><span class="summary-val">${B.duration}</span></div>`;
+  if (B.date) rows += `<div class="summary-row"><span class="summary-label">Visit Date</span><span class="summary-val">${new Date(B.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span></div>`;
+  if (B.slot) rows += `<div class="summary-row"><span class="summary-label">Time Slot</span><span class="summary-val">${B.slot}</span></div>`;
+  if (B.trainer) rows += `<div class="summary-row"><span class="summary-label">Trainer</span><span class="summary-val">${B.trainer}</span></div>`;
+  const amtD = B.amount === 0 ? '<span style="color:#C1FF6B;font-weight:900;">FREE</span>' : `<span style="color:#C1FF6B;font-weight:900;">₹${B.amount.toLocaleString('en-IN')}</span>`;
+  rows += `<div class="summary-row summary-total"><span class="summary-label">Total Amount</span><span class="summary-val">${amtD}</span></div>`;
+  document.getElementById('summary-box').innerHTML = rows;
+  document.getElementById('free-section').style.display = B.amount === 0 ? '' : 'none';
+  document.getElementById('paid-section').style.display = B.amount > 0 ? '' : 'none';
+  // Show Razorpay button only if link is configured
+  const hasRzpLink = !!RAZORPAY_LINKS[B.plan];
+  document.getElementById('razorpay-section').style.display = hasRzpLink ? '' : 'none';
+  showStep('review');
+}
+
+function proceedToRazorpay() {
+  const link = RAZORPAY_LINKS[B.plan];
+  // No Razorpay link configured — fall back to WhatsApp silently
+  if (!link) { confirmWhatsApp(); return; }
+  const params = new URLSearchParams({
+    'prefill[name]': B.name, 'prefill[contact]': B.phone, 'prefill[email]': B.email,
+    'description': `Gravity Fitness - ${B.plan} (${B.duration || ''})`
+  });
+  window.open(link + '?' + params, '_blank');
+  // After user returns from Razorpay, show confirmation prompt then invoice
+  setTimeout(() => {
+    if (confirm('Did your Razorpay payment go through?\nClick OK to generate your PDF invoice.')) {
+      B.paymentId = 'RZP' + Math.random().toString(36).slice(2,10).toUpperCase();
+      B.paymentMethod = 'Razorpay';
+      showInvoice(); // Invoice ONLY for successful Razorpay payment
+    }
+  }, 1500);
+}
+
+// WhatsApp booking — sends message to gym, NO invoice shown, redirects to WA
+function confirmWhatsApp() {
+  const isFree = B.amount === 0;
+  const msg = `🏋️ *New Booking — Gravity Fitness*\n\n` +
+    `👤 Name: ${B.name}\n📱 Phone: ${B.phone}\n📧 Email: ${B.email}\n` +
+    `📋 Plan: ${B.plan}${B.duration ? ' · ' + B.duration : ''}` +
+    `${B.trainer ? '\n🏃 Class: ' + B.plan + ' with ' + B.trainer : ''}` +
+    `${B.date ? '\n📅 Date: ' + new Date(B.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}) : ''}` +
+    `${B.slot ? '\n⏰ Slot: ' + B.slot : ''}` +
+    `\n💰 Amount: ${isFree ? 'FREE (Day Pass)' : '₹' + B.amount.toLocaleString('en-IN') + ' — Pay on visit'}` +
+    `\n🧾 Ref: #${B.invoiceNo}` +
+    `${B.notes ? '\n📝 Notes: ' + B.notes : ''}`;
+  window.open('https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(msg), '_blank');
+  // Show a simple confirmation screen — NOT the invoice
+  showStep('wa-confirm');
+}
+
+// Free day pass — confirm + show invoice (it's free, no payment needed)
+function confirmFreePass() {
+  B.paymentMethod = 'Complimentary';
+  B.paymentId = 'FREE-' + B.invoiceNo;
+  // Also send WA notification to gym
+  const msg = `🎟️ *Free Day Pass Booking — Gravity Fitness*\n\n` +
+    `👤 Name: ${B.name}\n📱 Phone: ${B.phone}\n📧 Email: ${B.email}\n` +
+    `📅 Date: ${B.date ? new Date(B.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}) : 'Not specified'}\n` +
+    `⏰ Slot: ${B.slot || 'Not specified'}\n💰 Amount: FREE\n🧾 Ref: #${B.invoiceNo}` +
+    `${B.notes ? '\n📝 Notes: ' + B.notes : ''}`;
+  window.open('https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(msg), '_blank');
+  showInvoice(); // Free pass always gets an invoice/confirmation
+}
+
+function showInvoice() {
+  const d = B, isFree = d.amount === 0;
+  document.getElementById('invoice-emoji').textContent = isFree ? '🎟' : '🎉';
+  document.getElementById('invoice-success-title').textContent = isFree ? 'Free Pass Confirmed!' : 'Booking Confirmed!';
+  document.getElementById('invoice-success-sub').textContent = isFree
+    ? `See you on ${new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long'})} at ${d.slot}! Check WhatsApp for confirmation.`
+    : `Welcome, ${d.name.split(' ')[0]}! Check WhatsApp for your booking details.`;
+  const qty = d.duration || (d.trainer ? '1 Session' : '1 Day');
+  const amt = isFree ? '₹0 (Complimentary)' : `₹${d.amount.toLocaleString('en-IN')}`;
+  const igst = isFree ? '—' : `₹${Math.round(d.amount*0.18/1.18).toLocaleString('en-IN')}`;
+  const base = isFree ? '—' : `₹${Math.round(d.amount/1.18).toLocaleString('en-IN')}`;
+  document.getElementById('invoice-preview').innerHTML = `
+    <div class="invoice-head">
+      <div><div class="invoice-logo">GRAVITY<span>.</span></div>
+      <div style="font-size:.7rem;color:#666;margin-top:4px;">Gravity Fitness, Neemuch MP<br>+91 98765 43210 | hello@gravityfitness.in</div></div>
+      <div class="invoice-meta"><strong>INVOICE</strong><br>#${d.invoiceNo}<br>Date: ${d.bookingDate}<br><span style="color:#5a8a00;">${d.paymentMethod}</span></div>
+    </div>
+    <div class="invoice-to"><strong>Billed To:</strong>${d.name} · ${d.phone}<br>${d.email}</div>
+    <table class="invoice-table">
+      <thead><tr><th>Description</th><th>Qty</th><th>Amount</th></tr></thead>
+      <tbody>
+        <tr><td>${d.plan}${d.trainer ? ' — ' + d.trainer : ''}</td><td>${qty}</td><td>${isFree ? 'FREE' : base}</td></tr>
+        ${!isFree ? `<tr><td colspan="2" style="text-align:right;color:#777;">IGST @ 18%</td><td>${igst}</td></tr>` : ''}
+        <tr class="invoice-total-row"><td colspan="2" style="text-align:right;">Total</td><td><strong>${amt}</strong></td></tr>
+      </tbody>
+    </table>
+    <div class="invoice-footer">Thank you for choosing Gravity Fitness! 💪<br>📲 WhatsApp: +91 98765 43210 | @gravity_fitness_nmh</div>`;
+  INV = { ...d };
+  showStep('invoice');
+}
+
+function downloadInvoicePDF() {
+  const { jsPDF } = window.jspdf; const d = INV, isFree = d.amount === 0;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const L=[193,255,107], D=[20,22,30], M=[100,105,120];
+  doc.setFillColor(...D); doc.rect(0,0,210,45,'F');
+  doc.setFillColor(...L); doc.rect(0,0,210,3,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(22); doc.setTextColor(255,255,255); doc.text('GRAVITY.',14,20);
+  doc.setFontSize(10); doc.setTextColor(...L); doc.text('INVOICE',196,13,{align:'right'});
+  doc.setFontSize(8); doc.setTextColor(170,175,185);
+  doc.text('#'+d.invoiceNo,196,19,{align:'right'}); doc.text('Date: '+d.bookingDate,196,25,{align:'right'});
+  doc.text('Ref: '+d.paymentMethod,196,31,{align:'right'});
+  doc.text('Gravity Fitness · Krishna Complex, Jail Road, Neemuch MP 458441',14,32);
+  doc.text('+91 98765 43210 · hello@gravityfitness.in · @gravity_fitness_nmh',14,38);
+  doc.setFillColor(241,243,246); doc.rect(0,48,102,30,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...M); doc.text('BILLED TO',14,56);
+  doc.setFontSize(10); doc.setTextColor(...D); doc.text(d.name,14,63);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...M); doc.text(d.phone,14,69); doc.text(d.email,14,74);
+  doc.setFillColor(241,243,246); doc.rect(108,48,102,30,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...M); doc.text('PAYMENT METHOD',112,56);
+  doc.setFontSize(10); doc.setTextColor(...D); doc.text(d.paymentMethod||'Online',112,63);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...M);
+  if(d.date&&d.slot) doc.text('Visit: '+new Date(d.date).toLocaleDateString('en-IN')+' @ '+d.slot,112,69);
+  const tY=88; doc.setFillColor(...D); doc.rect(0,tY,210,9,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(255,255,255);
+  doc.text('DESCRIPTION',14,tY+6); doc.text('QTY',130,tY+6); doc.text('AMOUNT',196,tY+6,{align:'right'});
+  const rY=tY+9; doc.setFillColor(248,250,252); doc.rect(0,rY,210,13,'F');
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...D);
+  doc.text((d.plan+(d.trainer?' — '+d.trainer:'')),14,rY+8);
+  doc.text(d.duration||(d.trainer?'1 Session':'1 Day'),130,rY+8);
+  doc.text(isFree?'FREE':'Rs.'+Math.round(d.amount/1.18).toLocaleString('en-IN'),196,rY+8,{align:'right'});
+  let sY=rY+20;
+  if(!isFree){ doc.setFontSize(8); doc.setTextColor(...M); doc.text('IGST @ 18%',150,sY); doc.text('Rs.'+Math.round(d.amount*0.18/1.18).toLocaleString('en-IN'),196,sY,{align:'right'}); sY+=7; }
+  doc.setFillColor(...L); doc.rect(0,sY,210,13,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...D);
+  doc.text('TOTAL',14,sY+9); doc.text(isFree?'Rs.0 (Complimentary)':'Rs.'+d.amount.toLocaleString('en-IN'),196,sY+9,{align:'right'});
+  doc.setFillColor(...D); doc.rect(0,263,210,34,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...L);
+  doc.text('Thank you for choosing Gravity Fitness!',105,274,{align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(150,155,165);
+  doc.text('+91 98765 43210 · hello@gravityfitness.in · instagram: @gravity_fitness_nmh',105,281,{align:'center'});
+  doc.text('Mon–Sat 5AM–10PM · Sun 6AM–8PM · Krishna Complex, Jail Road, Neemuch MP',105,287,{align:'center'});
+  doc.save('Gravity-Fitness-Invoice-'+d.invoiceNo+'.pdf');
+}
+
+function shareWhatsApp() {
+  const d = INV, isFree = d.amount === 0;
+  const msg = `🧾 *Gravity Fitness Invoice*\n#${d.invoiceNo}\n\nName: ${d.name}\nPlan: ${d.plan}${d.duration?' · '+d.duration:''}\n${d.date?'Date: '+new Date(d.date).toLocaleDateString('en-IN')+'\n':''}${d.slot?'Time: '+d.slot+'\n':''}Amount: ${isFree?'FREE':'₹'+d.amount.toLocaleString('en-IN')}\n\nGravity Fitness, Neemuch | @gravity_fitness_nmh`;
+  window.open('https://wa.me/'+WA_NUMBER+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+function showStep(s) {
+  ['details','review','wa-confirm','invoice'].forEach(n => {
+    const el = document.getElementById('step-'+n);
+    if (el) el.style.display = s===n ? '' : 'none';
+  });
+  // Populate WA confirm summary
+  if (s === 'wa-confirm') {
+    const d = B, isFree = d.amount === 0;
+    let lines = `📋 <b>${d.plan}</b>${d.duration ? ' · ' + d.duration : ''}<br>`;
+    if (d.trainer) lines += `🏃 ${d.trainer}<br>`;
+    if (d.date) lines += `📅 ${new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})}<br>`;
+    if (d.slot) lines += `⏰ ${d.slot}<br>`;
+    lines += `💰 ${isFree ? 'FREE' : '₹' + d.amount.toLocaleString('en-IN') + ' — Pay on visit'}<br>`;
+    lines += `🧾 Ref #${d.invoiceNo}`;
+    document.getElementById('wa-summary-display').innerHTML = lines;
+    // Set the reopen link
+    const msg = `🏋️ *New Booking — Gravity Fitness*\n\n👤 ${d.name}\n📱 ${d.phone}\n📋 ${d.plan}${d.duration?' · '+d.duration:''}${d.date?'\n📅 '+new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}):''}${d.slot?'\n⏰ '+d.slot:''}\n💰 ${isFree?'FREE':'₹'+d.amount.toLocaleString('en-IN')+' — Pay on visit'}\n🧾 Ref: #${d.invoiceNo}`;
+    document.getElementById('wa-reopen-link').href = 'https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(msg);
+  }
+  const m = document.querySelector('#booking-modal .modal'); if(m) m.scrollTop = 0;
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+function showToast(msg, color) {
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${color||'var(--lime)'};color:${color?'#fff':'#0a0f00'};padding:11px 22px;border-radius:99px;font-weight:800;font-size:.83rem;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.3);white-space:nowrap;`;
+  t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3200);
+}
+function toggleMobileNav() {
+  const n = document.getElementById('mobile-nav'); n.classList.toggle('open');
+  document.body.style.overflow = n.classList.contains('open') ? 'hidden' : '';
+}
+function toggleFaq(btn) {
+  const item = btn.closest('.faq-item'), wasOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+  if(!wasOpen) item.classList.add('open');
+}
+function filterClasses(cat, btn) {
+  document.querySelectorAll('.pass-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active');
+  document.querySelectorAll('.workout-card').forEach(c => { c.style.display = (cat==='all'||c.dataset.cat===cat) ? '' : 'none'; });
+}
+
+// ── Counter animation ──
+function animateCounters() {
+  document.querySelectorAll('[data-target]').forEach(el => {
+    if (el.dataset.animated) return; // prevent re-run if observer fires twice
+    el.dataset.animated = '1';
+    const target = +el.dataset.target; let cur = 0;
+    const t = setInterval(() => { cur += target/90; if(cur>=target){cur=target;clearInterval(t);} el.textContent=Math.floor(cur).toLocaleString()+'+'; },16);
+  });
+}
+const counterObs = new IntersectionObserver(function(e) {
+  if(e[0].isIntersecting){ animateCounters(); counterObs.disconnect(); }
+}, {threshold:.1});
+counterObs.observe(document.querySelector('.hero-stats'));
+
+// ── Scroll reveal ──
+const revealObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+},{threshold:.12});
+document.querySelectorAll('.reveal,.reveal-left,.reveal-right').forEach(el => revealObs.observe(el));
+
+// ── Sticky header ──
+window.addEventListener('scroll', () => {
+  document.getElementById('header').classList.toggle('scrolled', window.scrollY > 20);
+}, {passive:true});
+
+// ── Parallax banner ──
+const parallaxBg = document.getElementById('parallax-bg');
+const parallaxBanner = document.getElementById('parallax-banner');
+if (parallaxBg && parallaxBanner) {
+  window.addEventListener('scroll', () => {
+    const rect = parallaxBanner.getBoundingClientRect();
+    if (rect.bottom > 0 && rect.top < window.innerHeight) {
+      const progress = (window.innerHeight - rect.top) / (window.innerHeight + rect.height);
+      parallaxBg.style.transform = `translateY(${progress * 60 - 10}px)`;
+    }
+  }, {passive: true});
+}
+
+// (mosaic section removed — no lightbox needed on homepage)
+
+// ── Photo feature hover tilt ──
+document.querySelectorAll('.photo-feature__img img').forEach(img => {
+  const wrap = img.closest('.photo-feature__img');
+  wrap.addEventListener('mousemove', e => {
+    const r = wrap.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width  - 0.5;
+    const y = (e.clientY - r.top)  / r.height - 0.5;
+    img.style.transform = `scale(1.04) translate(${x*8}px, ${y*6}px)`;
+  });
+  wrap.addEventListener('mouseleave', () => { img.style.transform = ''; });
+});
+
+// ── Loader ──
+window.addEventListener('load', () => {
+  setTimeout(() => { document.getElementById('loader').classList.add('hide');
+    setTimeout(() => { document.getElementById('loader').style.display='none'; },600);
+  }, 1400);
+});
+</script>
+
+<!-- ══ ANALYTICS & MONETIZATION ENGINE ═══════════════════════════ -->
+<script src="js/analytics.js"></script>
+
+<!-- ══ INTERACTIVE ATHLETE ANIMATION ════════════════════════════
+     Lazy-loads GSAP, renders SVG athlete in bottom-right corner.
+     Performs barbell curl on every click / CTA press / section scroll.
+     Zero impact on existing functionality.
+════════════════════════════════════════════════════════════════ -->
+<script src="js/athlete-animation.js" defer></script>
+
+<!-- Hook analytics into booking functions -->
+<script>
+// Wrap openBooking to fire analytics
+const _origOpenBooking = openBooking;
+window.openBooking = function(type, plan, amount) {
+  if(typeof gTrack === 'function') {
+    gTrack('booking_modal_open', {booking_type:type, plan:plan||'free', value:parseInt(amount)||0, currency:'INR'});
+    trackBookingOpen && trackBookingOpen(type, plan);
+  }
+  _origOpenBooking.apply(this, arguments);
+};
+
+// Wrap goToReview to track step 2
+const _origGoToReview = goToReview;
+window.goToReview = function() {
+  _origGoToReview.apply(this, arguments);
+  if(typeof gTrack === 'function') gTrack('booking_step_review', {plan:B.plan, value:B.amount, currency:'INR'});
+};
+
+// Wrap confirmWhatsApp
+const _origConfirmWhatsApp = confirmWhatsApp;
+window.confirmWhatsApp = function() {
+  if(typeof trackBookingComplete === 'function') trackBookingComplete('whatsapp', B.plan, B.amount);
+  if(typeof trackFreeDayPass === 'function' && B.type==='free') trackFreeDayPass(B.name, B.phone);
+  localStorage.setItem('gf_bookings', parseInt(localStorage.getItem('gf_bookings')||0)+1);
+  _origConfirmWhatsApp.apply(this, arguments);
+};
+
+// Wrap confirmFreePass
+const _origConfirmFreePass = confirmFreePass;
+window.confirmFreePass = function() {
+  if(typeof trackBookingComplete === 'function') trackBookingComplete('free', 'Free Day Pass', 0);
+  if(typeof trackFreeDayPass === 'function') trackFreeDayPass(B.name, B.phone);
+  if(typeof trackGoogleAdsConversion === 'function') trackGoogleAdsConversion('free', 0);
+  if(typeof trackMetaLead === 'function') trackMetaLead('Free Day Pass', 0);
+  localStorage.setItem('gf_leads', parseInt(localStorage.getItem('gf_leads')||0)+1);
+  _origConfirmFreePass.apply(this, arguments);
+};
+
+// Wrap proceedToRazorpay
+const _origProceedToRazorpay = proceedToRazorpay;
+window.proceedToRazorpay = function() {
+  if(typeof gTrack === 'function') gTrack('razorpay_initiated', {plan:B.plan, value:B.amount, currency:'INR'});
+  if(typeof trackGoogleAdsConversion === 'function') trackGoogleAdsConversion('paid', B.amount);
+  if(typeof trackMetaPurchase === 'function') trackMetaPurchase(B.plan, B.amount);
+  localStorage.setItem('gf_bookings', parseInt(localStorage.getItem('gf_bookings')||0)+1);
+  _origProceedToRazorpay.apply(this, arguments);
+};
+
+// Track section views with Intersection Observer
+const sectionNames = {
+  'home':'Hero', 'classes':'Classes', 'membership':'Membership',
+  'schedule':'Schedule', 'contact':'Contact', 'calculator':'BMI Calculator'
+};
+Object.keys(sectionNames).forEach(id => {
+  const el = document.getElementById(id);
+  if(!el) return;
+  new IntersectionObserver(([e]) => {
+    if(e.isIntersecting && typeof trackSectionView === 'function') {
+      trackSectionView(sectionNames[id]);
+    }
+  }, {threshold:.3}).observe(el);
+});
+</script>
+</body>
+</html>
