@@ -60,12 +60,12 @@ class DatabaseTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "gravity.sqlite3"
             database = Database(path, ROOT / "server" / "migrations")
-            self.assertEqual(database.migrate(), ["001"])
+            self.assertEqual(database.migrate(), ["001", "002"])
             self.assertEqual(database.migrate(), [])
-            self.assertEqual(database.health(), {"database": "ok", "migrations": "1"})
+            self.assertEqual(database.health(), {"database": "ok", "migrations": "2"})
             with closing(sqlite3.connect(path)) as connection:
                 versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
-                self.assertEqual(versions, [("001",)])
+                self.assertEqual(versions, [("001",), ("002",)])
 
     def test_changed_applied_migration_is_rejected(self):
         with TemporaryDirectory() as temporary:
@@ -99,6 +99,9 @@ class HttpFoundationTests(unittest.TestCase):
                 ("/", b"Transform Your Body"),
                 ("/pages/trainers.html", b"Meet Your Coaches"),
                 ("/pages/gallery.html", b"Inside Gravity"),
+                ("/account", b"Your training starts"),
+                ("/trainers", b"Meet Your Coaches"),
+                ("/gallery", b"Inside Gravity"),
                 ("/css/style.css", b"GRAVITY FITNESS"),
             ):
                 status, _headers, body = fetch(base, path)

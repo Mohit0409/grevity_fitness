@@ -33,6 +33,8 @@ if ((Split-Path $PythonPath -Leaf) -eq 'py.exe') {
 if ($LASTEXITCODE -ne 0) { throw 'Unable to create the Gravity Python environment.' }
 
 & $VenvPython --version
+& $VenvPython -m pip install --disable-pip-version-check -e ($ProjectRoot + '[firebase]')
+if ($LASTEXITCODE -ne 0) { throw 'Unable to install Gravity application dependencies.' }
 & $VenvPython -m server.gravity --root $ProjectRoot --check-db
 if ($LASTEXITCODE -ne 0) { throw 'Gravity database initialization failed.' }
 

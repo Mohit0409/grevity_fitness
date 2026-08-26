@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Mapping
+from ipaddress import ip_network
 import os
 
 
@@ -63,6 +64,15 @@ class Settings:
     app_base_url: str
     log_level: str
     trust_proxy: bool
+    trusted_proxy_cidrs: tuple[str, ...]
+    secret_key: str
+    firebase_project_id: str
+    firebase_web_api_key: str
+    firebase_auth_domain: str
+    firebase_app_id: str
+    firebase_service_account_path: Path | None
+    session_idle_seconds: int
+    session_absolute_seconds: int
 
     @classmethod
     def load(
@@ -82,6 +92,25 @@ class Settings:
         port = _port(values.get("GRAVITY_PORT"))
         environment = values.get("GRAVITY_ENV", "development").strip().lower() or "development"
         base_url = values.get("APP_BASE_URL", f"http://{host}:{port}").strip().rstrip("/")
+        service_account_value = values.get("FIREBASE_SERVICE_ACCOUNT_PATH", "").strip()
+        if service_account_value and not Path(service_account_value).expanduser().is_absolute():
+            raise ValueError("FIREBASE_SERVICE_ACCOUNT_PATH must be absolute")
+        service_account_path = (
+            _resolved_path(root, service_account_value, service_account_value)
+            if service_account_value
+            else None
+        )
+        idle_seconds = int(values.get("SESSION_IDLE_SECONDS", "43200"))
+        absolute_seconds = int(values.get("SESSION_ABSOLUTE_SECONDS", "2592000"))
+        if idle_seconds < 300 or absolute_seconds < idle_seconds:
+            raise ValueError("Session durations must be at least five minutes and absolute >= idle")
+        trusted_proxy_cidrs = tuple(
+            value.strip()
+            for value in values.get("GRAVITY_TRUSTED_PROXY_CIDRS", "").split(",")
+            if value.strip()
+        )
+        for cidr in trusted_proxy_cidrs:
+            ip_network(cidr, strict=False)
 
         return cls(
             root_dir=root,
@@ -97,6 +126,15 @@ class Settings:
             app_base_url=base_url,
             log_level=values.get("GRAVITY_LOG_LEVEL", "INFO").strip().upper() or "INFO",
             trust_proxy=_boolean(values.get("GRAVITY_TRUST_PROXY"), False),
+            trusted_proxy_cidrs=trusted_proxy_cidrs,
+            secret_key=values.get("SECRET_KEY", "").strip(),
+            firebase_project_id=values.get("FIREBASE_PROJECT_ID", "").strip(),
+            firebase_web_api_key=values.get("FIREBASE_WEB_API_KEY", "").strip(),
+            firebase_auth_domain=values.get("FIREBASE_AUTH_DOMAIN", "").strip(),
+            firebase_app_id=values.get("FIREBASE_APP_ID", "").strip(),
+            firebase_service_account_path=service_account_path,
+            session_idle_seconds=idle_seconds,
+            session_absolute_seconds=absolute_seconds,
         )
 
     @property
@@ -110,6 +148,44 @@ class Settings:
             raise RuntimeError(f"Migrations directory is missing: {self.migrations_dir}")
         for directory in (self.data_dir, self.log_dir, self.backup_dir):
             directory.mkdir(parents=True, exist_ok=True)
+        if self.production:
+            if not self.app_base_url.startswith("https://"):
+                raise RuntimeError("APP_BASE_URL must use HTTPS in production")
+            if len(self.secret_key.encode("utf-8")) < 32:
+                raise RuntimeError("SECRET_KEY must contain at least 32 bytes in production")
+            if self.trust_proxy and not self.trusted_proxy_cidrs:
+                raise RuntimeError("GRAVITY_TRUST_PROXY requires GRAVITY_TRUSTED_PROXY_CIDRS")
+
+    @property
+    def firebase_client_configured(self) -> bool:
+        return all(
+            (
+                self.firebase_project_id,
+                self.firebase_web_api_key,
+                self.firebase_auth_domain,
+                self.firebase_app_id,
+            )
+        )
+
+    @property
+    def firebase_backend_configured(self) -> bool:
+        return bool(
+            self.firebase_project_id
+            and self.firebase_service_account_path
+            and len(self.secret_key.encode("utf-8")) >= 32
+        )
+
+    @property
+    def session_cookie_name(self) -> str:
+        if self.production and self.app_base_url.startswith("https://"):
+            return "__Host-gravity_session"
+        return "gravity_session"
+
+    @property
+    def csrf_cookie_name(self) -> str:
+        if self.production and self.app_base_url.startswith("https://"):
+            return "__Host-gravity_csrf"
+        return "gravity_csrf"
 
     def with_network(self, *, host: str | None = None, port: int | None = None) -> "Settings":
         return replace(self, host=host or self.host, port=self.port if port is None else port)

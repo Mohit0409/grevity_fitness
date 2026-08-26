@@ -23,7 +23,7 @@
   <!-- Fonts & Styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="stylesheet" href="css/style.css?v=phase2"/>
   <!-- Preload hero -->
   <link rel="preload" as="image" href="assets/images/hero-fighter.png"/>
   <!-- ══ GOOGLE ANALYTICS 4 ══════════════════════════════════════════
@@ -65,6 +65,7 @@
         <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
         Neemuch, MP
       </div>
+      <a class="btn btn-outline account-header-link" href="pages/account.html" data-account-link aria-busy="true"><span data-account-label>Account</span></a>
       <button class="btn btn-primary" onclick="openBooking('free')">🎟 Free Day Pass</button>
       <button class="hamburger" onclick="toggleMobileNav()">☰</button>
     </div>
@@ -80,6 +81,7 @@
     <li><a href="#schedule" onclick="toggleMobileNav()">Schedule</a></li>
     <li><a href="pages/trainers.html">Trainers</a></li>
     <li><a href="pages/gallery.html">Gallery</a></li>
+    <li><a href="pages/account.html" data-account-link aria-busy="true"><span data-account-label>Account</span></a></li>
     <li><a href="#contact" onclick="toggleMobileNav()">Contact</a></li>
   </ul>
   <div style="margin-top:28px;display:flex;flex-direction:column;gap:10px;">
@@ -1237,6 +1239,7 @@ window.addEventListener('load', () => {
 
 <!-- ══ ANALYTICS & MONETIZATION ENGINE ═══════════════════════════ -->
 <script src="js/analytics.js"></script>
+<script src="js/account-shell.js?v=phase2" defer></script>
 
 <!-- ══ INTERACTIVE ATHLETE ANIMATION ════════════════════════════
      Lazy-loads GSAP, renders SVG athlete in bottom-right corner.

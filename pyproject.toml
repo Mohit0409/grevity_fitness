@@ -5,5 +5,15 @@ description = "Portable Gravity Fitness web application"
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+firebase = ["firebase-admin>=7.5,<8"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["server*"]
+
 [tool.gravity]
 entrypoint = "python -m server.gravity"
