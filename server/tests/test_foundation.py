@@ -60,12 +60,12 @@ class DatabaseTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "gravity.sqlite3"
             database = Database(path, ROOT / "server" / "migrations")
-            self.assertEqual(database.migrate(), ["001", "002"])
+            self.assertEqual(database.migrate(), ["001", "002", "003"])
             self.assertEqual(database.migrate(), [])
-            self.assertEqual(database.health(), {"database": "ok", "migrations": "2"})
+            self.assertEqual(database.health(), {"database": "ok", "migrations": "3"})
             with closing(sqlite3.connect(path)) as connection:
                 versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
-                self.assertEqual(versions, [("001",), ("002",)])
+                self.assertEqual(versions, [("001",), ("002",), ("003",)])
 
     def test_changed_applied_migration_is_rejected(self):
         with TemporaryDirectory() as temporary:
@@ -100,6 +100,7 @@ class HttpFoundationTests(unittest.TestCase):
                 ("/pages/trainers.html", b"Meet Your Coaches"),
                 ("/pages/gallery.html", b"Inside Gravity"),
                 ("/account", b"Your training starts"),
+                ("/admin", b"Control Room"),
                 ("/trainers", b"Meet Your Coaches"),
                 ("/gallery", b"Inside Gravity"),
                 ("/css/style.css", b"GRAVITY FITNESS"),
@@ -138,7 +139,7 @@ class HttpFoundationTests(unittest.TestCase):
 
     def test_unknown_api_and_admin_paths_do_not_fall_through_to_static(self):
         with running_server() as (base, _settings):
-            for path in ("/api/nope", "/api/admin/users", "/admin", "/admin/index.html"):
+            for path in ("/api/nope", "/api/admin/users", "/admin/index.html", "/admin/private"):
                 status, _headers, body = fetch(base, path)
                 self.assertEqual(status, 404)
                 self.assertEqual(json.loads(body), {"error": "not_found"})

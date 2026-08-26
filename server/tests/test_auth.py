@@ -666,7 +666,7 @@ class FirebaseClaimTests(unittest.TestCase):
             settings.ensure_directories()
         settings = Settings.load(
             root_dir=ROOT,
-            environ={"GRAVITY_ENV": "production", "APP_BASE_URL": "https://gravity.example"},
+            environ={"GRAVITY_ENV": "production", "APP_BASE_URL": "https://gravity.example", "SECRET_KEY": ""},
         )
         with self.assertRaisesRegex(RuntimeError, "SECRET_KEY"):
             settings.ensure_directories()

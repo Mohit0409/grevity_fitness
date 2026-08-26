@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Gravity Control Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+<main class="root">
+<section class="auth" id="setup" hidden>
+<div class="mark">GF</div><p class="eyebrow">GRAVITY FITNESS / SECURE CONTROL</p>
+<h1>Owner setup required</h1>
+<p class="muted">Web bootstrap is disabled by design. Create the first owner from the server terminal.</p>
+<code>python -m server.gravity --bootstrap-owner YOUR_USERNAME</code>
+<p class="micro">The terminal prompts for the password and shows TOTP + recovery data once.</p>
+</section>
+<section class="auth" id="login" hidden>
+<div class="mark">GF</div><p class="eyebrow">GRAVITY FITNESS / ADMIN</p><h1>Control Room</h1>
+<p class="muted">Separate administrator authentication with mandatory second factor.</p>
+<form id="loginForm"><label>Username<input id="username" autocomplete="username" required></label>
+<label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+<button>Continue securely</button></form>
+<form id="factorForm" hidden><label>Authenticator or recovery code<input id="factor" inputmode="numeric" autocomplete="one-time-code" required></label>
+<button>Verify & enter</button><button class="ghost" type="button" id="backLogin">Back</button></form>
+<p class="error" id="authError" role="alert"></p>
+</section>
+<section class="app" id="app" hidden>
+<aside><div class="sidebrand"><span class="mark small">GF</span><div><strong>Gravity</strong><small>Control Room</small></div></div>
+<nav><button data-view="dashboard" class="active">Overview</button><button data-view="members">Members</button><button data-view="admins" id="adminsNav">Team access</button><button data-view="audit" id="auditNav">Audit trail</button></nav>
+<div class="asidefoot"><span id="adminIdentity"></span><button class="ghost" id="logout">Sign out</button></div></aside>
+<section class="workspace"><header><div><p class="eyebrow">OPERATIONS</p><h2 id="viewTitle">Overview</h2></div><span class="secure">● SECURE SESSION</span></header>
+<div id="flash" class="flash" hidden></div>
+<section id="dashboardView" class="view"><div class="stats" id="stats"></div><div class="panel"><h3>Recent security activity</h3><div id="recentAudit"></div></div></section>
+<section id="membersView" class="view" hidden><div class="panel"><div class="panelhead"><h3>Members</h3><input id="memberSearch" placeholder="Search name, phone or email"></div><div class="tablewrap"><table><thead><tr><th>Member</th><th>Contact</th><th>Status</th><th>Action</th></tr></thead><tbody id="membersBody"></tbody></table></div></div></section>
+<section id="adminsView" class="view" hidden><div class="panel"><div class="panelhead"><h3>Admin team</h3><button id="newAdmin">Add administrator</button></div><div id="adminCreate" hidden><form id="adminForm" class="inlineform"><input id="newUsername" placeholder="Username" required><input id="newPassword" type="password" placeholder="Strong password" required><select id="newRole"><option>admin</option><option>trainer</option><option>reception</option></select><button>Create</button></form><pre id="adminSecret" hidden></pre></div><div class="tablewrap"><table><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody id="adminsBody"></tbody></table></div></div></section>
+<section id="auditView" class="view" hidden><div class="panel"><h3>Audit trail</h3><div class="tablewrap"><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Result</th></tr></thead><tbody id="auditBody"></tbody></table></div></div></section>
+</section></section></main>
+<script src="/js/admin.js" defer></script>
+</body></html>

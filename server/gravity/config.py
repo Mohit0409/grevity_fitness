@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -186,6 +186,24 @@ class Settings:
         if self.production and self.app_base_url.startswith("https://"):
             return "__Host-gravity_csrf"
         return "gravity_csrf"
+
+    @property
+    def admin_session_cookie_name(self) -> str:
+        if self.production and self.app_base_url.startswith("https://"):
+            return "__Host-gravity_admin_session"
+        return "gravity_admin_session"
+
+    @property
+    def admin_csrf_cookie_name(self) -> str:
+        if self.production and self.app_base_url.startswith("https://"):
+            return "__Host-gravity_admin_csrf"
+        return "gravity_admin_csrf"
+
+    @property
+    def admin_challenge_cookie_name(self) -> str:
+        if self.production and self.app_base_url.startswith("https://"):
+            return "__Host-gravity_admin_challenge"
+        return "gravity_admin_challenge"
 
     def with_network(self, *, host: str | None = None, port: int | None = None) -> "Settings":
         return replace(self, host=host or self.host, port=self.port if port is None else port)

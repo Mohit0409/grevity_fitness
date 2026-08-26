@@ -42,12 +42,22 @@ Last updated: 2026-08-26
 - Added clean `/account`, `/trainers`, and `/gallery` route aliases while keeping the original `/pages/...` routes compatible.
 - Added Windows and POSIX setup support plus CI installation of the Firebase Admin optional dependency.
 
+### Phase 3 — Secure admin portal
+
+- Added separate administrator identities, login challenges, hash-only sessions, CSRF tokens, recovery codes, throttles, and append-only audit records in migration `003_admin_security.sql`.
+- Added owner-only terminal bootstrap; the first owner password is entered through a hidden prompt and TOTP/recovery enrollment material is shown only after successful creation.
+- Added mandatory password → TOTP/recovery-code authentication with encrypted TOTP secrets, replay protection, one-time recovery codes, short challenge lifetime, 30-minute idle expiry, 8-hour absolute expiry, and a three-session cap.
+- Added RBAC for `owner`, `admin`, `trainer`, and `reception`, plus protections against owner self-disable/last-owner removal and immediate session revocation when an administrator is disabled.
+- Added protected `/api/admin/*` endpoints for session state, login/2FA, dashboard, members, team access, audit, logout, and controlled status changes; unknown admin/API paths remain deny-by-default.
+- Added the `/admin` Control Room UI with server-owned authorization state, CSRF-protected mutations, member management, owner-only team management, and audit views.
+- Disabling a customer revokes active customer sessions. Customer and administrator authentication/session namespaces remain separate.
+
 ## Known issues / production blockers
 
 - `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` credentials/client configuration and an authorized Admin service account are still required for real customer login verification. The application fails closed and reports auth disabled until configured.
 - `BLOCKED_EXTERNAL_CONFIG`: Razorpay, WhatsApp, SMS, SMTP, final domain, verified business contact details, GST/invoice identity, and final analytics IDs are not configured.
 - Existing public content contains unverified claims, scarcity, reviews, metrics, pricing, trainers, photos, opening hours, and contact details. These must not be represented as verified production facts.
-- Secure admin, memberships, notifications, customer dashboard, diet plans, progress, payments, and persistent invoices remain pending later phases.
+- Memberships, notifications, customer dashboard, diet plans, progress, payments, and persistent invoices remain pending later phases.
 - Backup/restore scripts and a tested recovery drill remain Phase 10 work.
 
 ## Test status
@@ -58,13 +68,15 @@ Last updated: 2026-08-26
 - Python compilation, JavaScript syntax checks, and `git diff --check` pass after the final Phase 2 routing patch.
 - Fresh laptop restart evidence: Gravity runs under `.venv\Scripts\python.exe`; `/api/health` is HTTP 200, `/account`, `/trainers`, and `/gallery` are HTTP 200, `/api/auth/config` is HTTP 200 with `enabled=false` while credentials are absent, and `/firebase.json` remains HTTP 404.
 - Real Firebase sign-in remains blocked only by external `gravity-authe` configuration; no fake success path is enabled.
+- Phase 3 release-gate evidence: 30/30 `unittest` tests pass on 2026-08-26, including 4 focused admin-security tests for TOTP replay prevention, one-time recovery codes, RBAC, CSRF, administrator-session revocation, and customer-session revocation.
+- Phase 3 `compileall`, `node --check web/js/admin.js`, and `git diff --check` pass. Fresh laptop smoke: `/api/health` 200, `/admin` 200, `/api/admin/session` 200 with `configured=true` and `bootstrapRequired=true`, unauthenticated `/api/admin/dashboard` 401, unknown admin paths 404, `.env` 404, admin source 404, and admin CSS/JS 200.
 
 ## Deployment status
 
 - Firebase public site remains the historical deployment; no new Firebase deployment is planned.
-- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 2 working tree.
+- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 3 working tree (fresh PID 6696 at the release smoke).
 - Termux: architecture-compatible; deployment runbook pending Phase 10.
 
 ## Next implementation milestone
 
-Phase 3: secure admin portal foundation — separate admin identities/sessions, owner bootstrap, TOTP/2FA, RBAC (`Owner`, `Admin`, `Trainer`, `Reception`), CSRF/rate limiting, protected `/admin` routes and APIs, audit logging, integration/system-health views, and authorization regression tests. Reuse proven StyleDash security behavior without importing StyleDash business-domain assumptions.
+Phase 4: membership engine and lifecycle — plan catalog, member subscriptions, start/end dates, status transitions, renewal/extension rules, admin controls, customer-visible membership state, deterministic expiry calculation, audit history, and tests. Keep notification providers as `BLOCKED_EXTERNAL_CONFIG`; core membership state must work without them.

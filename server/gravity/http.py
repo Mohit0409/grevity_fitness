@@ -27,6 +27,8 @@ from .auth import (
     SessionIdentity,
     SessionIssue,
 )
+from .admin import AdminService
+from .admin_http import handle_admin_request
 from .config import Settings
 from .database import Database
 from .firebase_auth import (
@@ -43,6 +45,7 @@ LOGGER = logging.getLogger("gravity.http")
 PUBLIC_PREFIXES = {"assets", "css", "js", "pages"}
 STATIC_ROUTE_ALIASES = {
     "/account": "pages/account.html",
+    "/admin": "pages/admin.html",
     "/trainers": "pages/trainers.html",
     "/gallery": "pages/gallery.html",
 }
@@ -81,11 +84,13 @@ class GravityHTTPServer(ThreadingHTTPServer):
         settings: Settings,
         database: Database,
         auth_service: AuthService,
+        admin_service: AdminService,
     ) -> None:
         super().__init__(address, handler)
         self.settings = settings
         self.database = database
         self.auth_service = auth_service
+        self.admin_service = admin_service
 
 
 class GravityRequestHandler(BaseHTTPRequestHandler):
@@ -169,7 +174,17 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
                     return
                 status = self._auth_response(path, request_id=request_id, send_body=send_body)
                 return
-            if path.startswith("/api/") or path == "/admin" or path.startswith("/admin/"):
+            if path.startswith("/api/admin/"):
+                try:
+                    admin_status = handle_admin_request(self, path, request_id, send_body)
+                except RequestError as error:
+                    status = error.status
+                    self._json_response(status, {"error": error.code}, request_id=request_id, send_body=send_body)
+                    return
+                if admin_status is not None:
+                    status = admin_status
+                    return
+            if path.startswith("/api/"):
                 status = HTTPStatus.NOT_FOUND
                 self._json_response(status, {"error": "not_found"}, request_id=request_id, send_body=send_body)
                 return
@@ -756,10 +771,12 @@ def create_server(
     database.migrate()
     identity_verifier = verifier or FirebaseAdminVerifier(configured)
     auth_service = AuthService(database, configured, identity_verifier, **({"clock": clock} if clock else {}))
+    admin_service = AdminService(database, configured, **({"clock": clock} if clock else {}))
     return GravityHTTPServer(
         (configured.host, configured.port),
         GravityRequestHandler,
         configured,
         database,
         auth_service,
+        admin_service,
     )
