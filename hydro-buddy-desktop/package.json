@@ -1,0 +1,17 @@
+{
+  "name": "hydro-buddy-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hydro Buddy floating hydration reminder pet for Ubuntu.",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "env -u ELECTRON_RUN_AS_NODE electron --disable-gpu desktop/main.cjs",
+    "check": "node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check desktop/renderer.js"
+  },
+  "devDependencies": {
+    "electron": "^41.7.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
