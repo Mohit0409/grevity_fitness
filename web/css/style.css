@@ -304,6 +304,56 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:48px 24p
 .float-wa:hover{transform:scale(1.1);}
 .mobile-cta{display:none;position:fixed;bottom:0;left:0;right:0;z-index:90;background:rgba(19,21,27,.97);border-top:1px solid var(--border);padding:10px 16px;gap:8px;}
 .mobile-nav{display:none;position:fixed;inset:0;z-index:150;background:var(--bg2);flex-direction:column;padding:80px 24px 40px;overflow-y:auto;}
+
+/* Phase 1 safety/accessibility baseline */
+#booking-modal{z-index:10000!important;}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:3px solid var(--lime);
+  outline-offset:3px;
+}
+.mobile-sticky-nav{display:none;}
+
+@media(max-width:768px){
+  #gf-athlete-wrap,#gf-curl-counter{display:none!important;}
+  .mobile-sticky-nav{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:180;
+    background:rgba(19,21,27,.98);
+    border-top:1px solid var(--border);
+    padding:8px max(8px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));
+  }
+  .msn-btn{
+    min-height:48px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    color:var(--off);
+    background:transparent;
+    border:0;
+    font:inherit;
+    font-size:.68rem;
+    text-decoration:none;
+  }
+  .msn-btn.primary{color:var(--lime);font-weight:800;}
+  .msn-icon{font-size:1rem;}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    scroll-behavior:auto!important;
+    transition-duration:.01ms!important;
+  }
+  #loader{display:none!important;}
+}
 .mobile-nav.open{display:flex;}
 .mobile-nav ul{list-style:none;display:flex;flex-direction:column;gap:4px;}
 .mobile-nav ul a{display:block;padding:14px 18px;border-radius:var(--radius-sm);font-size:1rem;font-weight:700;color:var(--muted);border:1px solid transparent;transition:all .2s;}

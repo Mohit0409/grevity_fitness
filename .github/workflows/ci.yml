@@ -1,0 +1,33 @@
+name: Gravity Fitness CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compile Python
+        run: python -m compileall -q server
+      - name: Run foundation tests
+        run: python -m unittest discover -s server/tests -v
+      - name: Check browser JavaScript
+        shell: bash
+        run: |
+          node --check web/js/analytics.js
+          node --check web/js/athlete-animation.js

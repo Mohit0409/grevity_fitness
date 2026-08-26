@@ -1,0 +1,9 @@
+[project]
+name = "gravity-fitness"
+version = "0.1.0"
+description = "Portable Gravity Fitness web application"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.gravity]
+entrypoint = "python -m server.gravity"

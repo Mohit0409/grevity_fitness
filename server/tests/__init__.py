@@ -1,0 +1,1 @@
+"""Gravity Fitness automated tests."""

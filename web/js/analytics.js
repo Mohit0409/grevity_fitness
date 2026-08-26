@@ -1,39 +1,12 @@
 // ================================================================
-//  GRAVITY FITNESS — Firebase Analytics + Monetization Engine
-//  Replace firebaseConfig values with your actual Firebase project
+//  GRAVITY FITNESS — privacy-conscious analytics helpers
+//  Business records are never written directly from the browser.
 // ================================================================
 
-// ── STEP 1: Create a Firebase project at console.firebase.google.com
-// ── STEP 2: Replace the config below with your project's config
-// ── STEP 3: Enable Google Analytics in your Firebase project
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAoAAPKYBxYSCsOKcRdeNksJqC0qsMaRFI",
-  authDomain: "gravityfitnessnmh.firebaseapp.com",
-  projectId: "gravityfitnessnmh",
-  storageBucket: "gravityfitnessnmh.firebasestorage.app",
-  messagingSenderId: "948852331737",
-  appId: "1:948852331737:web:44fcb42b482584dee39ac8",
-  measurementId: "G-LRES2MZB98"
-};
-
-// ── Firebase init (loaded via CDN in HTML) ──
-let analytics = null;
-let db = null;
-
 function initFirebase() {
-  try {
-    if (typeof firebase === 'undefined') return;
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    analytics = firebase.analytics();
-    db = firebase.firestore();
-    console.log('[Gravity] Firebase ready');
-    trackPageView();
-    setupScrollDepthTracking();
-    setupEngagementTracking();
-  } catch(e) {
-    console.warn('[Gravity] Firebase not configured yet:', e.message);
-  }
+  trackPageView();
+  setupScrollDepthTracking();
+  setupEngagementTracking();
 }
 
 // ================================================================
@@ -45,12 +18,7 @@ function gTrack(eventName, params = {}) {
   params.page       = window.location.pathname;
   params.timestamp  = new Date().toISOString();
 
-  // Firebase Analytics
-  if (analytics) {
-    try { analytics.logEvent(eventName, params); } catch(e) {}
-  }
-
-  // Fallback: Google Analytics 4 (gtag) — works even without Firebase
+  // Google Analytics is optional and configured independently of Firebase Auth.
   if (typeof gtag !== 'undefined') {
     gtag('event', eventName, params);
   }
@@ -89,16 +57,13 @@ function trackBookingStep(step, plan, amount) {
 }
 
 function trackBookingComplete(method, plan, amount) {
-  gTrack('purchase', {
-    event_category: 'Conversion',
-    transaction_id: 'GF-' + Date.now(),
+  gTrack('booking_request', {
+    event_category: 'Lead',
     item_name:      plan,
-    payment_method: method,           // 'razorpay', 'whatsapp', 'free'
+    request_method: method,
     value:          amount || 0,
     currency:       'INR',
   });
-  // Also save to Firestore for your own dashboard
-  saveLeadToFirestore(method, plan, amount);
 }
 
 function trackFreeDayPass(name, phone) {
@@ -185,22 +150,9 @@ function setupEngagementTracking() {
 // ================================================================
 
 function saveLeadToFirestore(method, plan, amount) {
-  if (!db) return;
-  try {
-    db.collection('bookings').add({
-      name:          window._bookingName  || '',
-      phone:         window._bookingPhone || '',
-      email:         window._bookingEmail || '',
-      plan:          plan,
-      amount:        amount || 0,
-      method:        method,
-      timestamp:     firebase.firestore.FieldValue.serverTimestamp(),
-      page:          window.location.pathname,
-      userAgent:     navigator.userAgent.slice(0,100),
-    }).then(() => console.log('[Gravity] Lead saved to Firestore'));
-  } catch(e) {
-    console.warn('[Gravity] Firestore save failed:', e.message);
-  }
+  // Intentionally disabled. Phase 2 will persist validated leads through the
+  // Gravity backend; client-originated Firestore writes are not authoritative.
+  void method; void plan; void amount;
 }
 
 // Store booking details globally so Firestore can access them
@@ -447,7 +399,7 @@ function showExitModal() {
 // ================================================================
 
 async function requestPushPermission() {
-  if (!('Notification' in window) || !analytics) return;
+  if (!('Notification' in window)) return;
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {

@@ -26,30 +26,18 @@
   <link rel="stylesheet" href="css/style.css"/>
   <!-- Preload hero -->
   <link rel="preload" as="image" href="assets/images/hero-fighter.png"/>
-  <!-- jsPDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
   <!-- ══ GOOGLE ANALYTICS 4 ══════════════════════════════════════════
        1. Go to analytics.google.com → Create Account → Web Property
        2. Copy your Measurement ID (looks like G-XXXXXXXXXX)
        3. Uncomment the two script tags below and replace G-XXXXXXXXXX
   ════════════════════════════════════════════════════════════════════ -->
- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+ <script async src="https://www.googletagmanager.com/gtag/js?id=G-QCV4MEH4R4"></script>
   <script>
     window.dataLayer=window.dataLayer||[];
     function gtag(){dataLayer.push(arguments);}
     gtag('js',new Date()); gtag('config','G-QCV4MEH4R4');
   </script>
 
-  <!-- ══ FIREBASE ═════════════════════════════════════════════════════
-       1. Go to console.firebase.google.com → New Project
-       2. Add a Web App → Copy the firebaseConfig values
-       3. Open js/analytics.js and paste your config values
-       4. Uncomment the 3 script tags below
-  ════════════════════════════════════════════════════════════════════ -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-analytics-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -578,7 +566,7 @@
 <!-- MEMBERSHIP -->
 <section class="section" id="membership" style="background:var(--bg);">
   <div class="container">
-    <div class="section-head reveal"><div><div class="section-label">Pricing</div><h2 class="section-title">No Hidden Charges</h2><p class="section-sub">All plans include AC gym, locker access, and group classes. Book & pay online.</p></div></div>
+    <div class="section-head reveal"><div><div class="section-label">Pricing</div><h2 class="section-title">No Hidden Charges</h2><p class="section-sub">Submit a membership enquiry online. Payment is collected only after the gym confirms your plan.</p></div></div>
     <div class="pricing-grid">
       <div class="price-card free-day-card reveal reveal-delay-1">
         <div class="price-name">Free Day Pass</div>
@@ -592,23 +580,25 @@
         <div class="price-amount"><sup>₹</sup>999<sub>/mo</sub></div>
         <div class="price-duration">Billed monthly · No joining fee</div>
         <ul class="price-features"><li>Full gym floor access</li><li>AC facility included</li><li>Locker room access</li><li>2 Group classes/week</li><li>Fitness assessment</li></ul>
-        <button class="plan-book-btn outline" onclick="openBooking('plan','Basic','999')">Book & Pay →</button>
+        <button class="plan-book-btn outline" onclick="openBooking('plan','Basic','999')">Enquire →</button>
       </div>
       <div class="price-card featured reveal reveal-delay-2">
         <div class="price-name">Pro</div>
         <div class="price-amount"><sup>₹</sup>1,499<sub>/mo</sub></div>
         <div class="price-duration">Billed monthly · No joining fee</div>
         <ul class="price-features"><li>Everything in Basic</li><li>Unlimited group classes</li><li>1 PT session/month</li><li>Diet consultation</li><li>Progress tracking</li><li>Guest pass (1/month)</li></ul>
-        <button class="plan-book-btn" onclick="openBooking('plan','Pro','1499')">Book & Pay →</button>
+        <button class="plan-book-btn" onclick="openBooking('plan','Pro','1499')">Enquire →</button>
       </div>
       <div class="price-card reveal reveal-delay-3">
         <div class="price-name">Elite</div>
         <div class="price-amount"><sup>₹</sup>2,499<sub>/mo</sub></div>
         <div class="price-duration">Billed monthly · No joining fee</div>
         <ul class="price-features"><li>Everything in Pro</li><li>4 PT sessions/month</li><li>Monthly body analysis</li><li>Customised meal plan</li><li>Priority class booking</li><li>Unlimited guest passes</li></ul>
-        <button class="plan-book-btn outline" onclick="openBooking('plan','Elite','2499')">Book & Pay →</button>
+        <button class="plan-book-btn outline" onclick="openBooking('plan','Elite','2499')">Enquire →</button>
       </div>
     </div>
+  </div>
+</section>
 <!-- SCHEDULE -->
 <section class="section" id="schedule">
   <div class="container">
@@ -782,9 +772,9 @@
   </div>
 </div>
 <!-- BOOKING MODAL -->
-<div class="modal-overlay" id="booking-modal" onclick="if(event.target===this)closeModal('booking-modal')">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('booking-modal')">✕</button>
+<div class="modal-overlay" id="booking-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick="if(event.target===this)closeModal('booking-modal')">
+  <div class="modal" tabindex="-1">
+    <button class="modal-close" aria-label="Close booking dialog" onclick="closeModal('booking-modal')">✕</button>
     <div id="step-details">
       <div class="pay-steps">
         <div class="pay-step active"><div class="step-dot">1</div><div class="step-label">Details</div></div>
@@ -794,9 +784,9 @@
       </div>
       <h3 id="modal-title" style="margin-top:10px;color:var(--white);font-weight:900;">Book Your Pass</h3>
       <p id="modal-subtitle" style="font-size:.82rem;color:var(--muted);margin-bottom:18px;"></p>
-      <div class="field"><label>Full Name *</label><input type="text" id="f-name" placeholder="Your full name"/></div>
-      <div class="field"><label>Phone / WhatsApp *</label><input type="tel" id="f-phone" placeholder="+91 00000 00000"/></div>
-      <div class="field"><label>Email Address *</label><input type="email" id="f-email" placeholder="your@email.com"/></div>
+      <div class="field"><label for="f-name">Full Name *</label><input type="text" id="f-name" autocomplete="name" placeholder="Your full name"/></div>
+      <div class="field"><label for="f-phone">Phone / WhatsApp *</label><input type="tel" id="f-phone" autocomplete="tel" placeholder="+91 00000 00000"/></div>
+      <div class="field"><label for="f-email">Email Address *</label><input type="email" id="f-email" autocomplete="email" placeholder="your@email.com"/></div>
       <div id="free-day-fields" style="display:none;">
         <div class="field"><label>Preferred Visit Date *</label><input type="date" id="f-date"/></div>
         <div class="field"><label>Preferred Time Slot *</label>
@@ -839,8 +829,8 @@
       <div class="booking-summary" id="summary-box"></div>
       <!-- FREE booking -->
       <div id="free-section" style="display:none;">
-        <button type="button" class="free-confirm-btn" onclick="confirmFreePass()">✅ Confirm Free Day Pass</button>
-        <p style="font-size:.75rem;color:var(--muted);margin-top:10px;text-align:center;">No payment needed. Confirmation goes to WhatsApp.</p>
+        <button type="button" class="free-confirm-btn" onclick="confirmFreePass()">💬 Continue in WhatsApp</button>
+        <p style="font-size:.75rem;color:var(--muted);margin-top:10px;text-align:center;">No payment needed. Review and send your request in WhatsApp.</p>
       </div>
       <!-- PAID booking — Razorpay or WhatsApp fallback -->
       <div id="paid-section" style="display:none;">
@@ -874,14 +864,14 @@
       </div>
       <div style="text-align:center;padding:20px 0 24px;">
         <div style="font-size:2.8rem;margin-bottom:12px;">💬</div>
-        <h3 style="color:var(--white);font-weight:900;font-size:1.3rem;margin-bottom:8px;">Booking Sent to WhatsApp!</h3>
-        <p style="font-size:.86rem;color:var(--muted);line-height:1.7;max-width:320px;margin:0 auto 20px;">Your booking details have been sent to our gym WhatsApp. We'll confirm your slot and guide you through payment when you arrive.</p>
+        <h3 style="color:var(--white);font-weight:900;font-size:1.3rem;margin-bottom:8px;">Your WhatsApp Request Is Ready</h3>
+        <p style="font-size:.86rem;color:var(--muted);line-height:1.7;max-width:320px;margin:0 auto 20px;">Review and send the prepared message in WhatsApp. The gym will confirm availability; this screen is not a booking or payment confirmation.</p>
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;text-align:left;margin-bottom:20px;">
           <div style="font-size:.72rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Your Booking Summary</div>
           <div id="wa-summary-display" style="font-size:.86rem;color:var(--off);line-height:1.9;"></div>
         </div>
         <div style="background:linear-gradient(135deg,rgba(37,211,102,.08),rgba(37,211,102,.03));border:1px solid rgba(37,211,102,.2);border-radius:10px;padding:12px 16px;font-size:.8rem;color:rgba(255,255,255,.6);margin-bottom:4px;">
-          📋 <strong style="color:var(--off);">Invoice will be sent via WhatsApp</strong> once your payment is collected at the gym.
+          📋 <strong style="color:var(--off);">A receipt can be issued after verified payment</strong> at the gym.
         </div>
       </div>
       <a id="wa-reopen-link" href="#" target="_blank" class="wa-confirm-btn" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;">
@@ -923,6 +913,12 @@ const WA_NUMBER = '919876543210';
 // ─────────────────────────────────────────────────────────────
 
 let B = {}, INV = {};
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, char => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;'
+  })[char]);
+}
 
 function openBooking(type, plan, amount) {
   B = { type };
@@ -980,18 +976,22 @@ function goToReview() {
   B.invoiceNo = 'GF-' + Date.now().toString().slice(-6);
   B.bookingDate = new Date().toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
 
-  let rows = `<div class="summary-row"><span class="summary-label">Name</span><span class="summary-val">${name}</span></div>
-    <div class="summary-row"><span class="summary-label">Phone</span><span class="summary-val">${phone}</span></div>
-    <div class="summary-row"><span class="summary-label">Plan</span><span class="summary-val">${B.plan}</span></div>`;
-  if (B.duration) rows += `<div class="summary-row"><span class="summary-label">Duration</span><span class="summary-val">${B.duration}</span></div>`;
+  let rows = `<div class="summary-row"><span class="summary-label">Name</span><span class="summary-val">${escapeHtml(name)}</span></div>
+    <div class="summary-row"><span class="summary-label">Phone</span><span class="summary-val">${escapeHtml(phone)}</span></div>
+    <div class="summary-row"><span class="summary-label">Plan</span><span class="summary-val">${escapeHtml(B.plan)}</span></div>`;
+  if (B.duration) rows += `<div class="summary-row"><span class="summary-label">Duration</span><span class="summary-val">${escapeHtml(B.duration)}</span></div>`;
   if (B.date) rows += `<div class="summary-row"><span class="summary-label">Visit Date</span><span class="summary-val">${new Date(B.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span></div>`;
-  if (B.slot) rows += `<div class="summary-row"><span class="summary-label">Time Slot</span><span class="summary-val">${B.slot}</span></div>`;
-  if (B.trainer) rows += `<div class="summary-row"><span class="summary-label">Trainer</span><span class="summary-val">${B.trainer}</span></div>`;
-  const amtD = B.amount === 0 ? '<span style="color:#C1FF6B;font-weight:900;">FREE</span>' : `<span style="color:#C1FF6B;font-weight:900;">₹${B.amount.toLocaleString('en-IN')}</span>`;
+  if (B.slot) rows += `<div class="summary-row"><span class="summary-label">Time Slot</span><span class="summary-val">${escapeHtml(B.slot)}</span></div>`;
+  if (B.trainer) rows += `<div class="summary-row"><span class="summary-label">Trainer</span><span class="summary-val">${escapeHtml(B.trainer)}</span></div>`;
+  const amtD = B.type === 'free'
+    ? '<span style="color:#C1FF6B;font-weight:900;">FREE</span>'
+    : B.type === 'class'
+      ? '<span style="color:#C1FF6B;font-weight:800;">Confirm with gym</span>'
+      : `<span style="color:#C1FF6B;font-weight:900;">₹${B.amount.toLocaleString('en-IN')}</span>`;
   rows += `<div class="summary-row summary-total"><span class="summary-label">Total Amount</span><span class="summary-val">${amtD}</span></div>`;
   document.getElementById('summary-box').innerHTML = rows;
-  document.getElementById('free-section').style.display = B.amount === 0 ? '' : 'none';
-  document.getElementById('paid-section').style.display = B.amount > 0 ? '' : 'none';
+  document.getElementById('free-section').style.display = B.type === 'free' ? '' : 'none';
+  document.getElementById('paid-section').style.display = B.type === 'free' ? 'none' : '';
   // Show Razorpay button only if link is configured
   const hasRzpLink = !!RAZORPAY_LINKS[B.plan];
   document.getElementById('razorpay-section').style.display = hasRzpLink ? '' : 'none';
@@ -999,27 +999,12 @@ function goToReview() {
 }
 
 function proceedToRazorpay() {
-  const link = RAZORPAY_LINKS[B.plan];
-  // No Razorpay link configured — fall back to WhatsApp silently
-  if (!link) { confirmWhatsApp(); return; }
-  const params = new URLSearchParams({
-    'prefill[name]': B.name, 'prefill[contact]': B.phone, 'prefill[email]': B.email,
-    'description': `Gravity Fitness - ${B.plan} (${B.duration || ''})`
-  });
-  window.open(link + '?' + params, '_blank');
-  // After user returns from Razorpay, show confirmation prompt then invoice
-  setTimeout(() => {
-    if (confirm('Did your Razorpay payment go through?\nClick OK to generate your PDF invoice.')) {
-      B.paymentId = 'RZP' + Math.random().toString(36).slice(2,10).toUpperCase();
-      B.paymentMethod = 'Razorpay';
-      showInvoice(); // Invoice ONLY for successful Razorpay payment
-    }
-  }, 1500);
+  showToast('Secure online payment is being configured. Please send an enquiry instead.', '#FF8C42');
 }
 
 // WhatsApp booking — sends message to gym, NO invoice shown, redirects to WA
 function confirmWhatsApp() {
-  const isFree = B.amount === 0;
+  const isFree = B.type === 'free';
   const msg = `🏋️ *New Booking — Gravity Fitness*\n\n` +
     `👤 Name: ${B.name}\n📱 Phone: ${B.phone}\n📧 Email: ${B.email}\n` +
     `📋 Plan: ${B.plan}${B.duration ? ' · ' + B.duration : ''}` +
@@ -1045,15 +1030,15 @@ function confirmFreePass() {
     `⏰ Slot: ${B.slot || 'Not specified'}\n💰 Amount: FREE\n🧾 Ref: #${B.invoiceNo}` +
     `${B.notes ? '\n📝 Notes: ' + B.notes : ''}`;
   window.open('https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(msg), '_blank');
-  showInvoice(); // Free pass always gets an invoice/confirmation
+  showStep('wa-confirm');
 }
 
 function showInvoice() {
   const d = B, isFree = d.amount === 0;
   document.getElementById('invoice-emoji').textContent = isFree ? '🎟' : '🎉';
-  document.getElementById('invoice-success-title').textContent = isFree ? 'Free Pass Confirmed!' : 'Booking Confirmed!';
+  document.getElementById('invoice-success-title').textContent = isFree ? 'Free Pass Request' : 'Payment Receipt';
   document.getElementById('invoice-success-sub').textContent = isFree
-    ? `See you on ${new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long'})} at ${d.slot}! Check WhatsApp for confirmation.`
+    ? `Request prepared for ${new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long'})} at ${d.slot}. Await gym confirmation.`
     : `Welcome, ${d.name.split(' ')[0]}! Check WhatsApp for your booking details.`;
   const qty = d.duration || (d.trainer ? '1 Session' : '1 Day');
   const amt = isFree ? '₹0 (Complimentary)' : `₹${d.amount.toLocaleString('en-IN')}`;
@@ -1063,13 +1048,13 @@ function showInvoice() {
     <div class="invoice-head">
       <div><div class="invoice-logo">GRAVITY<span>.</span></div>
       <div style="font-size:.7rem;color:#666;margin-top:4px;">Gravity Fitness, Neemuch MP<br>+91 98765 43210 | hello@gravityfitness.in</div></div>
-      <div class="invoice-meta"><strong>INVOICE</strong><br>#${d.invoiceNo}<br>Date: ${d.bookingDate}<br><span style="color:#5a8a00;">${d.paymentMethod}</span></div>
+      <div class="invoice-meta"><strong>PASS REQUEST</strong><br>#${escapeHtml(d.invoiceNo)}<br>Date: ${escapeHtml(d.bookingDate)}<br><span style="color:#5a8a00;">${escapeHtml(d.paymentMethod)}</span></div>
     </div>
-    <div class="invoice-to"><strong>Billed To:</strong>${d.name} · ${d.phone}<br>${d.email}</div>
+    <div class="invoice-to"><strong>Requested By:</strong>${escapeHtml(d.name)} · ${escapeHtml(d.phone)}<br>${escapeHtml(d.email)}</div>
     <table class="invoice-table">
       <thead><tr><th>Description</th><th>Qty</th><th>Amount</th></tr></thead>
       <tbody>
-        <tr><td>${d.plan}${d.trainer ? ' — ' + d.trainer : ''}</td><td>${qty}</td><td>${isFree ? 'FREE' : base}</td></tr>
+        <tr><td>${escapeHtml(d.plan)}${d.trainer ? ' — ' + escapeHtml(d.trainer) : ''}</td><td>${escapeHtml(qty)}</td><td>${isFree ? 'FREE' : base}</td></tr>
         ${!isFree ? `<tr><td colspan="2" style="text-align:right;color:#777;">IGST @ 18%</td><td>${igst}</td></tr>` : ''}
         <tr class="invoice-total-row"><td colspan="2" style="text-align:right;">Total</td><td><strong>${amt}</strong></td></tr>
       </tbody>
@@ -1080,6 +1065,9 @@ function showInvoice() {
 }
 
 function downloadInvoicePDF() {
+  showToast('PDF receipts will be available after server-verified payment.', '#FF8C42');
+  return;
+  /* Legacy preview renderer retained temporarily for Phase 4 reference. */
   const { jsPDF } = window.jspdf; const d = INV, isFree = d.amount === 0;
   const doc = new jsPDF({ unit:'mm', format:'a4' });
   const L=[193,255,107], D=[20,22,30], M=[100,105,120];
@@ -1136,13 +1124,13 @@ function showStep(s) {
   });
   // Populate WA confirm summary
   if (s === 'wa-confirm') {
-    const d = B, isFree = d.amount === 0;
-    let lines = `📋 <b>${d.plan}</b>${d.duration ? ' · ' + d.duration : ''}<br>`;
-    if (d.trainer) lines += `🏃 ${d.trainer}<br>`;
+    const d = B, isFree = d.type === 'free';
+    let lines = `📋 <b>${escapeHtml(d.plan)}</b>${d.duration ? ' · ' + escapeHtml(d.duration) : ''}<br>`;
+    if (d.trainer) lines += `🏃 ${escapeHtml(d.trainer)}<br>`;
     if (d.date) lines += `📅 ${new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})}<br>`;
-    if (d.slot) lines += `⏰ ${d.slot}<br>`;
+    if (d.slot) lines += `⏰ ${escapeHtml(d.slot)}<br>`;
     lines += `💰 ${isFree ? 'FREE' : '₹' + d.amount.toLocaleString('en-IN') + ' — Pay on visit'}<br>`;
-    lines += `🧾 Ref #${d.invoiceNo}`;
+    lines += `🧾 Ref #${escapeHtml(d.invoiceNo)}`;
     document.getElementById('wa-summary-display').innerHTML = lines;
     // Set the reopen link
     const msg = `🏋️ *New Booking — Gravity Fitness*\n\n👤 ${d.name}\n📱 ${d.phone}\n📋 ${d.plan}${d.duration?' · '+d.duration:''}${d.date?'\n📅 '+new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}):''}${d.slot?'\n⏰ '+d.slot:''}\n💰 ${isFree?'FREE':'₹'+d.amount.toLocaleString('en-IN')+' — Pay on visit'}\n🧾 Ref: #${d.invoiceNo}`;
@@ -1150,8 +1138,24 @@ function showStep(s) {
   }
   const m = document.querySelector('#booking-modal .modal'); if(m) m.scrollTop = 0;
 }
-function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+let lastFocusedElement = null;
+function openModal(id) {
+  lastFocusedElement = document.activeElement;
+  const overlay = document.getElementById(id);
+  overlay.classList.add('open');
+  document.body.style.overflow='hidden';
+  setTimeout(() => overlay.querySelector('input,button,[tabindex]')?.focus(), 0);
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow='';
+  lastFocusedElement?.focus?.();
+}
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && document.getElementById('booking-modal').classList.contains('open')) {
+    closeModal('booking-modal');
+  }
+});
 function showToast(msg, color) {
   const t = document.createElement('div');
   t.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${color||'var(--lime)'};color:${color?'#fff':'#0a0f00'};padding:11px 22px;border-radius:99px;font-weight:800;font-size:.83rem;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.3);white-space:nowrap;`;
@@ -1283,10 +1287,7 @@ window.confirmFreePass = function() {
 // Wrap proceedToRazorpay
 const _origProceedToRazorpay = proceedToRazorpay;
 window.proceedToRazorpay = function() {
-  if(typeof gTrack === 'function') gTrack('razorpay_initiated', {plan:B.plan, value:B.amount, currency:'INR'});
-  if(typeof trackGoogleAdsConversion === 'function') trackGoogleAdsConversion('paid', B.amount);
-  if(typeof trackMetaPurchase === 'function') trackMetaPurchase(B.plan, B.amount);
-  localStorage.setItem('gf_bookings', parseInt(localStorage.getItem('gf_bookings')||0)+1);
+  if(typeof gTrack === 'function') gTrack('online_payment_unavailable', {plan:B.plan});
   _origProceedToRazorpay.apply(this, arguments);
 };
 
