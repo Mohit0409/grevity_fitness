@@ -32,6 +32,7 @@ from .admin_http import handle_admin_request
 from .config import Settings
 from .database import Database
 from .membership import MembershipService
+from .notification import NotificationService
 from .firebase_auth import (
     FirebaseAccountDisabled,
     FirebaseAdminVerifier,
@@ -62,6 +63,7 @@ AUTH_ROUTES: dict[str, set[str]] = {
     "/api/membership/plans": {"GET", "HEAD"},
     "/api/me": {"GET", "HEAD", "PATCH"},
     "/api/me/membership": {"GET", "HEAD"},
+    "/api/me/notifications": {"GET", "HEAD"},
 }
 
 
@@ -89,6 +91,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         auth_service: AuthService,
         admin_service: AdminService,
         membership_service: MembershipService,
+        notification_service: NotificationService,
     ) -> None:
         super().__init__(address, handler)
         self.settings = settings
@@ -96,6 +99,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         self.auth_service = auth_service
         self.admin_service = admin_service
         self.membership_service = membership_service
+        self.notification_service = notification_service
 
 
 class GravityRequestHandler(BaseHTTPRequestHandler):
@@ -241,6 +245,17 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             self._json_response(
                 HTTPStatus.OK,
                 {"membership": self.server.membership_service.customer_summary(session.customer_id)},
+                request_id=request_id,
+                send_body=send_body,
+            )
+            return HTTPStatus.OK
+        if path == "/api/me/notifications" and self.command in {"GET", "HEAD"}:
+            session, failure_status = self._require_session(request_id, send_body)
+            if not session:
+                return failure_status
+            self._json_response(
+                HTTPStatus.OK,
+                {"notifications": self.server.notification_service.list_customer(session.customer_id)},
                 request_id=request_id,
                 send_body=send_body,
             )
@@ -797,6 +812,7 @@ def create_server(
     auth_service = AuthService(database, configured, identity_verifier, **({"clock": clock} if clock else {}))
     admin_service = AdminService(database, configured, **({"clock": clock} if clock else {}))
     membership_service = MembershipService(database, **({"clock": clock} if clock else {}))
+    notification_service = NotificationService(database, membership_service, **({"clock": clock} if clock else {}))
     return GravityHTTPServer(
         (configured.host, configured.port),
         GravityRequestHandler,
@@ -805,4 +821,5 @@ def create_server(
         auth_service,
         admin_service,
         membership_service,
+        notification_service,
     )

@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 from typing import Any
 
 from .membership import MembershipConflict, MembershipNotFound, MembershipValidationError
+from .notification import NotificationConflict, NotificationNotFound, NotificationValidationError
 from .admin import (
     AdminChallengeExpired,
     AdminConflict,
@@ -137,6 +138,12 @@ def _error_response(handler: Any, error: Exception, request_id: str, send_body: 
             request_id,
             send_body,
         )
+    if isinstance(error, NotificationNotFound):
+        return _json(handler, HTTPStatus.NOT_FOUND, {"error": "notification_not_found"}, request_id, send_body)
+    if isinstance(error, NotificationConflict):
+        return _json(handler, HTTPStatus.CONFLICT, {"error": "notification_conflict"}, request_id, send_body)
+    if isinstance(error, NotificationValidationError):
+        return _json(handler, HTTPStatus.UNPROCESSABLE_ENTITY, {"error": "notification_validation"}, request_id, send_body)
     if isinstance(error, AdminConflict):
         return _json(handler, HTTPStatus.CONFLICT, {"error": "admin_conflict"}, request_id, send_body)
     if isinstance(error, AdminValidationError):
@@ -351,6 +358,14 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
                 if handler.command == "PATCH":
                     return _membership_plan_update(handler, plan_id, request_id, send_body)
                 return handler._method_not_allowed({"PATCH"}, request_id, send_body)
+        if path == "/api/admin/notifications":
+            if handler.command in {"GET", "HEAD"}:
+                return _notifications(handler, request_id, send_body)
+            return handler._method_not_allowed({"GET", "HEAD"}, request_id, send_body)
+        if path == "/api/admin/notifications/scan":
+            if handler.command == "POST":
+                return _notification_scan(handler, request_id, send_body)
+            return handler._method_not_allowed({"POST"}, request_id, send_body)
         if path == "/api/admin/memberships/expiring":
             if handler.command in {"GET", "HEAD"}:
                 return _expiring_memberships(handler, request_id, send_body)
@@ -388,6 +403,8 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
                 "/api/admin/logout-all": {"POST"},
                 "/api/admin/dashboard": {"GET", "HEAD"},
                 "/api/admin/members": {"GET", "HEAD"},
+                "/api/admin/notifications": {"GET", "HEAD"},
+                "/api/admin/notifications/scan": {"POST"},
                 "/api/admin/admins": {"GET", "POST"},
                 "/api/admin/audit": {"GET", "HEAD"},
             }
@@ -408,6 +425,9 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
         MembershipNotFound,
         MembershipConflict,
         MembershipValidationError,
+        NotificationNotFound,
+        NotificationConflict,
+        NotificationValidationError,
     ) as error:
         return _error_response(handler, error, request_id, send_body)
 
@@ -501,3 +521,29 @@ def _expiring_memberships(handler: Any, request_id: str, send_body: bool) -> HTT
         days = 7
     rows = handler.server.membership_service.expiring_within(days)
     return _json(handler, HTTPStatus.OK, {"memberships": rows}, request_id, send_body)
+
+def _notifications(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "notifications.manage")
+    raw_limit = parse_qs(urlsplit(handler.path).query).get("limit", ["100"])[0]
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        limit = 100
+    rows = handler.server.notification_service.list_admin(limit)
+    return _json(handler, HTTPStatus.OK, {"notifications": rows, "providerBlockers": handler.server.notification_service.provider_blockers()}, request_id, send_body)
+
+def _notification_scan(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "notifications.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    result = handler.server.notification_service.scan_expiring(payload.get("daysBefore", 7))
+    return _json(handler, HTTPStatus.OK, {"scan": result, "providerBlockers": handler.server.notification_service.provider_blockers()}, request_id, send_body)

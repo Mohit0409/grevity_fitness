@@ -60,12 +60,12 @@ class DatabaseTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "gravity.sqlite3"
             database = Database(path, ROOT / "server" / "migrations")
-            self.assertEqual(database.migrate(), ["001", "002", "003", "004"])
+            self.assertEqual(database.migrate(), ["001", "002", "003", "004", "005"])
             self.assertEqual(database.migrate(), [])
-            self.assertEqual(database.health(), {"database": "ok", "migrations": "4"})
+            self.assertEqual(database.health(), {"database": "ok", "migrations": "5"})
             with closing(sqlite3.connect(path)) as connection:
                 versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
-                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",)])
+                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",), ("005",)])
 
     def test_changed_applied_migration_is_rejected(self):
         with TemporaryDirectory() as temporary:

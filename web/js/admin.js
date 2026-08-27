@@ -215,9 +215,9 @@
   }
 
   async function showView(view) {
-    const allowed = new Set(['dashboard', 'members', 'memberships', 'admins', 'audit']);
+    const allowed = new Set(['dashboard', 'members', 'memberships', 'notifications', 'admins', 'audit']);
     state.view = allowed.has(view) ? view : 'dashboard';
-    const titles = { dashboard: 'Overview', members: 'Members', memberships: 'Memberships', admins: 'Team access', audit: 'Audit trail' };
+    const titles = { dashboard: 'Overview', members: 'Members', memberships: 'Memberships', notifications: 'Notifications', admins: 'Team access', audit: 'Audit trail' };
     document.querySelectorAll('.view').forEach((node) => { node.hidden = node.id !== `${state.view}View`; });
     document.querySelectorAll('nav [data-view]').forEach((node) => {
       node.classList.toggle('active', node.dataset.view === state.view);
@@ -225,6 +225,7 @@
     $('viewTitle').textContent = titles[state.view];
     if (state.view === 'dashboard') await renderDashboard();
     if (state.view === 'members') await renderMembers($('memberSearch').value);
+    if (state.view === 'notifications' && window.GravityNotificationAdmin) await window.GravityNotificationAdmin.renderWorkspace();
     if (state.view === 'admins') await renderAdmins();
     if (state.view === 'audit') await renderAudit();
   }

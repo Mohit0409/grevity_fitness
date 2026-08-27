@@ -62,12 +62,22 @@ Last updated: 2026-08-27
 - Added authenticated customer membership summary with current membership, upcoming renewal, validity dates, days remaining, and historical expired/cancelled memberships.
 - Plan edits never rewrite existing membership price/name/duration snapshots, preserving historical business records.
 
+
+### Phase 5 — Membership expiry notifications
+
+- Added migration `005_notification_outbox.sql` with idempotent reminder records and per-channel delivery state.
+- Expiry scans deduplicate by membership/window and suppress reminders when a renewal already exists or the source membership is no longer active.
+- Delivery records support email, SMS, and WhatsApp without copying raw customer contact values into the outbox; only channel/reference and delivery state are stored.
+- Missing recipients and unconfigured providers are explicit states; all external providers remain `BLOCKED_EXTERNAL_CONFIG` and no provider-send HTTP endpoint exists.
+- Added retry scheduling with bounded exponential backoff, sanitized provider error codes, due-delivery selection, and successful-delivery completion state.
+- Added authenticated member reminder history plus Control Room reminder history/manual scans protected by admin session, `notifications.manage`, same-origin, and CSRF checks.
+
 ## Known issues / production blockers
 
 - `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` credentials/client configuration and an authorized Admin service account are still required for real customer login verification. The application fails closed and reports auth disabled until configured.
 - `BLOCKED_EXTERNAL_CONFIG`: Razorpay, WhatsApp, SMS, SMTP, final domain, verified business contact details, GST/invoice identity, and final analytics IDs are not configured.
 - Existing public content contains unverified claims, scarcity, reviews, metrics, pricing, trainers, photos, opening hours, and contact details. These must not be represented as verified production facts.
-- Notifications, broader customer dashboard features, diet plans, progress, payments, and persistent invoices remain pending later phases.
+- Broader customer dashboard features, diet plans, progress, payments, persistent invoices, and real notification-provider delivery remain pending later phases.
 - Backup/restore scripts and a tested recovery drill remain Phase 10 work.
 
 ## Test status
@@ -84,12 +94,16 @@ Last updated: 2026-08-27
 - Phase 1–4 regression evidence: 38/38 `unittest` tests pass on 2026-08-27 in 26.055s. Python `compileall`, `node --check` for account/admin/membership scripts, and `git diff --check` pass.
 - Phase 4 live laptop smoke after migration `004` and fresh restart: PID 4656; `/api/health`, `/account`, `/admin`, `/js/admin-memberships.js`, `/js/account-page.js`, `/css/admin.css`, and `/api/membership/plans` return HTTP 200; the public catalog returns `{\"plans\":[]}` because imported prices are inactive drafts; unauthenticated `/api/me/membership`, `/api/admin/membership/plans`, and `/api/admin/memberships/expiring` return HTTP 401; `/.env` and migration source remain HTTP 404.
 
+- Phase 5 focused notification evidence: 6/6 tests pass, covering deduplication, renewal suppression/reconciliation, PII non-duplication, missing-recipient/provider-blocked states, retry/backoff, successful completion, customer/admin authentication, Reception RBAC, same-origin, CSRF, validation, and deny-by-default provider-send routing.
+- Phase 1–5 clean regression evidence: 44/44 `unittest` tests pass on 2026-08-27 in 27.762s. Python `compileall` and `node --check` for admin, membership, notification, account, and account-notification scripts pass in the same zero-exit release gate.
+- Phase 5 live laptop smoke after migration `005` and fresh restart: PID 13432; database migrations `5`; `/api/health`, `/account`, `/admin`, `/js/account-notifications.js`, `/js/admin-notifications.js`, and `/api/membership/plans` return HTTP 200; public plans remain empty until verified activation; unauthenticated `/api/me/notifications` and `/api/admin/notifications` return HTTP 401; `/api/admin/notifications/send`, `/.env`, notification source, and migration source return HTTP 404.
+
 ## Deployment status
 
 - Firebase public site remains the historical deployment; no new Firebase deployment is planned.
-- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 4 working tree (fresh PID 4656 at the release smoke, database migrations `4`).
+- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 5 working tree (fresh PID 13432 at the release smoke, database migrations `5`).
 - Termux: architecture-compatible; deployment runbook pending Phase 10.
 
 ## Next implementation milestone
 
-Phase 5: membership expiry notification foundation — idempotent notification outbox, reminder policy/deduplication, provider-neutral delivery records, retry/backoff, customer/admin delivery history, and adapters for email/SMS/WhatsApp that remain `BLOCKED_EXTERNAL_CONFIG` until real credentials and sender identities are supplied.
+Phase 6: server-owned payments and persistent invoices — payment intents, Razorpay signature/webhook verification, idempotency, payment/membership linkage, immutable invoice records and downloadable receipts. Keep real Razorpay activation `BLOCKED_EXTERNAL_CONFIG` until verified credentials and business/GST identity are supplied.
