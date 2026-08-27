@@ -6,6 +6,7 @@ import json
 import re
 import time
 
+from .config import Settings
 from .database import Database
 from .membership import MembershipService
 
@@ -45,22 +46,26 @@ class NotificationService:
         self,
         database: Database,
         membership_service: MembershipService,
+        settings: Settings | None = None,
         *,
         clock: Callable[[], float] | None = None,
     ) -> None:
         self.database = database
         self.membership_service = membership_service
+        self.settings = settings
         self.clock = clock or time.time
 
     def _now(self) -> int:
         return int(self.clock())
 
-    @staticmethod
-    def provider_blockers() -> dict[str, str]:
+    def provider_blockers(self) -> dict[str, str]:
+        settings = self.settings
+        if settings is None:
+            return {"email": "BLOCKED_EXTERNAL_CONFIG", "sms": "BLOCKED_EXTERNAL_CONFIG", "whatsapp": "BLOCKED_EXTERNAL_CONFIG"}
         return {
-            "email": "BLOCKED_EXTERNAL_CONFIG",
-            "sms": "BLOCKED_EXTERNAL_CONFIG",
-            "whatsapp": "BLOCKED_EXTERNAL_CONFIG",
+            "email": "READY" if settings.smtp_configured else "BLOCKED_EXTERNAL_CONFIG",
+            "sms": "BLOCKED_ADAPTER_MISSING" if settings.sms_credentials_configured else "BLOCKED_EXTERNAL_CONFIG",
+            "whatsapp": "BLOCKED_ADAPTER_MISSING" if settings.whatsapp_credentials_configured else "BLOCKED_EXTERNAL_CONFIG",
         }
 
     def _has_renewal(self, connection, customer_id: str, membership_id: str, ends_at: int) -> bool:
@@ -256,6 +261,45 @@ class NotificationService:
             ).fetchone()
             connection.commit()
         return self._safe_delivery(updated)
+
+    def activate_channels(self, channels: set[str]) -> int:
+        allowed = {channel for channel in channels if channel in {"email", "sms", "whatsapp"}}
+        if not allowed:
+            return 0
+        now = self._now()
+        changed = 0
+        with self.database.session() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            for channel in sorted(allowed):
+                cursor = connection.execute(
+                    "UPDATE notification_deliveries SET status='queued',next_attempt_at=?,updated_at=? "
+                    "WHERE channel=? AND status='blocked_external_config'",
+                    (now, now, channel),
+                )
+                changed += max(cursor.rowcount, 0)
+            connection.commit()
+        return changed
+
+    def delivery_context(self, delivery_id: str) -> dict[str, object]:
+        with self.database.session() as connection:
+            row = connection.execute(
+                "SELECT d.*,r.state AS reminder_state,r.trigger_days,r.payload_json,c.display_name,c.email,c.phone_e164 "
+                "FROM notification_deliveries d JOIN notification_reminders r ON r.id=d.reminder_id "
+                "JOIN customers c ON c.id=r.customer_id WHERE d.id=?",
+                (delivery_id,),
+            ).fetchone()
+        if row is None:
+            raise NotificationNotFound("Notification delivery not found")
+        if row["reminder_state"] != "pending":
+            raise NotificationConflict("Reminder is no longer pending")
+        recipient = row["email"] if row["recipient_ref"] == "email" else row["phone_e164"]
+        if not recipient:
+            raise NotificationConflict("Recipient is unavailable")
+        try:
+            payload = json.loads(row["payload_json"] or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        return {"id": row["id"], "channel": row["channel"], "recipient": recipient, "displayName": row["display_name"], "triggerDays": int(row["trigger_days"]), "payload": payload}
 
     def due_deliveries(self, limit: int = 50) -> list[dict[str, object]]:
         now = self._now()

@@ -26,7 +26,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "admin": frozenset({
         "dashboard.view", "members.read", "members.manage", "memberships.manage",
         "membership_plans.manage", "payments.read", "payments.record", "notifications.manage", "diet.manage",
-        "progress.manage", "content.manage", "audit.read",
+        "progress.manage", "content.manage", "audit.read", "system.readiness",
     }),
     "trainer": frozenset({"dashboard.view", "members.read", "diet.manage", "progress.manage"}),
     "reception": frozenset({

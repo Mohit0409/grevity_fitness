@@ -183,6 +183,20 @@ class HttpFoundationTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertIn(b'/js/account-coaching.js', account)
 
+    def test_readiness_ui_contract_is_wired(self):
+        with running_server() as (base, _settings):
+            status, _headers, admin = fetch(base, "/admin")
+            self.assertEqual(status, 200)
+            for marker in (
+                b'data-view="readiness"', b'id="readinessView"', b'id="readinessSummary"',
+                b'id="readinessBody"', b'id="refreshReadiness"', b'/js/admin-readiness.js',
+            ):
+                self.assertIn(marker, admin)
+            status, _headers, body = fetch(base, "/js/admin-readiness.js")
+            self.assertEqual(status, 200)
+            self.assertIn(b'/api/admin/readiness', body)
+            self.assertIn(b'system.readiness', body)
+
     def test_crawl_files_use_configured_public_origin(self):
         with running_server() as (base, _settings):
             status, headers, body = fetch(base, "/robots.txt")

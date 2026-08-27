@@ -35,6 +35,7 @@ from .membership import MembershipService
 from .notification import NotificationService
 from .payment import PaymentService
 from .coaching import CoachingService
+from .readiness import ReadinessService
 from .coaching_http import handle_coaching_request
 from .payment_http import handle_payment_request
 from .firebase_auth import (
@@ -99,6 +100,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         notification_service: NotificationService,
         payment_service: PaymentService,
         coaching_service: CoachingService,
+        readiness_service: ReadinessService,
     ) -> None:
         super().__init__(address, handler)
         self.settings = settings
@@ -109,6 +111,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         self.notification_service = notification_service
         self.payment_service = payment_service
         self.coaching_service = coaching_service
+        self.readiness_service = readiness_service
 
 
 class GravityRequestHandler(BaseHTTPRequestHandler):
@@ -898,9 +901,10 @@ def create_server(
     auth_service = AuthService(database, configured, identity_verifier, **({"clock": clock} if clock else {}))
     admin_service = AdminService(database, configured, **({"clock": clock} if clock else {}))
     membership_service = MembershipService(database, **({"clock": clock} if clock else {}))
-    notification_service = NotificationService(database, membership_service, **({"clock": clock} if clock else {}))
+    notification_service = NotificationService(database, membership_service, configured, **({"clock": clock} if clock else {}))
     payment_service = PaymentService(database, configured, membership_service, **({"clock": clock} if clock else {}))
     coaching_service = CoachingService(database, **({"clock": clock} if clock else {}))
+    readiness_service = ReadinessService(configured)
     return GravityHTTPServer(
         (configured.host, configured.port),
         GravityRequestHandler,
@@ -912,4 +916,5 @@ def create_server(
         notification_service,
         payment_service,
         coaching_service,
+        readiness_service,
     )

@@ -332,6 +332,14 @@ def _audit(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
     rows = handler.server.admin_service.audit_log(session, limit)
     return _json(handler, HTTPStatus.OK, {"audit": rows}, request_id, send_body)
 
+def _readiness(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "system.readiness")
+    return _json(handler, HTTPStatus.OK, {"readiness": handler.server.readiness_service.report()}, request_id, send_body)
+
+
 def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bool) -> HTTPStatus | None:
     try:
         if path == "/api/admin/session" and handler.command in {"GET", "HEAD"}:
@@ -346,6 +354,8 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
             return _logout(handler, request_id, send_body, all_sessions=True)
         if path == "/api/admin/dashboard" and handler.command in {"GET", "HEAD"}:
             return _dashboard(handler, request_id, send_body)
+        if path == "/api/admin/readiness" and handler.command in {"GET", "HEAD"}:
+            return _readiness(handler, request_id, send_body)
         if path == "/api/admin/members" and handler.command in {"GET", "HEAD"}:
             return _members(handler, request_id, send_body)
         if path == "/api/admin/membership/plans":
@@ -402,6 +412,7 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
                 "/api/admin/logout": {"POST"},
                 "/api/admin/logout-all": {"POST"},
                 "/api/admin/dashboard": {"GET", "HEAD"},
+                "/api/admin/readiness": {"GET", "HEAD"},
                 "/api/admin/members": {"GET", "HEAD"},
                 "/api/admin/notifications": {"GET", "HEAD"},
                 "/api/admin/notifications/scan": {"POST"},

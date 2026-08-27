@@ -215,9 +215,9 @@
   }
 
   async function showView(view) {
-    const allowed = new Set(['dashboard', 'members', 'memberships', 'coaching', 'notifications', 'admins', 'audit']);
+    const allowed = new Set(['dashboard', 'members', 'memberships', 'coaching', 'notifications', 'readiness', 'admins', 'audit']);
     state.view = allowed.has(view) ? view : 'dashboard';
-    const titles = { dashboard: 'Overview', members: 'Members', memberships: 'Memberships', coaching: 'Coaching', notifications: 'Notifications', admins: 'Team access', audit: 'Audit trail' };
+    const titles = { dashboard: 'Overview', members: 'Members', memberships: 'Memberships', coaching: 'Coaching', notifications: 'Notifications', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
     document.querySelectorAll('.view').forEach((node) => { node.hidden = node.id !== `${state.view}View`; });
     document.querySelectorAll('nav [data-view]').forEach((node) => {
       node.classList.toggle('active', node.dataset.view === state.view);
@@ -227,13 +227,14 @@
     if (state.view === 'members') await renderMembers($('memberSearch').value);
     if (state.view === 'coaching' && window.GravityCoachingAdmin) await window.GravityCoachingAdmin.renderWorkspace();
     if (state.view === 'notifications' && window.GravityNotificationAdmin) await window.GravityNotificationAdmin.renderWorkspace();
+    if (state.view === 'readiness' && window.GravityReadinessAdmin) await window.GravityReadinessAdmin.renderWorkspace();
     if (state.view === 'admins') await renderAdmins();
     if (state.view === 'audit') await renderAudit();
   }
 
   async function enterApp(admin) {
     state.admin = admin;
-    $('adminIdentity').textContent = `${admin.username} Â· ${admin.role}`;
+    $('adminIdentity').textContent = `${admin.username} · ${admin.role}`;
     $('adminsNav').hidden = admin.role !== 'owner';
     $('newAdmin').hidden = admin.role !== 'owner';
     $('auditNav').hidden = !hasPermission('audit.read');

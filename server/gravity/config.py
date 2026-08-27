@@ -5,6 +5,10 @@ from pathlib import Path
 from typing import Mapping
 from ipaddress import ip_network
 import os
+import re
+
+
+GSTIN_PATTERN = re.compile(r"^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
 
 
 def _load_dotenv(path: Path, target: dict[str, str]) -> None:
@@ -75,6 +79,27 @@ class Settings:
     razorpay_key_id: str
     razorpay_key_secret: str
     razorpay_webhook_secret: str
+    whatsapp_provider: str
+    whatsapp_access_token: str
+    whatsapp_phone_number_id: str
+    sms_provider: str
+    sms_api_key: str
+    smtp_host: str
+    smtp_port: int
+    smtp_security: str
+    smtp_username: str
+    smtp_password: str
+    email_from: str
+    owner_phone: str
+    owner_whatsapp: str
+    owner_email: str
+    business_name: str
+    business_address: str
+    business_gstin: str
+    tax_invoice_enabled: bool
+    business_instagram: str
+    google_analytics_id: str
+    meta_pixel_id: str
     session_idle_seconds: int
     session_absolute_seconds: int
 
@@ -107,6 +132,12 @@ class Settings:
         razorpay_mode = values.get("RAZORPAY_MODE", "test").strip().lower() or "test"
         if razorpay_mode not in {"test", "live"}:
             raise ValueError("RAZORPAY_MODE must be test or live")
+        smtp_port = int(values.get("SMTP_PORT", "587") or "587")
+        if not 1 <= smtp_port <= 65535:
+            raise ValueError("SMTP_PORT must be between 1 and 65535")
+        smtp_security = values.get("SMTP_SECURITY", "starttls").strip().lower() or "starttls"
+        if smtp_security not in {"starttls", "ssl", "none"}:
+            raise ValueError("SMTP_SECURITY must be starttls, ssl, or none")
         idle_seconds = int(values.get("SESSION_IDLE_SECONDS", "43200"))
         absolute_seconds = int(values.get("SESSION_ABSOLUTE_SECONDS", "2592000"))
         if idle_seconds < 300 or absolute_seconds < idle_seconds:
@@ -144,6 +175,27 @@ class Settings:
             razorpay_key_id=values.get("RAZORPAY_KEY_ID", "").strip(),
             razorpay_key_secret=values.get("RAZORPAY_KEY_SECRET", "").strip(),
             razorpay_webhook_secret=values.get("RAZORPAY_WEBHOOK_SECRET", "").strip(),
+            whatsapp_provider=values.get("WHATSAPP_PROVIDER", "").strip(),
+            whatsapp_access_token=values.get("WHATSAPP_ACCESS_TOKEN", "").strip(),
+            whatsapp_phone_number_id=values.get("WHATSAPP_PHONE_NUMBER_ID", "").strip(),
+            sms_provider=values.get("SMS_PROVIDER", "").strip(),
+            sms_api_key=values.get("SMS_API_KEY", "").strip(),
+            smtp_host=values.get("SMTP_HOST", "").strip(),
+            smtp_port=smtp_port,
+            smtp_security=smtp_security,
+            smtp_username=values.get("SMTP_USERNAME", "").strip(),
+            smtp_password=values.get("SMTP_PASSWORD", "").strip(),
+            email_from=values.get("EMAIL_FROM", "").strip(),
+            owner_phone=values.get("OWNER_PHONE", "").strip(),
+            owner_whatsapp=values.get("OWNER_WHATSAPP", "").strip(),
+            owner_email=values.get("OWNER_EMAIL", "").strip(),
+            business_name=values.get("BUSINESS_NAME", "Gravity Fitness").strip() or "Gravity Fitness",
+            business_address=values.get("BUSINESS_ADDRESS", "").strip(),
+            business_gstin=values.get("BUSINESS_GSTIN", "").strip().upper(),
+            tax_invoice_enabled=_boolean(values.get("TAX_INVOICE_ENABLED"), False),
+            business_instagram=values.get("BUSINESS_INSTAGRAM", "").strip(),
+            google_analytics_id=values.get("GOOGLE_ANALYTICS_ID", "").strip(),
+            meta_pixel_id=values.get("META_PIXEL_ID", "").strip(),
             session_idle_seconds=idle_seconds,
             session_absolute_seconds=absolute_seconds,
         )
@@ -193,6 +245,38 @@ class Settings:
     @property
     def razorpay_webhook_configured(self) -> bool:
         return bool(self.razorpay_webhook_secret)
+
+    @property
+    def whatsapp_credentials_configured(self) -> bool:
+        return bool(self.whatsapp_provider and self.whatsapp_access_token and self.whatsapp_phone_number_id)
+
+    @property
+    def sms_credentials_configured(self) -> bool:
+        return bool(self.sms_provider and self.sms_api_key)
+
+    @property
+    def smtp_configured(self) -> bool:
+        return bool(self.smtp_host and self.smtp_username and self.smtp_password and self.email_from)
+
+    @property
+    def business_identity_configured(self) -> bool:
+        return bool(self.business_name and self.business_address and (self.owner_phone or self.owner_email))
+
+    @property
+    def gstin_format_valid(self) -> bool:
+        return bool(self.business_gstin and GSTIN_PATTERN.fullmatch(self.business_gstin))
+
+    @property
+    def tax_invoice_identity_configured(self) -> bool:
+        return bool(self.tax_invoice_enabled and self.business_identity_configured and self.gstin_format_valid)
+
+    @property
+    def google_analytics_configured(self) -> bool:
+        return bool(self.google_analytics_id)
+
+    @property
+    def meta_pixel_configured(self) -> bool:
+        return bool(self.meta_pixel_id)
 
     @property
     def session_cookie_name(self) -> str:

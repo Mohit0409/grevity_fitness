@@ -102,11 +102,19 @@ Last updated: 2026-08-27
 - Reduced homepage HTML from roughly 87 KB to about 48 KB, reduced `analytics.js` from roughly 20 KB to about 3.3 KB, removed the embedded map iframe, and deferred the decorative athlete bundle until browser idle on eligible desktop sessions.
 - Rewrote public Trainers and Gallery pages so media is illustrative and coach credentials/availability are not asserted until verified.
 
+### Phase 9 â€” Production-readiness and verified integration hardening
+
+- Added a secret-safe readiness service and owner/admin-only `/api/admin/readiness` surface covering runtime HTTPS/production state, Firebase, Razorpay, notification channels, verified business identity, GST/tax-invoice gating, and analytics configuration without returning credential values.
+- Added an admin Readiness workspace that exposes configuration status and blockers while keeping trainer/reception roles denied by RBAC.
+- Added explicit business/contact/GST/tax-invoice, SMTP, SMS, WhatsApp, and analytics configuration parsing. Tax invoices remain disabled unless explicitly enabled with verified business identity and a format-valid GSTIN.
+- Added a real SMTP email delivery adapter with SSL/STARTTLS modes and retry-safe dispatch integration. SMS and WhatsApp remain `BLOCKED_ADAPTER_MISSING` even if credentials are later supplied; no fake provider success path exists.
+- Notification dispatch resolves customer contact only at send time and does not persist raw email/phone values in the outbox. CLI operations now support explicit expiry scanning and delivery attempts; server startup does not auto-send notifications.
+
 ## Known issues / production blockers
 
 - `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` credentials/client configuration and an authorized Admin service account are still required for real customer login verification. The application fails closed and reports auth disabled until configured.
 - `BLOCKED_EXTERNAL_CONFIG`: Razorpay, WhatsApp, SMS, SMTP, final domain, verified business contact details, GST/invoice identity, and final analytics IDs are not configured.
-- Broader customer dashboard visualization, tax-invoice issuance, final verified production domain/business identity, and real notification-provider delivery remain pending later phases.
+- Broader customer dashboard visualization, final tax-invoice issuance, and final verified production domain/business identity remain pending. SMTP delivery code is ready but external SMTP configuration is absent; SMS/WhatsApp provider adapters remain intentionally blocked.
 - Backup/restore scripts and a tested recovery drill remain Phase 10 work.
 
 ## Test status
@@ -139,12 +147,16 @@ Last updated: 2026-08-27
 - Phase 1–8 clean regression evidence: 59/59 `unittest` tests pass on 2026-08-27 in 35.193s. Python `compileall`, every `web/js/*.js` syntax check, all homepage inline JavaScript syntax checks, and `git diff --check` pass in the same zero-exit gate.
 - Phase 8 live laptop smoke after fresh restart: PID 18036; database migrations remain `7`; `/`, `/trainers`, `/gallery`, `/robots.txt`, `/sitemap.xml`, `/assets/site.webmanifest`, and new public JS assets return HTTP 200; public membership plans remain `{"plans":[]}` until staff activation; `/.env` and server/test source paths remain HTTP 404.
 
+- Phase 9 focused readiness/delivery evidence: 7/7 tests pass in 4.546s, covering secret-safe readiness reporting, owner/admin RBAC, tax-invoice identity gating, SMTP STARTTLS behavior without network access, send-time recipient resolution without PII persistence, successful delivery completion, and retry-safe failure state.
+- Phase 1â€“9 clean regression evidence: 67/67 `unittest` tests pass on 2026-08-27 in 43.934s. Python compilation, all `web/js/*.js` syntax checks, and `git diff --check` complete with zero exit.
+- Phase 9 live laptop smoke after fresh restart: PID 13116; database migrations remain `7`; `/api/health`, `/admin`, `/js/admin-readiness.js`, and `/api/admin/session` return HTTP 200; unauthenticated `/api/admin/readiness` returns HTTP 401; `/.env`, readiness source, and delivery source return HTTP 404. Live configuration reports SMTP/SMS/WhatsApp and tax-invoice identity disabled, so no external delivery or tax claim is enabled.
+
 ## Deployment status
 
 - Firebase public site remains the historical deployment; no new Firebase deployment is planned.
-- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 8 working tree (fresh PID 18036 at the release smoke, database migrations `7`).
+- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 9 working tree (fresh PID 13116 at the release smoke, database migrations `7`).
 - Termux: architecture-compatible; deployment runbook pending Phase 10.
 
 ## Next implementation milestone
 
-Phase 9: production-readiness and verified integration hardening — prepare final domain/business identity activation, notification-provider delivery adapters, tax-invoice identity gating, customer dashboard polish, and launch configuration without inventing unavailable external credentials.
+Phase 10: backup, restore, and deployment operations â€” add verified SQLite/application backup automation, restore validation, a documented recovery drill, Termux/Linux deployment runbook, and launch rollback procedures without weakening the existing localhost-first security boundary.

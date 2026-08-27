@@ -15,6 +15,9 @@ from .admin import (
 )
 from .config import Settings
 from .database import Database
+from .delivery import NotificationDispatcher
+from .membership import MembershipService
+from .notification import NotificationService
 from .http import create_server
 from .logging_config import configure_logging
 
@@ -26,6 +29,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--check-db", action="store_true", help="Apply migrations and check SQLite integrity")
     parser.add_argument("--root", type=Path, help="Repository root (primarily for tests/operations)")
     parser.add_argument("--bootstrap-owner", metavar="USERNAME", help="Create the first owner securely")
+    parser.add_argument("--scan-notifications", type=int, metavar="DAYS", help="Create expiry reminders for a day window")
+    parser.add_argument("--deliver-notifications", action="store_true", help="Attempt due notifications using configured adapters")
     return parser
 
 
@@ -77,6 +82,19 @@ def main() -> int:
         result = database.health()
         print(result)
         return 0 if result["database"] == "ok" else 1
+
+    if args.scan_notifications is not None or args.deliver_notifications:
+        database = Database(settings.database_path, settings.migrations_dir)
+        database.migrate()
+        memberships = MembershipService(database)
+        notifications = NotificationService(database, memberships, settings)
+        if args.scan_notifications is not None:
+            print({"scan": notifications.scan_expiring(args.scan_notifications)})
+        if args.deliver_notifications:
+            result = NotificationDispatcher.from_settings(notifications, settings).process_due()
+            print({"delivery": result})
+            return 1 if result["failed"] else 0
+        return 0
 
     server = create_server(settings)
     logger = logging.getLogger("gravity.server")
