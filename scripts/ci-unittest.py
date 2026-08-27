@@ -17,7 +17,7 @@ def main() -> int:
         sys.stderr.write(result.stderr)
     if result.returncode != 0:
         combined = (result.stdout + "\n" + result.stderr).strip()
-        tail = combined[-12000:]
+        tail = combined[-3500:]
         print(f"::error title=Python unittest failure::{_github_escape(tail)}")
     return result.returncode
 
