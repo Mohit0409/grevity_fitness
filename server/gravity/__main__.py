@@ -18,6 +18,7 @@ from .database import Database
 from .delivery import NotificationDispatcher
 from .membership import MembershipService
 from .notification import NotificationService
+from .operations import BackupManager, OperationsError
 from .http import create_server
 from .logging_config import configure_logging
 
@@ -31,6 +32,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--bootstrap-owner", metavar="USERNAME", help="Create the first owner securely")
     parser.add_argument("--scan-notifications", type=int, metavar="DAYS", help="Create expiry reminders for a day window")
     parser.add_argument("--deliver-notifications", action="store_true", help="Attempt due notifications using configured adapters")
+    operations = parser.add_mutually_exclusive_group()
+    operations.add_argument("--create-backup", action="store_true", help="Create a verified online SQLite backup")
+    operations.add_argument("--verify-backup", type=Path, metavar="ARCHIVE", help="Verify a Gravity backup archive")
+    operations.add_argument("--recovery-drill", type=Path, metavar="ARCHIVE", help="Restore a backup into a temporary drill database and validate it")
+    operations.add_argument("--restore-backup", type=Path, metavar="ARCHIVE", help="Restore the live database from a verified backup")
+    parser.add_argument("--backup-label", default="manual", help="Label used when creating a backup")
+    parser.add_argument("--confirm-live-restore", action="store_true", help="Required confirmation for replacing the live database")
     return parser
 
 
@@ -82,6 +90,26 @@ def main() -> int:
         result = database.health()
         print(result)
         return 0 if result["database"] == "ok" else 1
+
+    if args.create_backup or args.verify_backup or args.recovery_drill or args.restore_backup:
+        manager = BackupManager(settings, Database(settings.database_path, settings.migrations_dir))
+        try:
+            if args.create_backup:
+                result = manager.create_backup(args.backup_label)
+            elif args.verify_backup:
+                result = manager.verify_backup(args.verify_backup)
+            elif args.recovery_drill:
+                result = manager.recovery_drill(args.recovery_drill)
+            else:
+                if not args.confirm_live_restore:
+                    print("Live restore requires --confirm-live-restore and a stopped Gravity server.")
+                    return 2
+                result = manager.restore_live(args.restore_backup)
+        except OperationsError as error:
+            print(f"Gravity operation failed: {error}")
+            return 2
+        print(result)
+        return 0
 
     if args.scan_notifications is not None or args.deliver_notifications:
         database = Database(settings.database_path, settings.migrations_dir)

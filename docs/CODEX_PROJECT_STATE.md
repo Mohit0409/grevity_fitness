@@ -110,12 +110,24 @@ Last updated: 2026-08-27
 - Added a real SMTP email delivery adapter with SSL/STARTTLS modes and retry-safe dispatch integration. SMS and WhatsApp remain `BLOCKED_ADAPTER_MISSING` even if credentials are later supplied; no fake provider success path exists.
 - Notification dispatch resolves customer contact only at send time and does not persist raw email/phone values in the outbox. CLI operations now support explicit expiry scanning and delivery attempts; server startup does not auto-send notifications.
 
+
+### Phase 10 ? Backup, recovery, and deployment operations
+
+- Added `server/gravity/operations.py` with online SQLite backup through the SQLite backup API, ZIP packaging restricted to `gravity.sqlite3` + `manifest.json`, SHA-256 integrity metadata, migration/schema-stage capture, archive allowlisting, verification, non-destructive recovery drills, guarded alternate/live restore, and restrictive backup permissions where supported.
+- Live restore requires explicit confirmation, refuses to proceed while Gravity appears to be running, respects both the default PID file and `GRAVITY_RUNTIME_DIR`, treats POSIX PID permission errors as alive/fail-closed, creates and verifies a pre-restore safety backup, and removes stale SQLite `-wal`/`-shm` sidecars only after that safety backup succeeds.
+- Added CLI operations for create/verify/drill/restore plus Windows PowerShell and Linux/Termux wrapper scripts. Linux startup/status scripts now resolve `.env` consistently and health-check the configured Gravity URL rather than assuming port 8787.
+- Added `docs/OPERATIONS_RUNBOOK.md` covering backup policy, Windows/Linux/Termux operation, scheduling, guarded restore, recovery verification, software/data rollback, and launch checks. External/off-device backup copies remain an operator responsibility and must not contain application secrets.
+- Focused operations regression: 9/9 tests passed, including custom runtime PID blocking, stale WAL/SHM cleanup, malformed-manifest rejection, and POSIX `PermissionError` fail-closed PID behavior.
+- Full repository release gate: 77/77 `unittest` tests passed on 2026-08-27 in 66.449s after Python `compileall`; all 15 `web/js/*.js` files passed `node --check`; all PowerShell scripts passed parser validation; all shell scripts passed Git-for-Windows `sh.exe -n`; `git diff --check` passed.
+- Live online proof while Gravity remained running as PID 14196: `gravity-phase10-final-20260827T181657012522Z.zip` was created, verified `valid=True`, reported 7 migrations and `schemaStage=progress_coaching`, and passed the non-destructive recovery drill. `/api/health` remained `{"status":"ok","service":"Gravity Fitness","database":"ok"}` before and after the drill.
+- No destructive live restore was performed on the production laptop database; unit coverage plus the non-destructive recovery drill are the release evidence for restore behavior.
+
 ## Known issues / production blockers
 
 - `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` credentials/client configuration and an authorized Admin service account are still required for real customer login verification. The application fails closed and reports auth disabled until configured.
 - `BLOCKED_EXTERNAL_CONFIG`: Razorpay, WhatsApp, SMS, SMTP, final domain, verified business contact details, GST/invoice identity, and final analytics IDs are not configured.
 - Broader customer dashboard visualization, final tax-invoice issuance, and final verified production domain/business identity remain pending. SMTP delivery code is ready but external SMTP configuration is absent; SMS/WhatsApp provider adapters remain intentionally blocked.
-- Backup/restore scripts and a tested recovery drill remain Phase 10 work.
+- Production launch still requires verified external configuration/canaries, first owner bootstrap, active-plan verification, TLS/reverse-proxy deployment, and final production smoke checks.
 
 ## Test status
 - Phase 1 automated test evidence: 11/11 `unittest` tests passed on 2026-08-26 using Python 3.12.13.
@@ -151,12 +163,14 @@ Last updated: 2026-08-27
 - Phase 1â€“9 clean regression evidence: 67/67 `unittest` tests pass on 2026-08-27 in 43.934s. Python compilation, all `web/js/*.js` syntax checks, and `git diff --check` complete with zero exit.
 - Phase 9 live laptop smoke after fresh restart: PID 13116; database migrations remain `7`; `/api/health`, `/admin`, `/js/admin-readiness.js`, and `/api/admin/session` return HTTP 200; unauthenticated `/api/admin/readiness` returns HTTP 401; `/.env`, readiness source, and delivery source return HTTP 404. Live configuration reports SMTP/SMS/WhatsApp and tax-invoice identity disabled, so no external delivery or tax claim is enabled.
 
+- Phase 10 focused operations evidence: 9/9 tests pass. Full current regression: 77/77 tests pass in 66.449s, with Python compile, 15 JavaScript syntax checks, PowerShell parser checks, POSIX shell syntax checks, and `git diff --check` all green. Live backup verification and recovery drill pass while the application remains healthy.
+
 ## Deployment status
 
 - Firebase public site remains the historical deployment; no new Firebase deployment is planned.
-- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 9 working tree (fresh PID 13116 at the release smoke, database migrations `7`).
-- Termux: architecture-compatible; deployment runbook pending Phase 10.
+- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787`; Phase 10 live backup/drill proof completed with PID 14196 and database migrations `7`.
+- Termux/Linux: architecture-compatible operational scripts and deployment/recovery runbook are now present; an actual production Termux cutover remains a separate launch action.
 
 ## Next implementation milestone
 
-Phase 10: backup, restore, and deployment operations â€” add verified SQLite/application backup automation, restore validation, a documented recovery drill, Termux/Linux deployment runbook, and launch rollback procedures without weakening the existing localhost-first security boundary.
+Phase 11: final launch preparation ? verified Firebase/domain/business/provider configuration, production TLS/reverse-proxy deployment, external-provider canaries, first owner bootstrap, active membership-plan verification, production smoke tests, and the final launch checklist. Keep every external integration fail-closed until real user-supplied credentials or verified business data exist.
