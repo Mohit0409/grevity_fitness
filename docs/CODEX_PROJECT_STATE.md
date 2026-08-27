@@ -1,6 +1,6 @@
 # Gravity Fitness — Codex Project State
 
-Last updated: 2026-08-26
+Last updated: 2026-08-27
 
 ## Architecture decisions
 
@@ -51,13 +51,23 @@ Last updated: 2026-08-26
 - Added protected `/api/admin/*` endpoints for session state, login/2FA, dashboard, members, team access, audit, logout, and controlled status changes; unknown admin/API paths remain deny-by-default.
 - Added the `/admin` Control Room UI with server-owned authorization state, CSRF-protected mutations, member management, owner-only team management, and audit views.
 - Disabling a customer revokes active customer sessions. Customer and administrator authentication/session namespaces remain separate.
+### Phase 4 — Membership engine and lifecycle
+
+- Added migration `004_membership_engine.sql` with plan catalog, memberships, immutable plan snapshots, membership lifecycle events, plan audit events, expiry indexes, and unique verified-payment references.
+- Imported the historical Basic/Pro/Elite public prices as inactive drafts. They are not exposed publicly or assignable until an authorized administrator explicitly verifies and activates them.
+- Added deterministic calendar-month membership periods, month-end handling, active/scheduled/expired/cancelled transitions, renewal scheduling without overlap, cancellation reasons, expiry reconciliation, and server-calculated days remaining.
+- Added idempotent payment-reference protection while keeping payment activation unavailable until a verified server-side payment flow exists.
+- Added `membership_plans.manage` separately from `memberships.manage`: owner/admin may manage the plan catalog; reception may assign, renew, cancel, and inspect memberships but cannot alter pricing/plans.
+- Added protected admin APIs and Control Room UI for plan management, member assignment/renewal/cancellation, and expiry watch; all mutations remain behind admin session, RBAC, same-origin, and CSRF checks.
+- Added authenticated customer membership summary with current membership, upcoming renewal, validity dates, days remaining, and historical expired/cancelled memberships.
+- Plan edits never rewrite existing membership price/name/duration snapshots, preserving historical business records.
 
 ## Known issues / production blockers
 
 - `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` credentials/client configuration and an authorized Admin service account are still required for real customer login verification. The application fails closed and reports auth disabled until configured.
 - `BLOCKED_EXTERNAL_CONFIG`: Razorpay, WhatsApp, SMS, SMTP, final domain, verified business contact details, GST/invoice identity, and final analytics IDs are not configured.
 - Existing public content contains unverified claims, scarcity, reviews, metrics, pricing, trainers, photos, opening hours, and contact details. These must not be represented as verified production facts.
-- Memberships, notifications, customer dashboard, diet plans, progress, payments, and persistent invoices remain pending later phases.
+- Notifications, broader customer dashboard features, diet plans, progress, payments, and persistent invoices remain pending later phases.
 - Backup/restore scripts and a tested recovery drill remain Phase 10 work.
 
 ## Test status
@@ -70,13 +80,16 @@ Last updated: 2026-08-26
 - Real Firebase sign-in remains blocked only by external `gravity-authe` configuration; no fake success path is enabled.
 - Phase 3 release-gate evidence: 30/30 `unittest` tests pass on 2026-08-26, including 4 focused admin-security tests for TOTP replay prevention, one-time recovery codes, RBAC, CSRF, administrator-session revocation, and customer-session revocation.
 - Phase 3 `compileall`, `node --check web/js/admin.js`, and `git diff --check` pass. Fresh laptop smoke: `/api/health` 200, `/admin` 200, `/api/admin/session` 200 with `configured=true` and `bootstrapRequired=true`, unauthenticated `/api/admin/dashboard` 401, unknown admin paths 404, `.env` 404, admin source 404, and admin CSS/JS 200.
+- Phase 4 focused admin + membership evidence: 11/11 tests pass, covering Reception RBAC, inactive-plan enforcement, renewal scheduling, expiry reconciliation, cancellation, verified-payment idempotency, immutable plan snapshots, and plan audit events.
+- Phase 1–4 regression evidence: 38/38 `unittest` tests pass on 2026-08-27 in 26.055s. Python `compileall`, `node --check` for account/admin/membership scripts, and `git diff --check` pass.
+- Phase 4 live laptop smoke after migration `004` and fresh restart: PID 4656; `/api/health`, `/account`, `/admin`, `/js/admin-memberships.js`, `/js/account-page.js`, `/css/admin.css`, and `/api/membership/plans` return HTTP 200; the public catalog returns `{\"plans\":[]}` because imported prices are inactive drafts; unauthenticated `/api/me/membership`, `/api/admin/membership/plans`, and `/api/admin/memberships/expiring` return HTTP 401; `/.env` and migration source remain HTTP 404.
 
 ## Deployment status
 
 - Firebase public site remains the historical deployment; no new Firebase deployment is planned.
-- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 3 working tree (fresh PID 6696 at the release smoke).
+- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 4 working tree (fresh PID 4656 at the release smoke, database migrations `4`).
 - Termux: architecture-compatible; deployment runbook pending Phase 10.
 
 ## Next implementation milestone
 
-Phase 4: membership engine and lifecycle — plan catalog, member subscriptions, start/end dates, status transitions, renewal/extension rules, admin controls, customer-visible membership state, deterministic expiry calculation, audit history, and tests. Keep notification providers as `BLOCKED_EXTERNAL_CONFIG`; core membership state must work without them.
+Phase 5: membership expiry notification foundation — idempotent notification outbox, reminder policy/deduplication, provider-neutral delivery records, retry/backoff, customer/admin delivery history, and adapters for email/SMS/WhatsApp that remain `BLOCKED_EXTERNAL_CONFIG` until real credentials and sender identities are supplied.

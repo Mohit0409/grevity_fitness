@@ -150,6 +150,17 @@
           <dt>Mobile</dt><dd id="member-phone">—</dd>
           <dt>Profile</dt><dd id="member-profile-state">Incomplete</dd>
         </dl>
+        <section class="membership-card" aria-labelledby="membership-heading">
+          <div class="membership-card-head"><div><span class="membership-label">MEMBERSHIP</span><h3 id="membership-heading">Your Gravity access</h3></div><a href="/#membership">View plans</a></div>
+          <div id="membership-loading" class="membership-muted">Checking your membership…</div>
+          <div id="membership-empty" hidden><strong>No active membership</strong><p>Your account is ready. Gravity staff can activate a confirmed membership from the secure control room.</p></div>
+          <div id="membership-current" hidden>
+            <div class="membership-primary"><div><span id="membership-status" class="membership-pill">ACTIVE</span><h4 id="membership-plan">—</h4><small id="membership-number">—</small></div><div class="membership-days"><strong id="membership-days">0</strong><span>days left</span></div></div>
+            <div class="membership-dates"><span>Started <strong id="membership-start">—</strong></span><span>Valid until <strong id="membership-end">—</strong></span></div>
+          </div>
+          <div id="membership-upcoming" class="membership-upcoming" hidden><span>UPCOMING</span><strong id="membership-upcoming-plan">—</strong><small id="membership-upcoming-date">—</small></div>
+          <details id="membership-history-wrap" class="membership-history" hidden><summary>Membership history</summary><div id="membership-history"></div></details>
+        </section>
         <form class="account-form" id="profile-form" novalidate>
           <div class="account-field">
             <label for="profile-name">Full name</label>

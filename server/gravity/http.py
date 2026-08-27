@@ -31,6 +31,7 @@ from .admin import AdminService
 from .admin_http import handle_admin_request
 from .config import Settings
 from .database import Database
+from .membership import MembershipService
 from .firebase_auth import (
     FirebaseAccountDisabled,
     FirebaseAdminVerifier,
@@ -58,7 +59,9 @@ AUTH_ROUTES: dict[str, set[str]] = {
     "/api/auth/logout": {"POST"},
     "/api/auth/logout-all": {"POST"},
     "/api/auth/link": {"POST"},
+    "/api/membership/plans": {"GET", "HEAD"},
     "/api/me": {"GET", "HEAD", "PATCH"},
+    "/api/me/membership": {"GET", "HEAD"},
 }
 
 
@@ -85,12 +88,14 @@ class GravityHTTPServer(ThreadingHTTPServer):
         database: Database,
         auth_service: AuthService,
         admin_service: AdminService,
+        membership_service: MembershipService,
     ) -> None:
         super().__init__(address, handler)
         self.settings = settings
         self.database = database
         self.auth_service = auth_service
         self.admin_service = admin_service
+        self.membership_service = membership_service
 
 
 class GravityRequestHandler(BaseHTTPRequestHandler):
@@ -221,6 +226,25 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             return self._session_status(request_id, send_body)
         if path == "/api/auth/session" and self.command == "POST":
             return self._exchange_session(request_id, send_body)
+        if path == "/api/membership/plans" and self.command in {"GET", "HEAD"}:
+            self._json_response(
+                HTTPStatus.OK,
+                {"plans": self.server.membership_service.list_plans(active_only=True)},
+                request_id=request_id,
+                send_body=send_body,
+            )
+            return HTTPStatus.OK
+        if path == "/api/me/membership" and self.command in {"GET", "HEAD"}:
+            session, failure_status = self._require_session(request_id, send_body)
+            if not session:
+                return failure_status
+            self._json_response(
+                HTTPStatus.OK,
+                {"membership": self.server.membership_service.customer_summary(session.customer_id)},
+                request_id=request_id,
+                send_body=send_body,
+            )
+            return HTTPStatus.OK
         if path == "/api/me" and self.command in {"GET", "HEAD"}:
             session, failure_status = self._require_session(request_id, send_body)
             if not session:
@@ -772,6 +796,7 @@ def create_server(
     identity_verifier = verifier or FirebaseAdminVerifier(configured)
     auth_service = AuthService(database, configured, identity_verifier, **({"clock": clock} if clock else {}))
     admin_service = AdminService(database, configured, **({"clock": clock} if clock else {}))
+    membership_service = MembershipService(database, **({"clock": clock} if clock else {}))
     return GravityHTTPServer(
         (configured.host, configured.port),
         GravityRequestHandler,
@@ -779,4 +804,5 @@ def create_server(
         database,
         auth_service,
         admin_service,
+        membership_service,
     )

@@ -115,6 +115,67 @@ function renderUser(user) {
   document.getElementById('profile-emergency-name').value = profile.emergencyContactName || '';
   document.getElementById('profile-emergency-phone').value = profile.emergencyContactPhone || '';
   document.getElementById('profile-health').value = profile.healthNotes || '';
+  void refreshMembership();
+}
+
+function membershipDate(timestamp) {
+  if (!timestamp) return '—';
+  const date = new Date(Number(timestamp) * 1000);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric'
+  });
+}
+
+function renderMembership(summary) {
+  const loading = document.getElementById('membership-loading');
+  const empty = document.getElementById('membership-empty');
+  const currentWrap = document.getElementById('membership-current');
+  const upcomingWrap = document.getElementById('membership-upcoming');
+  const historyWrap = document.getElementById('membership-history-wrap');
+  const history = document.getElementById('membership-history');
+  loading.hidden = true;
+  empty.hidden = Boolean(summary.current);
+  currentWrap.hidden = !summary.current;
+  upcomingWrap.hidden = !summary.upcoming;
+  history.replaceChildren();
+
+  if (summary.current) {
+    document.getElementById('membership-status').textContent = String(summary.current.status || 'active').toUpperCase();
+    document.getElementById('membership-plan').textContent = summary.current.planName || 'Gravity membership';
+    document.getElementById('membership-number').textContent = summary.current.membershipNumber || '—';
+    document.getElementById('membership-days').textContent = String(summary.current.daysRemaining ?? 0);
+    document.getElementById('membership-start').textContent = membershipDate(summary.current.startsAt);
+    document.getElementById('membership-end').textContent = membershipDate(summary.current.endsAt);
+  }
+  if (summary.upcoming) {
+    document.getElementById('membership-upcoming-plan').textContent = summary.upcoming.planName || 'Gravity membership';
+    document.getElementById('membership-upcoming-date').textContent = `Starts ${membershipDate(summary.upcoming.startsAt)}`;
+  }
+  for (const item of summary.history || []) {
+    const row = document.createElement('div');
+    row.className = 'membership-history-item';
+    const title = document.createElement('strong');
+    title.textContent = item.planName || 'Gravity membership';
+    const detail = document.createElement('span');
+    detail.textContent = `${String(item.status || '').toUpperCase()} · ${membershipDate(item.startsAt)} – ${membershipDate(item.endsAt)}`;
+    row.append(title, detail);
+    history.appendChild(row);
+  }
+  historyWrap.hidden = !history.children.length;
+}
+
+async function refreshMembership() {
+  const loading = document.getElementById('membership-loading');
+  loading.hidden = false;
+  loading.textContent = 'Checking your membership…';
+  try {
+    const payload = await jsonRequest('/api/me/membership');
+    renderMembership(payload.membership || { current: null, upcoming: null, history: [] });
+  } catch (error) {
+    if (error.status === 401 || error.code === 'account_disabled') return initializeAccount();
+    loading.hidden = false;
+    loading.textContent = 'Membership status is temporarily unavailable. Your account data was not changed.';
+  }
 }
 
 async function refreshSession() {

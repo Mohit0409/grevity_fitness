@@ -5,6 +5,7 @@ from http import HTTPStatus
 from urllib.parse import parse_qs, urlsplit
 from typing import Any
 
+from .membership import MembershipConflict, MembershipNotFound, MembershipValidationError
 from .admin import (
     AdminChallengeExpired,
     AdminConflict,
@@ -124,6 +125,18 @@ def _error_response(handler: Any, error: Exception, request_id: str, send_body: 
         )
     if isinstance(error, (AdminCsrfInvalid, AdminForbidden)):
         return _json(handler, HTTPStatus.FORBIDDEN, {"error": "admin_forbidden"}, request_id, send_body)
+    if isinstance(error, MembershipNotFound):
+        return _json(handler, HTTPStatus.NOT_FOUND, {"error": "membership_not_found"}, request_id, send_body)
+    if isinstance(error, MembershipConflict):
+        return _json(handler, HTTPStatus.CONFLICT, {"error": "membership_conflict"}, request_id, send_body)
+    if isinstance(error, MembershipValidationError):
+        return _json(
+            handler,
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            {"error": "membership_validation", "fields": error.fields},
+            request_id,
+            send_body,
+        )
     if isinstance(error, AdminConflict):
         return _json(handler, HTTPStatus.CONFLICT, {"error": "admin_conflict"}, request_id, send_body)
     if isinstance(error, AdminValidationError):
@@ -328,6 +341,32 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
             return _dashboard(handler, request_id, send_body)
         if path == "/api/admin/members" and handler.command in {"GET", "HEAD"}:
             return _members(handler, request_id, send_body)
+        if path == "/api/admin/membership/plans":
+            if handler.command in {"GET", "HEAD", "POST"}:
+                return _membership_plans(handler, request_id, send_body)
+            return handler._method_not_allowed({"GET", "HEAD", "POST"}, request_id, send_body)
+        if path.startswith("/api/admin/membership/plans/"):
+            plan_id = path.removeprefix("/api/admin/membership/plans/").strip("/")
+            if plan_id and "/" not in plan_id:
+                if handler.command == "PATCH":
+                    return _membership_plan_update(handler, plan_id, request_id, send_body)
+                return handler._method_not_allowed({"PATCH"}, request_id, send_body)
+        if path == "/api/admin/memberships/expiring":
+            if handler.command in {"GET", "HEAD"}:
+                return _expiring_memberships(handler, request_id, send_body)
+            return handler._method_not_allowed({"GET", "HEAD"}, request_id, send_body)
+        if path.startswith("/api/admin/memberships/") and path.endswith("/cancel"):
+            membership_id = path.removeprefix("/api/admin/memberships/").removesuffix("/cancel").strip("/")
+            if membership_id and "/" not in membership_id:
+                if handler.command == "PATCH":
+                    return _cancel_membership(handler, membership_id, request_id, send_body)
+                return handler._method_not_allowed({"PATCH"}, request_id, send_body)
+        if path.startswith("/api/admin/members/") and path.endswith("/memberships"):
+            customer_id = path.removeprefix("/api/admin/members/").removesuffix("/memberships").strip("/")
+            if customer_id and "/" not in customer_id:
+                if handler.command in {"GET", "POST"}:
+                    return _member_memberships(handler, customer_id, request_id, send_body)
+                return handler._method_not_allowed({"GET", "POST"}, request_id, send_body)
         if path.startswith("/api/admin/members/") and handler.command == "PATCH":
             customer_id = path.removeprefix("/api/admin/members/")
             if customer_id and "/" not in customer_id:
@@ -366,5 +405,99 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
         AdminConflict,
         AdminValidationError,
         AdminRateLimitExceeded,
+        MembershipNotFound,
+        MembershipConflict,
+        MembershipValidationError,
     ) as error:
         return _error_response(handler, error, request_id, send_body)
+
+def _membership_plans(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    if handler.command in {"GET", "HEAD"}:
+        handler.server.admin_service.require_permission(session, "members.read")
+        plans = handler.server.membership_service.list_plans(active_only=False)
+        return _json(handler, HTTPStatus.OK, {"plans": plans}, request_id, send_body)
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    handler.server.admin_service.require_permission(session, "membership_plans.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    plan = handler.server.membership_service.create_plan(payload, actor_admin_user_id=session.admin_user_id)
+    return _json(handler, HTTPStatus.CREATED, {"plan": plan}, request_id, send_body)
+
+
+def _membership_plan_update(handler: Any, plan_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "membership_plans.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    plan = handler.server.membership_service.update_plan(
+        plan_id,
+        payload,
+        actor_admin_user_id=session.admin_user_id,
+    )
+    return _json(handler, HTTPStatus.OK, {"plan": plan}, request_id, send_body)
+
+
+def _member_memberships(handler: Any, customer_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    if handler.command == "GET":
+        handler.server.admin_service.require_permission(session, "members.read")
+        rows = handler.server.membership_service.list_customer_memberships(customer_id)
+        return _json(handler, HTTPStatus.OK, {"memberships": rows}, request_id, send_body)
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    handler.server.admin_service.require_permission(session, "memberships.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    membership = handler.server.membership_service.create_membership(
+        customer_id,
+        str(payload.get("planId", "")),
+        actor_admin_user_id=session.admin_user_id,
+        starts_at=payload.get("startsAt"),
+        source="admin_manual",
+    )
+    return _json(handler, HTTPStatus.CREATED, {"membership": membership}, request_id, send_body)
+
+
+def _cancel_membership(handler: Any, membership_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "memberships.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    membership = handler.server.membership_service.cancel_membership(
+        membership_id,
+        actor_admin_user_id=session.admin_user_id,
+        reason=payload.get("reason"),
+    )
+    return _json(handler, HTTPStatus.OK, {"membership": membership}, request_id, send_body)
+
+
+def _expiring_memberships(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "memberships.manage")
+    raw_days = parse_qs(urlsplit(handler.path).query).get("days", ["7"])[0]
+    try:
+        days = int(raw_days)
+    except ValueError:
+        days = 7
+    rows = handler.server.membership_service.expiring_within(days)
+    return _json(handler, HTTPStatus.OK, {"memberships": rows}, request_id, send_body)

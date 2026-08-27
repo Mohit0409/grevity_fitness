@@ -154,6 +154,20 @@ class AdminSecurityTests(unittest.TestCase):
         with self.assertRaises(AdminSessionInvalid):
             self.service.resolve_session(trainer_issue.session_token)
 
+    def test_reception_membership_permissions(self):
+        owner = self.bootstrap()
+        owner_issue = self.login("owner", "Gravity!Owner123", owner.totp_secret)
+        owner_session = self.service.resolve_session(owner_issue.session_token)
+        receptionist = self.service.create_admin(
+            owner_session, "frontdesk", "Gravity!Desk123", "reception"
+        )
+        receptionist_issue = self.login(
+            "frontdesk", "Gravity!Desk123", receptionist.totp_secret
+        )
+        receptionist_session = self.service.resolve_session(receptionist_issue.session_token)
+        self.service.require_permission(receptionist_session, "memberships.manage")
+        with self.assertRaises(AdminForbidden):
+            self.service.require_permission(receptionist_session, "membership_plans.manage")
     def test_disabling_customer_revokes_customer_sessions(self):
         owner = self.bootstrap()
         owner_issue = self.login("owner", "Gravity!Owner123", owner.totp_secret)

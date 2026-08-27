@@ -60,12 +60,12 @@ class DatabaseTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "gravity.sqlite3"
             database = Database(path, ROOT / "server" / "migrations")
-            self.assertEqual(database.migrate(), ["001", "002", "003"])
+            self.assertEqual(database.migrate(), ["001", "002", "003", "004"])
             self.assertEqual(database.migrate(), [])
-            self.assertEqual(database.health(), {"database": "ok", "migrations": "3"})
+            self.assertEqual(database.health(), {"database": "ok", "migrations": "4"})
             with closing(sqlite3.connect(path)) as connection:
                 versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
-                self.assertEqual(versions, [("001",), ("002",), ("003",)])
+                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",)])
 
     def test_changed_applied_migration_is_rejected(self):
         with TemporaryDirectory() as temporary:
@@ -143,6 +143,19 @@ class HttpFoundationTests(unittest.TestCase):
                 status, _headers, body = fetch(base, path)
                 self.assertEqual(status, 404)
                 self.assertEqual(json.loads(body), {"error": "not_found"})
+
+    def test_membership_catalog_is_public_but_member_and_admin_data_are_private(self):
+        with running_server() as (base, _settings):
+            status, _headers, body = fetch(base, "/api/membership/plans")
+            self.assertEqual(status, 200)
+            plans = json.loads(body)["plans"]
+            self.assertEqual(plans, [], "Unverified imported pricing must not be public")
+            status, _headers, body = fetch(base, "/api/me/membership")
+            self.assertEqual(status, 401)
+            self.assertEqual(json.loads(body), {"error": "unauthenticated"})
+            status, _headers, body = fetch(base, "/api/admin/membership/plans")
+            self.assertEqual(status, 401)
+            self.assertEqual(json.loads(body), {"error": "admin_unauthenticated"})
 
     def test_head_returns_content_length_without_body(self):
         with running_server() as (base, _settings):

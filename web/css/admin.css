@@ -96,3 +96,22 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 18px; padding:
   nav { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+.membership-panel { margin-top: 18px; }
+.membership-form { display: grid; grid-template-columns: minmax(220px,1fr) minmax(210px,.7fr) auto; gap: 10px; margin-bottom: 10px; }
+.membership-form select, .membership-form input { min-height: 44px; }
+.plan-form { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; padding: 16px; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 14px; background: #0c1016; }
+.plan-form input, .plan-form select { min-height: 42px; }
+.plan-form #planDescription { grid-column: span 2; }
+.compact-control { grid-template-columns: auto 120px; align-items: center; gap: 8px; }
+.compact-control select { min-height: 38px; }
+td small { color: var(--muted); font-size: .72rem; }
+@media (max-width: 900px) {
+  .membership-form { grid-template-columns: 1fr; }
+  .plan-form { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 560px) {
+  .plan-form { grid-template-columns: 1fr; }
+  .plan-form #planDescription { grid-column: auto; }
+  .compact-control { grid-template-columns: 1fr; }
+}
