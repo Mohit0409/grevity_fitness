@@ -60,12 +60,12 @@ class DatabaseTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "gravity.sqlite3"
             database = Database(path, ROOT / "server" / "migrations")
-            self.assertEqual(database.migrate(), ["001", "002", "003", "004", "005", "006"])
+            self.assertEqual(database.migrate(), ["001", "002", "003", "004", "005", "006", "007"])
             self.assertEqual(database.migrate(), [])
-            self.assertEqual(database.health(), {"database": "ok", "migrations": "6"})
+            self.assertEqual(database.health(), {"database": "ok", "migrations": "7"})
             with closing(sqlite3.connect(path)) as connection:
                 versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
-                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",), ("005",), ("006",)])
+                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",), ("005",), ("006",), ("007",)])
 
     def test_changed_applied_migration_is_rejected(self):
         with TemporaryDirectory() as temporary:
@@ -169,6 +169,16 @@ class HttpFoundationTests(unittest.TestCase):
         self.assertNotIn("rzp.io/l/", html)
         self.assertNotIn("jsPDF", html)
         self.assertNotIn("IGST @ 18%", html)
+
+    def test_coaching_ui_contract_is_wired(self):
+        with running_server() as (base, _settings):
+            status, _headers, admin = fetch(base, "/admin")
+            self.assertEqual(status, 200)
+            for marker in (b'id="coachingView"', b'id="dietTemplateForm"', b'id="dietVersionForm"', b'/js/admin-coaching.js'):
+                self.assertIn(marker, admin)
+            status, _headers, account = fetch(base, "/account")
+            self.assertEqual(status, 200)
+            self.assertIn(b'/js/account-coaching.js', account)
 
     def test_head_returns_content_length_without_body(self):
         with running_server() as (base, _settings):

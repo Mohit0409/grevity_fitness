@@ -34,6 +34,8 @@ from .database import Database
 from .membership import MembershipService
 from .notification import NotificationService
 from .payment import PaymentService
+from .coaching import CoachingService
+from .coaching_http import handle_coaching_request
 from .payment_http import handle_payment_request
 from .firebase_auth import (
     FirebaseAccountDisabled,
@@ -95,6 +97,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         membership_service: MembershipService,
         notification_service: NotificationService,
         payment_service: PaymentService,
+        coaching_service: CoachingService,
     ) -> None:
         super().__init__(address, handler)
         self.settings = settings
@@ -104,6 +107,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         self.membership_service = membership_service
         self.notification_service = notification_service
         self.payment_service = payment_service
+        self.coaching_service = coaching_service
 
 
 class GravityRequestHandler(BaseHTTPRequestHandler):
@@ -195,6 +199,16 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
                     return
                 if payment_status is not None:
                     status = payment_status
+                    return
+            if path == "/api/me/coaching" or path.startswith("/api/admin/coaching"):
+                try:
+                    coaching_status = handle_coaching_request(self, path, request_id, send_body)
+                except RequestError as error:
+                    status = error.status
+                    self._json_response(status, {"error": error.code}, request_id=request_id, send_body=send_body)
+                    return
+                if coaching_status is not None:
+                    status = coaching_status
                     return
             if path in AUTH_ROUTES:
                 if self.command not in AUTH_ROUTES[path]:
@@ -850,6 +864,7 @@ def create_server(
     membership_service = MembershipService(database, **({"clock": clock} if clock else {}))
     notification_service = NotificationService(database, membership_service, **({"clock": clock} if clock else {}))
     payment_service = PaymentService(database, configured, membership_service, **({"clock": clock} if clock else {}))
+    coaching_service = CoachingService(database, **({"clock": clock} if clock else {}))
     return GravityHTTPServer(
         (configured.host, configured.port),
         GravityRequestHandler,
@@ -860,4 +875,5 @@ def create_server(
         membership_service,
         notification_service,
         payment_service,
+        coaching_service,
     )

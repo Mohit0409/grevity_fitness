@@ -82,12 +82,22 @@ Last updated: 2026-08-27
 - Persistent invoice records remain `pending_business_identity`; no tax/GST invoice is issued until verified Gravity legal/GST identity exists.
 - Removed static Razorpay payment links, browser-generated invoice/tax math, and jsPDF receipt generation from the public page. Real Razorpay checkout remains fail-closed while credentials are absent.
 
+### Phase 7 — Progress and coaching foundation
+
+- Added migration `007_progress_coaching.sql` with bounded progress measurements, historical goals, immutable nutrition-plan versions, assignments, and coaching audit events.
+- Owner/admin/trainer roles use the existing `progress.manage` and `diet.manage` permissions; reception remains denied and receives no coaching navigation.
+- Customers have read-only access to their own `/api/me/coaching` summary; staff mutations require administrator session, RBAC, same-origin, and CSRF checks.
+- Progress stores raw coaching facts and goals only. Gravity does not derive diagnosis, BMI categories, disease targeting, or medical conclusions from measurements.
+- Added versioned Indian fitness meal structures with vegetarian, eggetarian, vegan, and non-vegetarian options. Assigned versions are immutable and historical assignments are retained.
+- Every nutrition plan carries a fixed general-fitness disclaimer and explicitly excludes medical advice, diagnosis, treatment, and clinical nutrition use.
+- Added member account coaching UI plus Control Room member selection, measurement/goal entry, version creation, activation, and assignment controls.
+
 ## Known issues / production blockers
 
 - `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` credentials/client configuration and an authorized Admin service account are still required for real customer login verification. The application fails closed and reports auth disabled until configured.
 - `BLOCKED_EXTERNAL_CONFIG`: Razorpay, WhatsApp, SMS, SMTP, final domain, verified business contact details, GST/invoice identity, and final analytics IDs are not configured.
 - Existing public content contains unverified claims, scarcity, reviews, metrics, pricing, trainers, photos, opening hours, and contact details. These must not be represented as verified production facts.
-- Broader customer dashboard features, diet plans, progress, tax-invoice issuance, and real notification-provider delivery remain pending later phases.
+- Broader customer dashboard visualization, tax-invoice issuance, verified public content, and real notification-provider delivery remain pending later phases.
 - Backup/restore scripts and a tested recovery drill remain Phase 10 work.
 
 ## Test status
@@ -112,12 +122,16 @@ Last updated: 2026-08-27
 - Phase 1–6 clean regression evidence: 51/51 `unittest` tests pass on 2026-08-27 in 42.854s. Python `compileall`, all account/admin script syntax checks, and public-page inline JavaScript syntax validation pass in the same zero-exit gate.
 - Phase 6 live laptop smoke after migration `006` and fresh restart: PID 15644; database migrations `6`; Razorpay checkout/webhook configured `False` in `test` mode; `/api/health`, `/account`, `/js/account-payments.js`, and `/api/payment/config` return HTTP 200; config returns `enabled=false` with `keyId=null`; unauthenticated payment/invoice/receipt APIs return HTTP 401; unsigned webhook returns HTTP 400 `invalid_webhook`; `/.env`, payment source, and migration source return HTTP 404.
 
+- Phase 7 focused coaching evidence: 5/5 tests pass, covering measurement bounds/history, goal replacement/completion, immutable nutrition-plan versions, assignment history, customer read-only access, trainer mutations, Reception denial, same-origin, and CSRF enforcement.
+- Phase 1–7 clean regression evidence: 57/57 `unittest` tests pass on 2026-08-27 in 36.166s. Python `compileall`, all account/admin JavaScript syntax checks, and public-page inline JavaScript validation pass in the same zero-exit gate.
+- Phase 7 live laptop smoke after migration `007` and fresh restart: PID 20612; database migrations `7`; `/api/health`, `/account`, `/admin`, `/js/account-coaching.js`, and `/js/admin-coaching.js` return HTTP 200; live `/admin` contains the coaching view plus diet template/version forms; unauthenticated customer/admin coaching APIs return HTTP 401; `/.env`, coaching source, and migration source return HTTP 404.
+
 ## Deployment status
 
 - Firebase public site remains the historical deployment; no new Firebase deployment is planned.
-- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 6 working tree (fresh PID 15644 at the release smoke, database migrations `6`).
+- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 7 working tree (fresh PID 20612 at the release smoke, database migrations `7`).
 - Termux: architecture-compatible; deployment runbook pending Phase 10.
 
 ## Next implementation milestone
 
-Phase 7: customer progress and coaching foundation — server-owned measurements, goals, progress history, trainer/admin entry controls, customer-visible trends, and Indian diet-plan assignments with immutable plan versions. Keep health guidance non-diagnostic and separate from medical advice.
+Phase 8: public-content truth, SEO, performance, and accessibility hardening — remove or clearly qualify unverified claims, verify metadata/schema/crawl behavior, improve Core Web Vitals without dropping functionality, and run keyboard/mobile/accessibility regression checks.
