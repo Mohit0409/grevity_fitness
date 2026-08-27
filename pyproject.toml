@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "gravity-fitness"
 version = "0.1.0"
 description = "Portable Gravity Fitness web application"
