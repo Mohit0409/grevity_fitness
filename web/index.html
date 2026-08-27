@@ -837,10 +837,7 @@
       <!-- PAID booking — Razorpay or WhatsApp fallback -->
       <div id="paid-section" style="display:none;">
         <div id="razorpay-section">
-          <!-- Replace the href values below with your actual Razorpay Payment Links -->
-          <!-- RAZORPAY_BASIC_URL  = https://rzp.io/l/YOUR-BASIC-LINK  -->
-          <!-- RAZORPAY_PRO_URL    = https://rzp.io/l/YOUR-PRO-LINK    -->
-          <!-- RAZORPAY_ELITE_URL  = https://rzp.io/l/YOUR-ELITE-LINK  -->
+          <!-- Server-owned Razorpay checkout is enabled only through /api/payment/config. -->
           <button type="button" class="razorpay-btn-modal" id="rzp-pay-btn" onclick="proceedToRazorpay()">
             <svg width="16" height="16" viewBox="0 0 40 40" fill="none"><path d="M20 0L0 40h14l6-12 6 12h14L20 0z" fill="#fff"/></svg>
             Pay with Razorpay
@@ -905,12 +902,12 @@
 </div>
 
 <script>
-// ── CONFIG — replace these with your Razorpay Payment Links ──
-const RAZORPAY_LINKS = {
-  Basic: '',   // e.g. 'https://rzp.io/l/gravity-basic'
-  Pro:   '',   // e.g. 'https://rzp.io/l/gravity-pro'
-  Elite: '',   // e.g. 'https://rzp.io/l/gravity-elite'
-};
+// Server-owned checkout availability. No static payment links or secrets live in this page.
+let PAYMENT_ENABLED = false;
+fetch('/api/payment/config', { credentials: 'same-origin' })
+  .then(response => response.ok ? response.json() : { enabled: false })
+  .then(config => { PAYMENT_ENABLED = config.enabled === true; })
+  .catch(() => { PAYMENT_ENABLED = false; });
 const WA_NUMBER = '919876543210';
 // ─────────────────────────────────────────────────────────────
 
@@ -994,14 +991,15 @@ function goToReview() {
   document.getElementById('summary-box').innerHTML = rows;
   document.getElementById('free-section').style.display = B.type === 'free' ? '' : 'none';
   document.getElementById('paid-section').style.display = B.type === 'free' ? 'none' : '';
-  // Show Razorpay button only if link is configured
-  const hasRzpLink = !!RAZORPAY_LINKS[B.plan];
+  // Paid checkout is available only when the server reports Razorpay configured.
+  const hasRzpLink = PAYMENT_ENABLED && B.type === 'plan';
   document.getElementById('razorpay-section').style.display = hasRzpLink ? '' : 'none';
   showStep('review');
 }
 
 function proceedToRazorpay() {
-  showToast('Secure online payment is being configured. Please send an enquiry instead.', '#FF8C42');
+  closeModal('booking-modal');
+  window.location.href = '/account?checkout=1';
 }
 
 // WhatsApp booking — sends message to gym, NO invoice shown, redirects to WA
@@ -1036,87 +1034,15 @@ function confirmFreePass() {
 }
 
 function showInvoice() {
-  const d = B, isFree = d.amount === 0;
-  document.getElementById('invoice-emoji').textContent = isFree ? '🎟' : '🎉';
-  document.getElementById('invoice-success-title').textContent = isFree ? 'Free Pass Request' : 'Payment Receipt';
-  document.getElementById('invoice-success-sub').textContent = isFree
-    ? `Request prepared for ${new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long'})} at ${d.slot}. Await gym confirmation.`
-    : `Welcome, ${d.name.split(' ')[0]}! Check WhatsApp for your booking details.`;
-  const qty = d.duration || (d.trainer ? '1 Session' : '1 Day');
-  const amt = isFree ? '₹0 (Complimentary)' : `₹${d.amount.toLocaleString('en-IN')}`;
-  const igst = isFree ? '—' : `₹${Math.round(d.amount*0.18/1.18).toLocaleString('en-IN')}`;
-  const base = isFree ? '—' : `₹${Math.round(d.amount/1.18).toLocaleString('en-IN')}`;
-  document.getElementById('invoice-preview').innerHTML = `
-    <div class="invoice-head">
-      <div><div class="invoice-logo">GRAVITY<span>.</span></div>
-      <div style="font-size:.7rem;color:#666;margin-top:4px;">Gravity Fitness, Neemuch MP<br>+91 98765 43210 | hello@gravityfitness.in</div></div>
-      <div class="invoice-meta"><strong>PASS REQUEST</strong><br>#${escapeHtml(d.invoiceNo)}<br>Date: ${escapeHtml(d.bookingDate)}<br><span style="color:#5a8a00;">${escapeHtml(d.paymentMethod)}</span></div>
-    </div>
-    <div class="invoice-to"><strong>Requested By:</strong>${escapeHtml(d.name)} · ${escapeHtml(d.phone)}<br>${escapeHtml(d.email)}</div>
-    <table class="invoice-table">
-      <thead><tr><th>Description</th><th>Qty</th><th>Amount</th></tr></thead>
-      <tbody>
-        <tr><td>${escapeHtml(d.plan)}${d.trainer ? ' — ' + escapeHtml(d.trainer) : ''}</td><td>${escapeHtml(qty)}</td><td>${isFree ? 'FREE' : base}</td></tr>
-        ${!isFree ? `<tr><td colspan="2" style="text-align:right;color:#777;">IGST @ 18%</td><td>${igst}</td></tr>` : ''}
-        <tr class="invoice-total-row"><td colspan="2" style="text-align:right;">Total</td><td><strong>${amt}</strong></td></tr>
-      </tbody>
-    </table>
-    <div class="invoice-footer">Thank you for choosing Gravity Fitness! 💪<br>📲 WhatsApp: +91 98765 43210 | @gravity_fitness_nmh</div>`;
-  INV = { ...d };
-  showStep('invoice');
+  showToast('Receipts are available only in your authenticated account after server verification.', '#FF8C42');
 }
 
 function downloadInvoicePDF() {
-  showToast('PDF receipts will be available after server-verified payment.', '#FF8C42');
-  return;
-  /* Legacy preview renderer retained temporarily for Phase 4 reference. */
-  const { jsPDF } = window.jspdf; const d = INV, isFree = d.amount === 0;
-  const doc = new jsPDF({ unit:'mm', format:'a4' });
-  const L=[193,255,107], D=[20,22,30], M=[100,105,120];
-  doc.setFillColor(...D); doc.rect(0,0,210,45,'F');
-  doc.setFillColor(...L); doc.rect(0,0,210,3,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(22); doc.setTextColor(255,255,255); doc.text('GRAVITY.',14,20);
-  doc.setFontSize(10); doc.setTextColor(...L); doc.text('INVOICE',196,13,{align:'right'});
-  doc.setFontSize(8); doc.setTextColor(170,175,185);
-  doc.text('#'+d.invoiceNo,196,19,{align:'right'}); doc.text('Date: '+d.bookingDate,196,25,{align:'right'});
-  doc.text('Ref: '+d.paymentMethod,196,31,{align:'right'});
-  doc.text('Gravity Fitness · Krishna Complex, Jail Road, Neemuch MP 458441',14,32);
-  doc.text('+91 98765 43210 · hello@gravityfitness.in · @gravity_fitness_nmh',14,38);
-  doc.setFillColor(241,243,246); doc.rect(0,48,102,30,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...M); doc.text('BILLED TO',14,56);
-  doc.setFontSize(10); doc.setTextColor(...D); doc.text(d.name,14,63);
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...M); doc.text(d.phone,14,69); doc.text(d.email,14,74);
-  doc.setFillColor(241,243,246); doc.rect(108,48,102,30,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...M); doc.text('PAYMENT METHOD',112,56);
-  doc.setFontSize(10); doc.setTextColor(...D); doc.text(d.paymentMethod||'Online',112,63);
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...M);
-  if(d.date&&d.slot) doc.text('Visit: '+new Date(d.date).toLocaleDateString('en-IN')+' @ '+d.slot,112,69);
-  const tY=88; doc.setFillColor(...D); doc.rect(0,tY,210,9,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(255,255,255);
-  doc.text('DESCRIPTION',14,tY+6); doc.text('QTY',130,tY+6); doc.text('AMOUNT',196,tY+6,{align:'right'});
-  const rY=tY+9; doc.setFillColor(248,250,252); doc.rect(0,rY,210,13,'F');
-  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...D);
-  doc.text((d.plan+(d.trainer?' — '+d.trainer:'')),14,rY+8);
-  doc.text(d.duration||(d.trainer?'1 Session':'1 Day'),130,rY+8);
-  doc.text(isFree?'FREE':'Rs.'+Math.round(d.amount/1.18).toLocaleString('en-IN'),196,rY+8,{align:'right'});
-  let sY=rY+20;
-  if(!isFree){ doc.setFontSize(8); doc.setTextColor(...M); doc.text('IGST @ 18%',150,sY); doc.text('Rs.'+Math.round(d.amount*0.18/1.18).toLocaleString('en-IN'),196,sY,{align:'right'}); sY+=7; }
-  doc.setFillColor(...L); doc.rect(0,sY,210,13,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...D);
-  doc.text('TOTAL',14,sY+9); doc.text(isFree?'Rs.0 (Complimentary)':'Rs.'+d.amount.toLocaleString('en-IN'),196,sY+9,{align:'right'});
-  doc.setFillColor(...D); doc.rect(0,263,210,34,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...L);
-  doc.text('Thank you for choosing Gravity Fitness!',105,274,{align:'center'});
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(150,155,165);
-  doc.text('+91 98765 43210 · hello@gravityfitness.in · instagram: @gravity_fitness_nmh',105,281,{align:'center'});
-  doc.text('Mon–Sat 5AM–10PM · Sun 6AM–8PM · Krishna Complex, Jail Road, Neemuch MP',105,287,{align:'center'});
-  doc.save('Gravity-Fitness-Invoice-'+d.invoiceNo+'.pdf');
+  window.location.href = '/account';
 }
 
 function shareWhatsApp() {
-  const d = INV, isFree = d.amount === 0;
-  const msg = `🧾 *Gravity Fitness Invoice*\n#${d.invoiceNo}\n\nName: ${d.name}\nPlan: ${d.plan}${d.duration?' · '+d.duration:''}\n${d.date?'Date: '+new Date(d.date).toLocaleDateString('en-IN')+'\n':''}${d.slot?'Time: '+d.slot+'\n':''}Amount: ${isFree?'FREE':'₹'+d.amount.toLocaleString('en-IN')}\n\nGravity Fitness, Neemuch | @gravity_fitness_nmh`;
-  window.open('https://wa.me/'+WA_NUMBER+'?text='+encodeURIComponent(msg),'_blank');
+  showToast('Server-issued receipts are shared only from your authenticated account.', '#FF8C42');
 }
 
 function showStep(s) {

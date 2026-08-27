@@ -33,6 +33,8 @@ from .config import Settings
 from .database import Database
 from .membership import MembershipService
 from .notification import NotificationService
+from .payment import PaymentService
+from .payment_http import handle_payment_request
 from .firebase_auth import (
     FirebaseAccountDisabled,
     FirebaseAdminVerifier,
@@ -92,6 +94,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         admin_service: AdminService,
         membership_service: MembershipService,
         notification_service: NotificationService,
+        payment_service: PaymentService,
     ) -> None:
         super().__init__(address, handler)
         self.settings = settings
@@ -100,6 +103,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         self.admin_service = admin_service
         self.membership_service = membership_service
         self.notification_service = notification_service
+        self.payment_service = payment_service
 
 
 class GravityRequestHandler(BaseHTTPRequestHandler):
@@ -177,6 +181,21 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
                     send_body=send_body,
                 )
                 return
+            if (
+                path == "/api/payment/config"
+                or path == "/api/payments/razorpay/webhook"
+                or path.startswith("/api/me/payments")
+                or path.startswith("/api/me/invoices")
+            ):
+                try:
+                    payment_status = handle_payment_request(self, path, request_id, send_body)
+                except RequestError as error:
+                    status = error.status
+                    self._json_response(status, {"error": error.code}, request_id=request_id, send_body=send_body)
+                    return
+                if payment_status is not None:
+                    status = payment_status
+                    return
             if path in AUTH_ROUTES:
                 if self.command not in AUTH_ROUTES[path]:
                     status = self._method_not_allowed(AUTH_ROUTES[path], request_id, send_body)
@@ -618,6 +637,23 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             raise RequestError(HTTPStatus.BAD_REQUEST, "invalid_json")
         return payload
 
+    def _raw_body(self, *, maximum: int, content_type: str | None = None) -> bytes:
+        if self.headers.get("Transfer-Encoding"):
+            raise RequestError(HTTPStatus.BAD_REQUEST, "invalid_request")
+        if content_type is not None:
+            actual = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            if actual != content_type:
+                raise RequestError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported_media_type")
+        length = self._content_length()
+        if length <= 0:
+            raise RequestError(HTTPStatus.BAD_REQUEST, "invalid_request")
+        if length > maximum:
+            raise RequestError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "request_too_large")
+        body = self.rfile.read(length)
+        if len(body) != length:
+            raise RequestError(HTTPStatus.BAD_REQUEST, "invalid_request")
+        return body
+
     def _content_length(self) -> int:
         values = self.headers.get_all("Content-Length", [])
         if not values:
@@ -778,13 +814,13 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             "default-src 'self'; "
             "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
             "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://www.googletagmanager.com "
-            "https://www.gstatic.com https://www.google.com https://recaptcha.net https://www.recaptcha.net; "
+            "https://www.gstatic.com https://www.google.com https://recaptcha.net https://www.recaptcha.net https://checkout.razorpay.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https:; "
             "connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com "
-            "https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; "
-            "frame-src https://www.google.com https://recaptcha.net https://www.recaptcha.net https://*.firebaseapp.com; "
+            "https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.razorpay.com https://checkout.razorpay.com; "
+            "frame-src https://www.google.com https://recaptcha.net https://www.recaptcha.net https://*.firebaseapp.com https://api.razorpay.com https://checkout.razorpay.com; "
             "form-action 'self' https://wa.me; upgrade-insecure-requests",
         )
         if self.server.settings.production and self.server.settings.app_base_url.startswith("https://"):
@@ -813,6 +849,7 @@ def create_server(
     admin_service = AdminService(database, configured, **({"clock": clock} if clock else {}))
     membership_service = MembershipService(database, **({"clock": clock} if clock else {}))
     notification_service = NotificationService(database, membership_service, **({"clock": clock} if clock else {}))
+    payment_service = PaymentService(database, configured, membership_service, **({"clock": clock} if clock else {}))
     return GravityHTTPServer(
         (configured.host, configured.port),
         GravityRequestHandler,
@@ -822,4 +859,5 @@ def create_server(
         admin_service,
         membership_service,
         notification_service,
+        payment_service,
     )

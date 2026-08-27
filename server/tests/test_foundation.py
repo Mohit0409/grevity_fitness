@@ -60,12 +60,12 @@ class DatabaseTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "gravity.sqlite3"
             database = Database(path, ROOT / "server" / "migrations")
-            self.assertEqual(database.migrate(), ["001", "002", "003", "004", "005"])
+            self.assertEqual(database.migrate(), ["001", "002", "003", "004", "005", "006"])
             self.assertEqual(database.migrate(), [])
-            self.assertEqual(database.health(), {"database": "ok", "migrations": "5"})
+            self.assertEqual(database.health(), {"database": "ok", "migrations": "6"})
             with closing(sqlite3.connect(path)) as connection:
                 versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
-                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",), ("005",)])
+                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",), ("005",), ("006",)])
 
     def test_changed_applied_migration_is_rejected(self):
         with TemporaryDirectory() as temporary:
@@ -156,6 +156,19 @@ class HttpFoundationTests(unittest.TestCase):
             status, _headers, body = fetch(base, "/api/admin/membership/plans")
             self.assertEqual(status, 401)
             self.assertEqual(json.loads(body), {"error": "admin_unauthenticated"})
+            status, _headers, body = fetch(base, "/api/payment/config")
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body)["enabled"], False)
+            status, _headers, body = fetch(base, "/api/me/payments")
+            self.assertEqual(status, 401)
+            self.assertEqual(json.loads(body), {"error": "unauthenticated"})
+
+    def test_public_page_has_no_static_payment_links_or_client_invoice_generator(self):
+        html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn("RAZORPAY_LINKS", html)
+        self.assertNotIn("rzp.io/l/", html)
+        self.assertNotIn("jsPDF", html)
+        self.assertNotIn("IGST @ 18%", html)
 
     def test_head_returns_content_length_without_body(self):
         with running_server() as (base, _settings):

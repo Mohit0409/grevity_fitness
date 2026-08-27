@@ -71,6 +71,10 @@ class Settings:
     firebase_auth_domain: str
     firebase_app_id: str
     firebase_service_account_path: Path | None
+    razorpay_mode: str
+    razorpay_key_id: str
+    razorpay_key_secret: str
+    razorpay_webhook_secret: str
     session_idle_seconds: int
     session_absolute_seconds: int
 
@@ -100,6 +104,9 @@ class Settings:
             if service_account_value
             else None
         )
+        razorpay_mode = values.get("RAZORPAY_MODE", "test").strip().lower() or "test"
+        if razorpay_mode not in {"test", "live"}:
+            raise ValueError("RAZORPAY_MODE must be test or live")
         idle_seconds = int(values.get("SESSION_IDLE_SECONDS", "43200"))
         absolute_seconds = int(values.get("SESSION_ABSOLUTE_SECONDS", "2592000"))
         if idle_seconds < 300 or absolute_seconds < idle_seconds:
@@ -133,6 +140,10 @@ class Settings:
             firebase_auth_domain=values.get("FIREBASE_AUTH_DOMAIN", "").strip(),
             firebase_app_id=values.get("FIREBASE_APP_ID", "").strip(),
             firebase_service_account_path=service_account_path,
+            razorpay_mode=razorpay_mode,
+            razorpay_key_id=values.get("RAZORPAY_KEY_ID", "").strip(),
+            razorpay_key_secret=values.get("RAZORPAY_KEY_SECRET", "").strip(),
+            razorpay_webhook_secret=values.get("RAZORPAY_WEBHOOK_SECRET", "").strip(),
             session_idle_seconds=idle_seconds,
             session_absolute_seconds=absolute_seconds,
         )
@@ -174,6 +185,14 @@ class Settings:
             and self.firebase_service_account_path
             and len(self.secret_key.encode("utf-8")) >= 32
         )
+
+    @property
+    def razorpay_checkout_configured(self) -> bool:
+        return bool(self.razorpay_key_id and self.razorpay_key_secret)
+
+    @property
+    def razorpay_webhook_configured(self) -> bool:
+        return bool(self.razorpay_webhook_secret)
 
     @property
     def session_cookie_name(self) -> str:

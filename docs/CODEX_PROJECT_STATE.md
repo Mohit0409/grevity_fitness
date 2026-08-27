@@ -72,12 +72,22 @@ Last updated: 2026-08-27
 - Added retry scheduling with bounded exponential backoff, sanitized provider error codes, due-delivery selection, and successful-delivery completion state.
 - Added authenticated member reminder history plus Control Room reminder history/manual scans protected by admin session, `notifications.manage`, same-origin, and CSRF checks.
 
+### Phase 6 — Server-owned payments and persistent receipts
+
+- Added migration `006_payments_invoices.sql` with server-owned payment intents, immutable plan/amount snapshots, provider events, and persistent invoice records.
+- Razorpay Orders are created server-side; browser-supplied amount, plan name, paid state, invoice number, and tax calculations are never authoritative.
+- Checkout success is accepted only after HMAC-SHA256 verification against the server-stored Razorpay order ID; raw webhook bodies are HMAC verified and `X-Razorpay-Event-Id` deduplicates retries.
+- Verified payments activate memberships idempotently through the Phase 4 payment-reference constraint. Failed attempts may recover when a later verified capture arrives for the same server order.
+- Customer payment/invoice history is authenticated and server-owned. Downloadable verified-payment receipts are explicitly marked `NOT A TAX INVOICE`.
+- Persistent invoice records remain `pending_business_identity`; no tax/GST invoice is issued until verified Gravity legal/GST identity exists.
+- Removed static Razorpay payment links, browser-generated invoice/tax math, and jsPDF receipt generation from the public page. Real Razorpay checkout remains fail-closed while credentials are absent.
+
 ## Known issues / production blockers
 
 - `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` credentials/client configuration and an authorized Admin service account are still required for real customer login verification. The application fails closed and reports auth disabled until configured.
 - `BLOCKED_EXTERNAL_CONFIG`: Razorpay, WhatsApp, SMS, SMTP, final domain, verified business contact details, GST/invoice identity, and final analytics IDs are not configured.
 - Existing public content contains unverified claims, scarcity, reviews, metrics, pricing, trainers, photos, opening hours, and contact details. These must not be represented as verified production facts.
-- Broader customer dashboard features, diet plans, progress, payments, persistent invoices, and real notification-provider delivery remain pending later phases.
+- Broader customer dashboard features, diet plans, progress, tax-invoice issuance, and real notification-provider delivery remain pending later phases.
 - Backup/restore scripts and a tested recovery drill remain Phase 10 work.
 
 ## Test status
@@ -98,12 +108,16 @@ Last updated: 2026-08-27
 - Phase 1–5 clean regression evidence: 44/44 `unittest` tests pass on 2026-08-27 in 27.762s. Python `compileall` and `node --check` for admin, membership, notification, account, and account-notification scripts pass in the same zero-exit release gate.
 - Phase 5 live laptop smoke after migration `005` and fresh restart: PID 13432; database migrations `5`; `/api/health`, `/account`, `/admin`, `/js/account-notifications.js`, `/js/admin-notifications.js`, and `/api/membership/plans` return HTTP 200; public plans remain empty until verified activation; unauthenticated `/api/me/notifications` and `/api/admin/notifications` return HTTP 401; `/api/admin/notifications/send`, `/.env`, notification source, and migration source return HTTP 404.
 
+- Phase 6 focused payment evidence: 6/6 tests pass, covering server-owned price snapshots, Checkout HMAC verification/idempotency, raw webhook verification/event dedupe, failed→captured recovery, amount mismatch rejection, customer auth/origin/CSRF, membership activation, invoice persistence, and downloadable non-tax receipt behavior.
+- Phase 1–6 clean regression evidence: 51/51 `unittest` tests pass on 2026-08-27 in 42.854s. Python `compileall`, all account/admin script syntax checks, and public-page inline JavaScript syntax validation pass in the same zero-exit gate.
+- Phase 6 live laptop smoke after migration `006` and fresh restart: PID 15644; database migrations `6`; Razorpay checkout/webhook configured `False` in `test` mode; `/api/health`, `/account`, `/js/account-payments.js`, and `/api/payment/config` return HTTP 200; config returns `enabled=false` with `keyId=null`; unauthenticated payment/invoice/receipt APIs return HTTP 401; unsigned webhook returns HTTP 400 `invalid_webhook`; `/.env`, payment source, and migration source return HTTP 404.
+
 ## Deployment status
 
 - Firebase public site remains the historical deployment; no new Firebase deployment is planned.
-- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 5 working tree (fresh PID 13432 at the release smoke, database migrations `5`).
+- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 6 working tree (fresh PID 15644 at the release smoke, database migrations `6`).
 - Termux: architecture-compatible; deployment runbook pending Phase 10.
 
 ## Next implementation milestone
 
-Phase 6: server-owned payments and persistent invoices — payment intents, Razorpay signature/webhook verification, idempotency, payment/membership linkage, immutable invoice records and downloadable receipts. Keep real Razorpay activation `BLOCKED_EXTERNAL_CONFIG` until verified credentials and business/GST identity are supplied.
+Phase 7: customer progress and coaching foundation — server-owned measurements, goals, progress history, trainer/admin entry controls, customer-visible trends, and Indian diet-plan assignments with immutable plan versions. Keep health guidance non-diagnostic and separate from medical advice.
