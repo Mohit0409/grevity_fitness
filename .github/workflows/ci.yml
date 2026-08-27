@@ -27,7 +27,7 @@ jobs:
       - name: Compile Python
         run: python -m compileall -q server
       - name: Run foundation tests
-        run: python -m unittest discover -s server/tests -v
+        run: python scripts/ci-unittest.py
       - name: Check browser JavaScript
         shell: bash
         run: |
