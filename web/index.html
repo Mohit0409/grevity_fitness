@@ -41,6 +41,19 @@
   <div class="loader-bar"><div class="loader-fill"></div></div>
   <div class="loader-text">Loading your fitness journey...</div>
 </div>
+<script>
+(() => {
+  const dismiss = () => {
+    const loader = document.getElementById('loader');
+    if (!loader) return;
+    loader.classList.add('hide');
+    window.setTimeout(() => { loader.style.display = 'none'; }, 550);
+  };
+  window.GravityDismissLoader = dismiss;
+  document.addEventListener('DOMContentLoaded', () => window.setTimeout(dismiss, 150), { once: true });
+  window.setTimeout(dismiss, 3000);
+})();
+</script>
 
 <!-- HEADER -->
 <header class="header" id="header">
@@ -530,7 +543,8 @@ function animateCounters() {
 const counterObs = new IntersectionObserver(function(e) {
   if(e[0].isIntersecting){ animateCounters(); counterObs.disconnect(); }
 }, {threshold:.1});
-counterObs.observe(document.querySelector('.hero-stats'));
+const heroStats = document.querySelector('.hero-stats');
+if (heroStats) counterObs.observe(heroStats);
 
 // ── Scroll reveal ──
 const revealObs = new IntersectionObserver(entries => {
@@ -571,11 +585,7 @@ document.querySelectorAll('.photo-feature__img img').forEach(img => {
 });
 
 // ── Loader ──
-window.addEventListener('load', () => {
-  setTimeout(() => { document.getElementById('loader').classList.add('hide');
-    setTimeout(() => { document.getElementById('loader').style.display='none'; },600);
-  }, 1400);
-});
+window.addEventListener('load', () => { window.GravityDismissLoader?.(); }, { once: true });
 </script>
 
 <!-- Optional analytics adapter; no provider loads without verified configuration. -->

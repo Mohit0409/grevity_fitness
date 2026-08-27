@@ -173,6 +173,14 @@ class HttpFoundationTests(unittest.TestCase):
         self.assertNotIn("jsPDF", html)
         self.assertNotIn("IGST @ 18%", html)
 
+    def test_homepage_loader_is_fail_safe_after_section_removal(self):
+        html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("window.GravityDismissLoader = dismiss", html)
+        self.assertIn("window.setTimeout(dismiss, 3000)", html)
+        self.assertIn("const heroStats = document.querySelector('.hero-stats')", html)
+        self.assertIn("if (heroStats) counterObs.observe(heroStats)", html)
+        self.assertNotIn("counterObs.observe(document.querySelector('.hero-stats'))", html)
+
     def test_coaching_ui_contract_is_wired(self):
         with running_server() as (base, _settings):
             status, _headers, admin = fetch(base, "/admin")
