@@ -92,12 +92,21 @@ Last updated: 2026-08-27
 - Every nutrition plan carries a fixed general-fitness disclaimer and explicitly excludes medical advice, diagnosis, treatment, and clinical nutrition use.
 - Added member account coaching UI plus Control Room member selection, measurement/goal entry, version creation, activation, and assignment controls.
 
+### Phase 8 — Public truth, SEO, performance, and accessibility hardening
+
+- Replaced unsupported public ratings, member counts, scarcity, discounts, trainer credentials, transformation/testimonial claims, live class occupancy, static membership prices, and medical-style BMI recommendations with verification-safe enquiry/reference content.
+- Public membership pricing now renders only active server-owned plans from `/api/membership/plans`; inactive imported drafts remain unpublished.
+- Added dynamic `/robots.txt` and `/sitemap.xml` based on configured `APP_BASE_URL`, plus `/assets/site.webmanifest`; private account/admin/API routes are excluded from crawling.
+- Removed the unverified production analytics ID and synthetic analytics/urgency/schema code; analytics helpers are inert unless an independently verified provider is configured.
+- Added skip links/main landmarks and improved mobile-navigation ARIA while preserving focus-visible and reduced-motion behavior.
+- Reduced homepage HTML from roughly 87 KB to about 48 KB, reduced `analytics.js` from roughly 20 KB to about 3.3 KB, removed the embedded map iframe, and deferred the decorative athlete bundle until browser idle on eligible desktop sessions.
+- Rewrote public Trainers and Gallery pages so media is illustrative and coach credentials/availability are not asserted until verified.
+
 ## Known issues / production blockers
 
 - `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` credentials/client configuration and an authorized Admin service account are still required for real customer login verification. The application fails closed and reports auth disabled until configured.
 - `BLOCKED_EXTERNAL_CONFIG`: Razorpay, WhatsApp, SMS, SMTP, final domain, verified business contact details, GST/invoice identity, and final analytics IDs are not configured.
-- Existing public content contains unverified claims, scarcity, reviews, metrics, pricing, trainers, photos, opening hours, and contact details. These must not be represented as verified production facts.
-- Broader customer dashboard visualization, tax-invoice issuance, verified public content, and real notification-provider delivery remain pending later phases.
+- Broader customer dashboard visualization, tax-invoice issuance, final verified production domain/business identity, and real notification-provider delivery remain pending later phases.
 - Backup/restore scripts and a tested recovery drill remain Phase 10 work.
 
 ## Test status
@@ -126,12 +135,16 @@ Last updated: 2026-08-27
 - Phase 1–7 clean regression evidence: 57/57 `unittest` tests pass on 2026-08-27 in 36.166s. Python `compileall`, all account/admin JavaScript syntax checks, and public-page inline JavaScript validation pass in the same zero-exit gate.
 - Phase 7 live laptop smoke after migration `007` and fresh restart: PID 20612; database migrations `7`; `/api/health`, `/account`, `/admin`, `/js/account-coaching.js`, and `/js/admin-coaching.js` return HTTP 200; live `/admin` contains the coaching view plus diet template/version forms; unauthenticated customer/admin coaching APIs return HTTP 401; `/.env`, coaching source, and migration source return HTTP 404.
 
+- Phase 8 truth/SEO/accessibility foundation evidence: 16/16 focused foundation tests pass, including dynamic robots/sitemap origin behavior, manifest MIME, public/private routing, and permanent guards against synthetic ratings/scarcity/prices/medical recommendations.
+- Phase 1–8 clean regression evidence: 59/59 `unittest` tests pass on 2026-08-27 in 35.193s. Python `compileall`, every `web/js/*.js` syntax check, all homepage inline JavaScript syntax checks, and `git diff --check` pass in the same zero-exit gate.
+- Phase 8 live laptop smoke after fresh restart: PID 18036; database migrations remain `7`; `/`, `/trainers`, `/gallery`, `/robots.txt`, `/sitemap.xml`, `/assets/site.webmanifest`, and new public JS assets return HTTP 200; public membership plans remain `{"plans":[]}` until staff activation; `/.env` and server/test source paths remain HTTP 404.
+
 ## Deployment status
 
 - Firebase public site remains the historical deployment; no new Firebase deployment is planned.
-- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 7 working tree (fresh PID 20612 at the release smoke, database migrations `7`).
+- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787` on the current Phase 8 working tree (fresh PID 18036 at the release smoke, database migrations `7`).
 - Termux: architecture-compatible; deployment runbook pending Phase 10.
 
 ## Next implementation milestone
 
-Phase 8: public-content truth, SEO, performance, and accessibility hardening — remove or clearly qualify unverified claims, verify metadata/schema/crawl behavior, improve Core Web Vitals without dropping functionality, and run keyboard/mobile/accessibility regression checks.
+Phase 9: production-readiness and verified integration hardening — prepare final domain/business identity activation, notification-provider delivery adapters, tax-invoice identity gating, customer dashboard polish, and launch configuration without inventing unavailable external credentials.

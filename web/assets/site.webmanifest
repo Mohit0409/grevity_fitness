@@ -1,0 +1,9 @@
+{
+  "name": "Gravity Fitness Neemuch",
+  "short_name": "Gravity Fitness",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#13151b",
+  "theme_color": "#13151b"
+}

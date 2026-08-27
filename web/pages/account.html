@@ -10,6 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/css/style.css?v=phase2"/>
   <link rel="stylesheet" href="/css/account.css?v=phase2"/>
+  <meta name="theme-color" content="#13151b"/>
+  <link rel="manifest" href="/site.webmanifest"/>
 </head>
 <body>
 <header class="header" id="header">
@@ -121,7 +123,7 @@
         <form class="account-form" id="phone-form" hidden novalidate>
           <div class="account-field">
             <label for="phone-number">Mobile number</label>
-            <input id="phone-number" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+919876543210" required/>
+            <input id="phone-number" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+919000000000" required/>
             <div class="account-field-error" id="phone-number-error"></div>
           </div>
           <button class="btn btn-primary" type="submit" id="send-phone-code">Send verification code</button>
@@ -192,7 +194,7 @@
             </div>
             <div class="account-field">
               <label for="profile-emergency-phone">Emergency phone</label>
-              <input id="profile-emergency-phone" name="emergencyContactPhone" type="tel" inputmode="tel" placeholder="+919876543210"/>
+              <input id="profile-emergency-phone" name="emergencyContactPhone" type="tel" inputmode="tel" placeholder="+919000000000"/>
             </div>
           </div>
           <div class="account-field">

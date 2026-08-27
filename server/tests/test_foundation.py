@@ -34,6 +34,7 @@ def running_server():
             database_path=runtime / "data" / "gravity.sqlite3",
             host="127.0.0.1",
             port=0,
+            app_base_url="https://gravity.example",
         )
         server = create_server(settings)
         thread = Thread(target=server.serve_forever, daemon=True)
@@ -97,12 +98,12 @@ class HttpFoundationTests(unittest.TestCase):
         with running_server() as (base, _settings):
             for path, marker in (
                 ("/", b"Transform Your Body"),
-                ("/pages/trainers.html", b"Meet Your Coaches"),
-                ("/pages/gallery.html", b"Inside Gravity"),
+                ("/pages/trainers.html", b"Confirm the Coach Who Fits Your Goal"),
+                ("/pages/gallery.html", b"Gravity Fitness Gallery"),
                 ("/account", b"Your training starts"),
                 ("/admin", b"Control Room"),
-                ("/trainers", b"Meet Your Coaches"),
-                ("/gallery", b"Inside Gravity"),
+                ("/trainers", b"Confirm the Coach Who Fits Your Goal"),
+                ("/gallery", b"Gravity Fitness Gallery"),
                 ("/css/style.css", b"GRAVITY FITNESS"),
             ):
                 status, _headers, body = fetch(base, path)
@@ -133,6 +134,8 @@ class HttpFoundationTests(unittest.TestCase):
             self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
             self.assertEqual(headers["X-Frame-Options"], "DENY")
             self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
+            self.assertNotIn("googletagmanager.com", headers["Content-Security-Policy"])
+            self.assertNotIn("google-analytics.com", headers["Content-Security-Policy"])
             self.assertEqual(headers["Referrer-Policy"], "strict-origin-when-cross-origin")
             self.assertEqual(headers["Server"], "GravityFitness")
             self.assertTrue(headers["X-Request-ID"])
@@ -179,6 +182,57 @@ class HttpFoundationTests(unittest.TestCase):
             status, _headers, account = fetch(base, "/account")
             self.assertEqual(status, 200)
             self.assertIn(b'/js/account-coaching.js', account)
+
+    def test_crawl_files_use_configured_public_origin(self):
+        with running_server() as (base, _settings):
+            status, headers, body = fetch(base, "/robots.txt")
+            self.assertEqual(status, 200)
+            self.assertTrue(headers["Content-Type"].startswith("text/plain"))
+            robots = body.decode("utf-8")
+            self.assertIn("Disallow: /account", robots)
+            self.assertIn("Disallow: /admin", robots)
+            self.assertIn("Disallow: /api/", robots)
+            self.assertIn("Sitemap: https://gravity.example/sitemap.xml", robots)
+
+            status, headers, body = fetch(base, "/sitemap.xml")
+            self.assertEqual(status, 200)
+            self.assertTrue(headers["Content-Type"].startswith("application/xml"))
+            sitemap = body.decode("utf-8")
+            for url in ("https://gravity.example/", "https://gravity.example/trainers", "https://gravity.example/gallery"):
+                self.assertIn(f"<loc>{url}</loc>", sitemap)
+            self.assertNotIn("/account</loc>", sitemap)
+            self.assertNotIn("/admin</loc>", sitemap)
+
+            status, headers, body = fetch(base, "/site.webmanifest")
+            self.assertEqual(status, 200)
+            self.assertTrue(headers["Content-Type"].startswith("application/manifest+json"))
+            self.assertEqual(json.loads(body)["name"], "Gravity Fitness Neemuch")
+
+    def test_public_truth_and_accessibility_guards(self):
+        index = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+        analytics = (ROOT / "web" / "js" / "analytics.js").read_text(encoding="utf-8")
+        trainers = (ROOT / "web" / "pages" / "trainers.html").read_text(encoding="utf-8")
+        gallery = (ROOT / "web" / "pages" / "gallery.html").read_text(encoding="utf-8")
+        public_plans = (ROOT / "web" / "js" / "public-membership.js").read_text(encoding="utf-8")
+        combined = "\n".join((index, analytics, trainers, gallery, public_plans))
+
+        forbidden = (
+            "Neemuch's #1", "4.9/5", "2,000+", "100+ Member",
+            "First Month FREE", "₹999", "IGFIT", "aggregateRating",
+            '"priceRange"', '"ratingValue"', "Daily Calories", "Recommended Plan",
+            "Underweight", "Overweight", "Obese", "G-QCV4MEH4R4",
+            "hello@gravityfitness.in", "919876543210", "step-invoice",
+            "downloadInvoicePDF", "jsPDF",
+        )
+        for marker in forbidden:
+            self.assertNotIn(marker, combined, marker)
+
+        for page in (index, trainers, gallery):
+            self.assertIn('class="skip-link"', page)
+            self.assertIn('id="main-content"', page)
+        self.assertIn('/api/membership/plans', public_plans)
+        self.assertIn('textContent', public_plans)
+        self.assertIn('General reference only', analytics)
 
     def test_head_returns_content_length_without_body(self):
         with running_server() as (base, _settings):

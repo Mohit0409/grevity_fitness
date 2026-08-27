@@ -54,6 +54,7 @@ STATIC_ROUTE_ALIASES = {
     "/admin": "pages/admin.html",
     "/trainers": "pages/trainers.html",
     "/gallery": "pages/gallery.html",
+    "/site.webmanifest": "assets/site.webmanifest",
 }
 SENSITIVE_QUERY_KEYS = {"access_token", "code", "id_token", "session", "token"}
 MAX_REQUEST_BODY = 1_048_576
@@ -184,6 +185,12 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
                     request_id=request_id,
                     send_body=send_body,
                 )
+                return
+            if path in {"/robots.txt", "/sitemap.xml"}:
+                if self.command not in {"GET", "HEAD"}:
+                    status = self._method_not_allowed({"GET", "HEAD"}, request_id, send_body)
+                    return
+                status = self._crawl_response(path, request_id=request_id, send_body=send_body)
                 return
             if (
                 path == "/api/payment/config"
@@ -715,6 +722,33 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
                 break
             remaining -= len(chunk)
 
+    def _crawl_response(self, path: str, *, request_id: str, send_body: bool) -> HTTPStatus:
+        base = self.server.settings.app_base_url.rstrip("/")
+        if path == "/robots.txt":
+            body = (
+                "User-agent: *\n"
+                "Disallow: /account\n"
+                "Disallow: /admin\n"
+                "Disallow: /api/\n"
+                f"Sitemap: {base}/sitemap.xml\n"
+            )
+            content_type = "text/plain; charset=utf-8"
+        else:
+            urls = [f"{base}/", f"{base}/trainers", f"{base}/gallery"]
+            items = "".join(f"<url><loc>{url}</loc></url>" for url in urls)
+            body = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{items}</urlset>'
+            content_type = "application/xml; charset=utf-8"
+        data = body.encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self._security_headers(request_id)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "public, max-age=300")
+        self.end_headers()
+        if send_body:
+            self.wfile.write(data)
+        return HTTPStatus.OK
+
     def _static_response(self, raw_path: str, *, request_id: str, send_body: bool) -> HTTPStatus:
         try:
             decoded = unquote(raw_path, errors="strict")
@@ -741,6 +775,8 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
         mime, _encoding = mimetypes.guess_type(candidate.name)
         if candidate.suffix == ".js":
             mime = "application/javascript"
+        elif candidate.suffix == ".webmanifest":
+            mime = "application/manifest+json"
         content_type = mime or "application/octet-stream"
         if content_type.startswith("text/") or content_type in {"application/javascript", "application/json"}:
             content_type += "; charset=utf-8"
@@ -827,12 +863,12 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             "Content-Security-Policy",
             "default-src 'self'; "
             "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
-            "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://www.googletagmanager.com "
+            "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com "
             "https://www.gstatic.com https://www.google.com https://recaptcha.net https://www.recaptcha.net https://checkout.razorpay.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https:; "
-            "connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com "
+            "connect-src 'self' "
             "https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.razorpay.com https://checkout.razorpay.com; "
             "frame-src https://www.google.com https://recaptcha.net https://www.recaptcha.net https://*.firebaseapp.com https://api.razorpay.com https://checkout.razorpay.com; "
             "form-action 'self' https://wa.me; upgrade-insecure-requests",

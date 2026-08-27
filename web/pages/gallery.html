@@ -3,401 +3,82 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Gallery — Gravity Fitness Neemuch</title>
-  <meta name="description" content="See the energy inside Gravity Fitness Neemuch — real photos of our gym, trainers, and members in action."/>
+  <title>Gallery | Gravity Fitness Neemuch</title>
+  <meta name="description" content="Browse Gravity Fitness website media. Images are not presented as verified member transformations, reviews, current facilities or live class availability."/>
+  <meta name="robots" content="index,follow"/>
+  <link rel="canonical" href="/gallery"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="../css/style.css?v=phase2"/>
+  <link rel="stylesheet" href="/css/style.css?v=phase8"/>
+  <meta name="theme-color" content="#13151b"/>
+  <link rel="manifest" href="/site.webmanifest"/>
 </head>
 <body>
-
-<div id="loader">
-  <div class="loader-logo">GRAVITY<span>.</span></div>
-  <div class="loader-bar"><div class="loader-fill"></div></div>
-  <div class="loader-text">Loading the energy...</div>
-</div>
-
+<a class="skip-link" href="#main-content">Skip to main content</a>
 <header class="header" id="header">
   <div class="header-inner">
-    <a href="../index.html" class="logo">GRAVITY<span>.</span></a>
+    <a href="/" class="logo" aria-label="Gravity Fitness home">GRAVITY<span>.</span></a>
     <ul class="nav-tabs">
-      <li><a href="../index.html#classes">Classes</a></li>
-      <li><a href="../index.html#membership">Membership</a></li>
-      <li><a href="../index.html#schedule">Schedule</a></li>
-      <li><a href="trainers.html">Trainers</a></li>
-      <li><a href="gallery.html" class="active">Gallery</a></li>
-      <li><a href="../index.html#contact">Contact</a></li>
+      <li><a href="/#classes">Training</a></li>
+      <li><a href="/#membership">Membership</a></li>
+      <li><a href="/trainers">Coaching</a></li>
+      <li><a href="/gallery" class="active" aria-current="page">Gallery</a></li>
+      <li><a href="/#contact">Contact</a></li>
     </ul>
     <div class="header-right">
-      <div class="city-pill">
-        <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
-        Neemuch, MP
-      </div>
-      <a class="btn btn-outline account-header-link" href="account.html" data-account-link aria-busy="true"><span data-account-label>Account</span></a>
-      <button class="btn btn-primary" onclick="window.location.href='../index.html#membership'">🎟 Free Day Pass</button>
-      <button class="hamburger" onclick="toggleMobileNav()">☰</button>
+      <a class="btn btn-outline account-header-link" href="/account" data-account-link aria-busy="true"><span data-account-label>Account</span></a>
+      <button class="hamburger" type="button" aria-label="Open navigation" aria-controls="mobile-nav" aria-expanded="false">☰</button>
     </div>
   </div>
 </header>
-
-<nav class="mobile-nav" id="mobile-nav">
-  <button onclick="toggleMobileNav()" style="position:absolute;top:18px;right:20px;background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer;">✕</button>
+<nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation">
+  <button type="button" class="mobile-nav-close" aria-label="Close navigation">✕</button>
   <ul>
-    <li><a href="../index.html#classes">Classes</a></li>
-    <li><a href="../index.html#membership">Membership</a></li>
-    <li><a href="trainers.html">Trainers</a></li>
-    <li><a href="gallery.html">Gallery</a></li>
-    <li><a href="account.html" data-account-link aria-busy="true"><span data-account-label>Account</span></a></li>
-    <li><a href="../index.html#contact">Contact</a></li>
+    <li><a href="/#classes">Training</a></li>
+    <li><a href="/#membership">Membership</a></li>
+    <li><a href="/trainers">Coaching</a></li>
+    <li><a href="/gallery" aria-current="page">Gallery</a></li>
+    <li><a href="/account" data-account-link aria-busy="true"><span data-account-label>Account</span></a></li>
+    <li><a href="/#contact">Contact</a></li>
   </ul>
 </nav>
-
-<!-- PAGE HERO — full photo background using real image -->
-<div style="position:relative;min-height:480px;display:flex;align-items:flex-end;overflow:hidden;margin-top:64px;">
-  <img src="../assets/images/bodybuilder-cap.jpg" alt="Gravity Fitness Gallery"
-    style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 15%;filter:brightness(.22) saturate(.5) contrast(1.1);"/>
-  <div style="position:absolute;inset:0;background:linear-gradient(to top,var(--bg2) 0%,rgba(0,0,0,.1) 70%);"></div>
-  <!-- Lime accent lines -->
-  <div style="position:absolute;top:0;left:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--lime),transparent);"></div>
-  <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--lime);opacity:.6;"></div>
-  <div style="position:relative;z-index:2;max-width:1280px;margin:0 auto;width:100%;padding:40px 24px 52px;">
-    <div class="breadcrumb" style="margin-bottom:14px;"><a href="../index.html">Home</a><span>›</span><span>Gallery</span></div>
-    <div class="section-label">Inside Gravity</div>
-    <h1 class="section-title" style="font-size:clamp(2.2rem,6vw,4rem);margin-bottom:14px;">Feel the Energy</h1>
-    <p class="section-sub">Every rep, every class, every transformation — a glimpse of what happens when you walk through our doors.</p>
-  </div>
-</div>
-
-<!-- INSTAGRAM BANNER -->
-<div style="background:linear-gradient(135deg,#1a0020,#0a001a);border-bottom:1px solid var(--border);padding:16px 24px;">
-  <div style="max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-    <div style="display:flex;align-items:center;gap:12px;">
-      <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📸</div>
-      <div>
-        <div style="font-size:.72rem;color:var(--muted);font-weight:700;letter-spacing:1px;text-transform:uppercase;">Follow us for daily updates</div>
-        <div style="font-size:1rem;font-weight:800;color:var(--white);">@gravity_fitness_nmh</div>
+<main id="main-content">
+  <section class="section" style="padding-top:120px;background:var(--bg2);">
+    <div class="container">
+      <div class="section-label">Website media</div>
+      <h1 class="section-title">Gravity Fitness Gallery</h1>
+      <p class="section-sub">These images are from the website media library. Unless a specific image is independently verified, it should not be read as proof of a member transformation, current coach identity, current facility feature, testimonial, rating or result.</p>
+      <div class="cta-actions" style="margin-top:24px;"><a class="btn btn-primary" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" rel="noopener noreferrer">View recent Instagram updates</a><a class="btn btn-outline" href="/#contact">Confirm current facilities</a></div>
+    </div>
+  </section>
+  <section class="section">
+    <div class="container">
+      <div class="section-head"><div><div class="section-label">Media library</div><h2 class="section-title">Training Imagery</h2><p class="section-sub">Visual references only; no outcome or identity claim is attached to these images.</p></div></div>
+      <div class="photo-mosaic">
+        <div class="mosaic-item mosaic-a"><img src="/assets/images/hero-fighter.png" alt="Fitness training image from the Gravity Fitness website media library" loading="eager"/><div class="mosaic-label">Website training image</div></div>
+        <div class="mosaic-item mosaic-b"><img src="/assets/images/trainer-pt.jpg" alt="Training image from the Gravity Fitness website media library" loading="lazy"/><div class="mosaic-label">Website training image</div></div>
+        <div class="mosaic-item mosaic-c"><img src="/assets/images/bodybuilder-cap.jpg" alt="Fitness image from the Gravity Fitness website media library" loading="lazy"/><div class="mosaic-label">Website fitness image</div></div>
+        <div class="mosaic-item mosaic-d"><img src="/assets/images/trainer-mirror.jpg" alt="Training image from the Gravity Fitness website media library" loading="lazy"/><div class="mosaic-label">Website training image</div></div>
+        <div class="mosaic-item mosaic-e"><img src="/assets/images/flexing-pose.jpg" alt="Fitness image from the Gravity Fitness website media library" loading="lazy"/><div class="mosaic-label">Website fitness image</div></div>
       </div>
     </div>
-    <a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" class="btn btn-primary" style="font-size:.85rem;padding:10px 20px;">Open Instagram →</a>
-  </div>
-</div>
-
-<!-- REAL PHOTO MOSAIC -->
-<section class="section" style="background:var(--bg2);">
-  <div class="container">
-    <div class="section-head reveal">
-      <div>
-        <div class="section-label">Photo Gallery</div>
-        <h2 class="section-title">The Floor Never Lies</h2>
-        <p class="section-sub">This is where transformations are built. Every single day.</p>
+  </section>
+  <section class="section" style="background:var(--bg2);">
+    <div class="container"><div class="section-head"><div><div class="section-label">Current information</div><h2 class="section-title">Check Before You Visit</h2><p class="section-sub">Equipment, rooms, classes, coaches and availability can change after a photo is taken.</p></div></div>
+      <div class="features-grid">
+        <div class="feature-card"><div class="feature-title">Facilities</div><div class="feature-desc">Confirm the equipment or facility you need directly with the gym.</div></div>
+        <div class="feature-card"><div class="feature-title">Classes</div><div class="feature-desc">Images do not indicate a live timetable or open class slot.</div></div>
+        <div class="feature-card"><div class="feature-title">People</div><div class="feature-desc">Images are not used to identify a current coach or member without verification.</div></div>
+        <div class="feature-card"><div class="feature-title">Results</div><div class="feature-desc">No image on this page is presented as a guaranteed or typical fitness outcome.</div></div>
       </div>
     </div>
-
-    <!-- Real photo mosaic — 5 uploaded images -->
-    <div class="photo-mosaic reveal">
-      <!-- Large left — hero fighter BW -->
-      <div class="mosaic-item mosaic-a" data-label="Elite Physique">
-        <img src="../assets/images/hero-fighter.png"
-          alt="Elite physique at Gravity Fitness"
-          style="object-position:center top;filter:brightness(.82) grayscale(12%) contrast(1.12);"/>
-        <div class="mosaic-label">Elite Physique</div>
-      </div>
-      <!-- Top mid — PT session -->
-      <div class="mosaic-item mosaic-b" data-label="Personal Training">
-        <img src="../assets/images/trainer-pt.jpg"
-          alt="Personal training session"
-          style="object-position:center 30%;"/>
-        <div class="mosaic-label">Personal Training</div>
-      </div>
-      <!-- Large right — bodybuilder cap -->
-      <div class="mosaic-item mosaic-c" data-label="Mass Building">
-        <img src="../assets/images/bodybuilder-cap.jpg"
-          alt="Mass building at Gravity Fitness"
-          style="object-position:center 20%;filter:brightness(.88) saturate(1.05);"/>
-        <div class="mosaic-label">Mass Building</div>
-      </div>
-      <!-- Bottom mid — mirror / women's training -->
-      <div class="mosaic-item mosaic-d" data-label="Women's Strength">
-        <img src="../assets/images/trainer-mirror.jpg"
-          alt="Women's strength training"
-          style="object-position:center center;"/>
-        <div class="mosaic-label">Women's Strength</div>
-      </div>
-      <!-- Wide bottom left — flexing pose -->
-      <div class="mosaic-item mosaic-e" data-label="Physique Goals">
-        <img src="../assets/images/flexing-pose.jpg"
-          alt="Physique goals at Gravity Fitness"
-          style="object-position:center 15%;filter:brightness(.9);"/>
-        <div class="mosaic-label">Physique Goals</div>
-      </div>
-      <!-- Wide bottom right — bodybuilder close crop -->
-      <div class="mosaic-item mosaic-f" data-label="Gravity Results">
-        <img src="../assets/images/bodybuilder-cap.jpg"
-          alt="Results at Gravity Fitness"
-          style="object-position:center 55%;filter:brightness(.7) saturate(1.15) contrast(1.05);"/>
-        <div class="mosaic-label">Gravity Results</div>
-      </div>
-    </div>
-
-  </div>
-</section>
-
-<!-- PARALLAX BANNER — Flexing pose -->
-<div class="parallax-banner" id="parallax-banner-g">
-  <div class="parallax-banner__bg" id="parallax-bg-g">
-    <img src="../assets/images/flexing-pose.jpg" alt="Gravity Fitness Physique" style="object-position:center 10%;"/>
-  </div>
-  <div class="parallax-banner__content reveal">
-    <div class="big-quote">This could be <span>your</span> result.<br>It starts with one visit.</div>
-    <div class="quote-sub">Thousands of transformations started right here in Neemuch.</div>
-    <div style="margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-      <button class="btn btn-primary" style="font-size:1rem;padding:14px 30px;" onclick="window.location.href='../index.html#membership'">🎟 Book Free Day Pass</button>
-    </div>
-  </div>
-</div>
-
-<!-- EXTENDED GALLERY — Mixed real + class tiles -->
-<section class="section" style="background:var(--bg);">
-  <div class="container">
-    <div class="section-head reveal">
-      <div>
-        <div class="section-label">More from Gravity</div>
-        <h2 class="section-title">Classes in Action</h2>
-      </div>
-      <div class="gallery-filters" style="margin-bottom:0;">
-        <button class="gal-filter active" onclick="filterGallery('all',this)">All</button>
-        <button class="gal-filter" onclick="filterGallery('strength',this)">Strength</button>
-        <button class="gal-filter" onclick="filterGallery('classes',this)">Classes</button>
-        <button class="gal-filter" onclick="filterGallery('results',this)">Results</button>
-      </div>
-    </div>
-
-    <!-- Masonry grid with mix of real photos + styled tiles -->
-    <div class="gallery-grid" id="gallery-grid">
-
-      <!-- REAL PHOTOS mixed in -->
-      <div class="gallery-item reveal" data-cat="strength" style="cursor:zoom-in;" onclick="openLightbox(this)">
-        <img src="../assets/images/hero-fighter.png"
-          alt="Elite strength training"
-          style="width:100%;display:block;filter:brightness(.85) grayscale(10%) contrast(1.08);object-position:center top;aspect-ratio:3/4;object-fit:cover;"/>
-        <div class="gallery-caption">Elite Physique — Head Coach Vikram D.</div>
-      </div>
-
-      <div class="gallery-item reveal reveal-delay-1" data-cat="strength" style="cursor:zoom-in;" onclick="openLightbox(this)">
-        <img src="../assets/images/bodybuilder-cap.jpg"
-          alt="Mass building"
-          style="width:100%;display:block;filter:brightness(.8) saturate(1.1);object-position:center 25%;aspect-ratio:4/5;object-fit:cover;"/>
-        <div class="gallery-caption">Mass Building — Heavy Iron Programme</div>
-      </div>
-
-      <div class="gallery-item reveal reveal-delay-2" data-cat="strength" style="cursor:zoom-in;" onclick="openLightbox(this)">
-        <img src="../assets/images/trainer-mirror.jpg"
-          alt="Women's strength training"
-          style="width:100%;display:block;object-position:center center;aspect-ratio:1/1;object-fit:cover;filter:brightness(.88);"/>
-        <div class="gallery-caption">Women's Strength Training Floor</div>
-      </div>
-
-      <div class="gallery-item reveal" data-cat="classes" style="cursor:zoom-in;" onclick="openLightbox(this)">
-        <img src="../assets/images/trainer-pt.jpg"
-          alt="Personal training"
-          style="width:100%;display:block;aspect-ratio:4/3;object-fit:cover;object-position:center 30%;filter:brightness(.85);"/>
-        <div class="gallery-caption">One-on-One Personal Training</div>
-      </div>
-
-      <div class="gallery-item reveal reveal-delay-1" data-cat="results" style="cursor:zoom-in;" onclick="openLightbox(this)">
-        <img src="../assets/images/flexing-pose.jpg"
-          alt="Physique results"
-          style="width:100%;display:block;aspect-ratio:3/4;object-fit:cover;object-position:center 15%;filter:brightness(.88);"/>
-        <div class="gallery-caption">Physique Goals — Real Gravity Member</div>
-      </div>
-
-      <!-- Styled SVG tiles for classes -->
-      <div class="gallery-item reveal reveal-delay-2" data-cat="classes" style="cursor:zoom-in;">
-        <svg viewBox="0 0 400 340" style="display:block;width:100%;"><rect width="400" height="340" fill="#0d0520"/>
-          <circle cx="200" cy="150" r="110" fill="#A855F7" opacity=".06"/>
-          <text x="200" y="175" text-anchor="middle" font-size="90">💃</text>
-          <text x="200" y="250" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="28" font-weight="900" fill="#A855F7">ZUMBA FIESTA</text>
-          <text x="200" y="278" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#fff" opacity=".4">MON · WED · FRI · 8:30 AM</text>
-          <rect x="0" y="0" width="400" height="3" fill="#A855F7"/>
-        </svg>
-        <div class="gallery-caption">Zumba Fiesta — Coach Priya M.</div>
-      </div>
-
-      <div class="gallery-item reveal" data-cat="classes" style="cursor:zoom-in;">
-        <svg viewBox="0 0 400 300" style="display:block;width:100%;"><rect width="400" height="300" fill="#001428"/>
-          <circle cx="200" cy="130" r="85" fill="#4DA6FF" opacity=".06"/>
-          <text x="200" y="155" text-anchor="middle" font-size="75">🧘</text>
-          <text x="200" y="230" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="24" font-weight="900" fill="#4DA6FF">YOGA FLOW</text>
-          <text x="200" y="258" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#fff" opacity=".4">DAILY 6:00 AM · COACH ANKITA R.</text>
-          <rect x="0" y="0" width="3" height="300" fill="#4DA6FF" opacity=".7"/>
-        </svg>
-        <div class="gallery-caption">Morning Flow Yoga — Daily 6 AM</div>
-      </div>
-
-      <div class="gallery-item reveal reveal-delay-1" data-cat="classes" style="cursor:zoom-in;">
-        <svg viewBox="0 0 400 360" style="display:block;width:100%;"><rect width="400" height="360" fill="#0a0010"/>
-          <rect x="0" y="0" width="400" height="3" fill="#C1FF6B"/>
-          <text x="200" y="180" text-anchor="middle" font-size="90">⚡</text>
-          <text x="200" y="254" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="28" font-weight="900" fill="#C1FF6B">POWER HIIT</text>
-          <text x="200" y="282" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#fff" opacity=".4">MON · WED · SAT · 7:00 AM</text>
-          <text x="200" y="310" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#C1FF6B" opacity=".6">● MOST POPULAR CLASS</text>
-        </svg>
-        <div class="gallery-caption">Power HIIT — Coach Rahul S.</div>
-      </div>
-
-      <div class="gallery-item reveal reveal-delay-2" data-cat="classes" style="cursor:zoom-in;">
-        <svg viewBox="0 0 400 300" style="display:block;width:100%;"><rect width="400" height="300" fill="#100500"/>
-          <polygon points="0,0 170,0 0,270" fill="#FF8C42" opacity=".06"/>
-          <text x="200" y="155" text-anchor="middle" font-size="80">🥊</text>
-          <text x="200" y="228" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="26" font-weight="900" fill="#FF8C42">BOXING BASICS</text>
-          <text x="200" y="256" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#fff" opacity=".4">MON · WED · FRI · 6:00 PM</text>
-          <rect x="0" y="0" width="400" height="3" fill="#FF8C42"/>
-        </svg>
-        <div class="gallery-caption">Boxing Basics — Coach Arjun K.</div>
-      </div>
-
-      <div class="gallery-item reveal" data-cat="results" style="cursor:zoom-in;">
-        <svg viewBox="0 0 400 380" style="display:block;width:100%;"><rect width="400" height="380" fill="#0a1a00"/>
-          <rect x="0" y="0" width="400" height="4" fill="#C1FF6B"/>
-          <text x="200" y="130" text-anchor="middle" font-size="70">🏆</text>
-          <text x="200" y="195" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="52" font-weight="900" fill="#C1FF6B">-12 KG</text>
-          <text x="200" y="228" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#fff" opacity=".55">in 4 months</text>
-          <rect x="80" y="254" width="240" height="1" fill="rgba(193,255,107,.2)"/>
-          <text x="200" y="284" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#C1FF6B" opacity=".75">— Rohit S., Pro Member</text>
-          <text x="200" y="310" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#fff" opacity=".35">"Best decision of my life"</text>
-        </svg>
-        <div class="gallery-caption">Member Transformation — Rohit S.</div>
-      </div>
-
-      <div class="gallery-item reveal reveal-delay-1" data-cat="classes" style="cursor:zoom-in;">
-        <svg viewBox="0 0 400 280" style="display:block;width:100%;"><rect width="400" height="280" fill="#001020"/>
-          <text x="200" y="140" text-anchor="middle" font-size="80">🚴</text>
-          <text x="200" y="210" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="22" font-weight="900" fill="#4DA6FF">RHYTHM RIDE</text>
-          <text x="200" y="235" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" fill="#fff" opacity=".4">TUE · THU · SAT · 7:30 AM</text>
-          <rect x="0" y="0" width="4" height="280" fill="#4DA6FF"/>
-        </svg>
-        <div class="gallery-caption">Rhythm Ride — Coach Sneha P.</div>
-      </div>
-
-      <div class="gallery-item reveal reveal-delay-2" data-cat="results" style="cursor:zoom-in;">
-        <svg viewBox="0 0 400 320" style="display:block;width:100%;"><rect width="400" height="320" fill="#1a0028"/>
-          <circle cx="200" cy="140" r="90" fill="#A855F7" opacity=".07"/>
-          <text x="200" y="168" text-anchor="middle" font-size="80">⭐</text>
-          <text x="200" y="235" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="46" font-weight="900" fill="#A855F7">4.9★</text>
-          <text x="200" y="268" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#fff" opacity=".5">Average member rating · 200+ reviews</text>
-        </svg>
-        <div class="gallery-caption">4.9★ — Neemuch's Most Loved Gym</div>
-      </div>
-
-    </div>
-
-    <!-- Instagram CTA -->
-    <div style="text-align:center;margin-top:56px;" class="reveal">
-      <div class="section-label" style="text-align:center;margin-bottom:8px;">Want more?</div>
-      <h2 class="section-title" style="text-align:center;margin-bottom:12px;">Follow @gravity_fitness_nmh</h2>
-      <p style="font-size:.9rem;color:var(--muted);margin-bottom:24px;">Daily workouts, member transformations, class highlights — all on Instagram.</p>
-      <a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" class="btn btn-primary" style="font-size:1rem;padding:14px 32px;">📸 Open Instagram</a>
-    </div>
-
-    <!-- CTA -->
-    <div class="cta-strip reveal" style="margin-top:64px;">
-      <h2>Like what you see? <span class="lime">Come experience it</span> for free.</h2>
-      <div class="cta-actions">
-        <button class="btn btn-primary" style="font-size:1rem;padding:14px 28px;" onclick="window.location.href='../index.html#membership'">🎟 Book Free Day Pass</button>
-        <a href="https://wa.me/919876543210" target="_blank" class="btn btn-outline" style="font-size:1rem;padding:14px 28px;">💬 WhatsApp Us</a>
-      </div>
-    </div>
-
-  </div>
-</section>
-
-<!-- FOOTER -->
-<footer>
-  <div class="footer-inner">
-    <div class="footer-grid">
-      <div class="footer-brand"><a href="../index.html" class="logo">GRAVITY<span style="color:var(--lime)">.</span></a><p>Neemuch's premier fitness destination. World-class equipment, expert trainers, and a community that lifts each other up.</p></div>
-      <div class="footer-col"><h4>Classes</h4><ul><li><a href="../index.html#classes">HIIT</a></li><li><a href="../index.html#classes">Zumba</a></li><li><a href="../index.html#classes">Yoga</a></li><li><a href="../index.html#classes">Boxing</a></li></ul></div>
-      <div class="footer-col"><h4>Pages</h4><ul><li><a href="trainers.html">Our Trainers</a></li><li><a href="gallery.html">Gallery</a></li><li><a href="../index.html#membership">Membership</a></li></ul></div>
-      <div class="footer-col"><h4>Contact</h4><ul><li><a href="../index.html#contact">Visit Us</a></li><li><a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank">Instagram</a></li><li><a href="https://wa.me/919876543210" target="_blank">WhatsApp</a></li></ul></div>
-    </div>
-    <div class="footer-bottom"><span>© 2024 Gravity Fitness, Neemuch.</span><span>📲 <a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" style="color:var(--lime);">@gravity_fitness_nmh</a></span></div>
-  </div>
-</footer>
-
-<!-- LIGHTBOX -->
-<div id="gal-lightbox" onclick="closeLightbox()" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.94);backdrop-filter:blur(12px);align-items:center;justify-content:center;padding:20px;cursor:zoom-out;">
-  <div style="max-width:840px;width:100%;position:relative;">
-    <img id="lb-img" style="width:100%;border-radius:16px;display:block;max-height:88vh;object-fit:contain;" src="" alt=""/>
-    <div id="lb-label" style="text-align:center;margin-top:14px;font-size:.78rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--lime);"></div>
-    <button onclick="closeLightbox()" style="position:absolute;top:-14px;right:-14px;background:var(--surface);border:1px solid var(--border);color:var(--white);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">✕</button>
-  </div>
-</div>
-
-<a class="float-wa" href="https://wa.me/919876543210" target="_blank">💬</a>
-<div class="mobile-cta">
-  <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="window.location.href='../index.html#membership'">🎟 Book Free Day Pass</button>
-</div>
-
-<script>
-function filterGallery(cat, btn) {
-  document.querySelectorAll('.gal-filter').forEach(b => b.classList.remove('active')); btn.classList.add('active');
-  document.querySelectorAll('.gallery-item').forEach(item => {
-    item.style.display = (cat === 'all' || item.dataset.cat === cat) ? '' : 'none';
-  });
-}
-function openLightbox(el) {
-  const img = el.querySelector('img');
-  const label = el.querySelector('.gallery-caption');
-  if (!img) return;
-  document.getElementById('lb-img').src = img.src;
-  document.getElementById('lb-img').alt = img.alt;
-  document.getElementById('lb-label').textContent = label ? label.textContent : '';
-  const lb = document.getElementById('gal-lightbox');
-  lb.style.display = 'flex'; document.body.style.overflow = 'hidden';
-}
-function closeLightbox() {
-  document.getElementById('gal-lightbox').style.display = 'none'; document.body.style.overflow = '';
-}
-// Also attach to mosaic items
-document.querySelectorAll('.mosaic-item').forEach(item => {
-  item.style.cursor = 'zoom-in';
-  item.addEventListener('click', () => {
-    const img = item.querySelector('img');
-    const label = item.querySelector('.mosaic-label');
-    if (!img) return;
-    document.getElementById('lb-img').src = img.src;
-    document.getElementById('lb-img').style.cssText = 'width:100%;border-radius:16px;display:block;max-height:88vh;object-fit:contain;';
-    document.getElementById('lb-label').textContent = label ? label.dataset.label || label.textContent : '';
-    document.getElementById('gal-lightbox').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-  });
-});
-function toggleMobileNav() {
-  const n = document.getElementById('mobile-nav'); n.classList.toggle('open');
-  document.body.style.overflow = n.classList.contains('open') ? 'hidden' : '';
-}
-const revealObs = new IntersectionObserver(entries => {
-  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
-},{threshold:.08});
-document.querySelectorAll('.reveal,.reveal-left,.reveal-right').forEach(el => revealObs.observe(el));
-window.addEventListener('scroll', () => {
-  document.getElementById('header').classList.toggle('scrolled', window.scrollY > 20);
-  const bg = document.getElementById('parallax-bg-g');
-  const banner = document.getElementById('parallax-banner-g');
-  if (bg && banner) {
-    const rect = banner.getBoundingClientRect();
-    if (rect.bottom > 0 && rect.top < window.innerHeight) {
-      const progress = (window.innerHeight - rect.top) / (window.innerHeight + rect.height);
-      bg.style.transform = `translateY(${progress * 60 - 10}px)`;
-    }
-  }
-},{passive:true});
-window.addEventListener('load', () => {
-  setTimeout(() => { document.getElementById('loader').classList.add('hide');
-    setTimeout(() => { document.getElementById('loader').style.display = 'none'; }, 600);
-  }, 1000);
-});
-</script>
-<script src="../js/account-shell.js?v=phase2" defer></script>
+  </section>
+  <section class="section"><div class="container"><div class="cta-strip"><h2>Want current information instead of an old photo?</h2><p class="section-sub">Contact Gravity for the latest facilities, classes and visit details.</p><div class="cta-actions"><a class="btn btn-primary" href="tel:+917999526112">Call +91 79995 26112</a><a class="btn btn-outline" href="https://wa.me/917999526112" target="_blank" rel="noopener noreferrer">WhatsApp</a></div></div></div></section>
+</main>
+<footer><div class="footer-inner"><div class="footer-bottom"><span>© 2026 Gravity Fitness, Neemuch.</span><span><a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" rel="noopener noreferrer">Instagram</a></span></div></div></footer>
+<a class="float-wa" href="https://wa.me/917999526112" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Gravity Fitness">💬</a>
+<script src="/js/account-shell.js?v=phase2" defer></script>
+<script src="/js/public-page.js?v=phase8" defer></script>
 </body>
 </html>
