@@ -245,6 +245,15 @@ class Settings:
         )
 
     @property
+    def razorpay_requested(self) -> bool:
+        return bool(
+            self.razorpay_mode == "live"
+            or self.razorpay_key_id
+            or self.razorpay_key_secret
+            or self.razorpay_webhook_secret
+        )
+
+    @property
     def razorpay_checkout_configured(self) -> bool:
         return bool(self.razorpay_key_id and self.razorpay_key_secret)
 

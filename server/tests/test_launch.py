@@ -36,10 +36,6 @@ class LaunchGateTests(unittest.TestCase):
             "FIREBASE_AUTH_DOMAIN": "gravity.example",
             "FIREBASE_APP_ID": "app-id",
             "FIREBASE_SERVICE_ACCOUNT_PATH": str(service_account.resolve()),
-            "RAZORPAY_MODE": "live",
-            "RAZORPAY_KEY_ID": "rzp-key",
-            "RAZORPAY_KEY_SECRET": "rzp-secret",
-            "RAZORPAY_WEBHOOK_SECRET": "webhook-secret",
             "OWNER_PHONE": "+917999526112",
             "BUSINESS_NAME": "Gravity Fitness",
             "BUSINESS_ADDRESS": "Verified business address",
@@ -82,6 +78,7 @@ class LaunchGateTests(unittest.TestCase):
         self.assertTrue(report["operations"]["database"]["migrationsCurrent"])
         self.assertTrue(report["operations"]["business"]["activeOwner"])
         self.assertEqual(report["operations"]["business"]["activePlanCount"], 3)
+        self.assertFalse(report["readiness"]["razorpay"]["required"])
         self.assertTrue(report["operations"]["backup"]["verified"])
         self.assertTrue(report["operations"]["backup"]["recoveryDrillPassed"])
 

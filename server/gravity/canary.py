@@ -41,6 +41,8 @@ def razorpay_canary(
     *,
     opener: Callable[..., object] = urlopen,
 ) -> dict[str, object]:
+    if not settings.razorpay_requested:
+        return {"ok": True, "status": "skipped", "code": "razorpay_disabled"}
     if not settings.production:
         return {"ok": False, "status": "blocked", "code": "production_mode"}
     if settings.razorpay_mode != "live":

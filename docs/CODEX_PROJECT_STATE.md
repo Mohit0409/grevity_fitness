@@ -60,6 +60,10 @@ No plan benefits, coach identities, credentials, testimonials, transformations, 
    - Customer payloads now expose only the verified Firebase provider names attached to that Gravity customer.
    - Signed-in members can explicitly add a Google identity or verified mobile OTP identity from the account security panel.
    - Linking reuses the existing recent-token, exact-origin, CSRF, conflict detection, audit, and first-party session-rotation boundary; the browser never merges customers itself.
+15. Optional online-payment launch policy:
+   - Razorpay is no longer a mandatory launch dependency when mode remains `test` and all Razorpay credentials are blank.
+   - In that state checkout stays disabled, the provider canary reports `skipped`, and launch readiness is not blocked.
+   - Any live mode or partial Razorpay credential configuration still enables the strict live-mode, checkout-key, and webhook gates.
 
 ## Database and operations
 
@@ -88,11 +92,11 @@ git diff --check
 ## External blockers
 
 - `BLOCKED_EXTERNAL_DOMAIN`: the current ngrok hostname is staging-only and may present an interstitial/warning. It is not a verified production domain.
-- `BLOCKED_EXTERNAL_FIREBASE`: customer authentication remains unavailable until verified Firebase client/backend configuration and a real sign-in canary pass. On 2026-08-28 the authenticated workstation Firebase CLI returned `403 PERMISSION_DENIED` for project `gravity-authe`; do not substitute configuration from the separately accessible `gravityfitnessnmh` project.
-- `BLOCKED_EXTERNAL_RAZORPAY`: online checkout remains unavailable until verified live credentials, webhook configuration, provider canary, and an approved real end-to-end transaction pass.
+- `BLOCKED_EXTERNAL_FIREBASE_REAL_SIGNIN`: verified `gravity-authe` client/backend configuration is now installed and the Firebase Admin provider canary passes. A real Google/email/mobile customer sign-in and identity-link canary still requires operator interaction in the browser/SMS flow.
+- `OPTIONAL_EXTERNAL_RAZORPAY`: online checkout is intentionally disabled while `RAZORPAY_MODE=test` and all Razorpay credentials are blank. It is not a launch blocker in that state. If online payments are enabled later, live credentials, webhook configuration, the provider canary, and an approved real transaction become required.
 - `REQUIRES_OPERATOR_LEGAL_REVIEW`: the privacy notice is an implementation draft and requires operator/legal approval before production launch.
-- Final production launch still requires the existing fail-closed launch and cutover gates to report ready. No code in this recovery pass bypasses or weakens those gates.
+- The current laptop launch gate reports ready with Razorpay disabled; final public production still requires the durable-domain, real-sign-in, and legal/operator gates above.
 
 ## Next operator milestone
 
-Restore operator access to Firebase project `gravity-authe`, retrieve and verify that project's web-app configuration, supply a private service-account credential outside Git, and pass the Firebase provider plus real customer sign-in canaries. Then validate the durable production HTTPS domain, Razorpay live configuration if online payments are desired, final legal/privacy approval, and the remaining launch/cutover gates.
+Complete one approved real customer sign-in against `gravity-authe` (Google and/or mobile OTP), verify the Gravity first-party session and explicit identity-link flow, then validate a durable production HTTPS domain and final legal/privacy approval. Configure Razorpay only if online checkout is desired; otherwise keep test mode with all Razorpay credentials blank.

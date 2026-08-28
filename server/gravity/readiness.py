@@ -55,6 +55,7 @@ class ReadinessService:
             "serviceAccountFilePresent": service_account_file_present,
         }
         razorpay = {
+            "required": s.razorpay_requested,
             "mode": s.razorpay_mode,
             "liveMode": s.razorpay_mode == "live",
             "checkoutConfigured": s.razorpay_checkout_configured,
@@ -90,14 +91,19 @@ class ReadinessService:
             ("firebase_client", s.firebase_client_configured),
             ("firebase_backend", s.firebase_backend_configured),
             ("firebase_service_account_file", service_account_file_present),
-            ("razorpay_live_mode", s.razorpay_mode == "live"),
-            ("razorpay_checkout", s.razorpay_checkout_configured),
-            ("razorpay_webhook", s.razorpay_webhook_configured),
             ("business_identity", s.business_identity_configured),
             ("tax_invoice_identity", tax_document_ready),
         ):
             if not ready:
                 blockers.append(code)
+        if s.razorpay_requested:
+            for code, ready in (
+                ("razorpay_live_mode", s.razorpay_mode == "live"),
+                ("razorpay_checkout", s.razorpay_checkout_configured),
+                ("razorpay_webhook", s.razorpay_webhook_configured),
+            ):
+                if not ready:
+                    blockers.append(code)
         return {
             "productionReady": not blockers,
             "blockers": blockers,

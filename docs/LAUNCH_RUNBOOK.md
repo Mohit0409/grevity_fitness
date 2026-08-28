@@ -16,7 +16,7 @@ This runbook is the go/no-go procedure for the production cutover. It does not i
 
 ## 1. Prepare verified production configuration
 
-Copy `.env.example` to `.env` and replace only values you have independently verified. Production requires `GRAVITY_ENV=production`, an HTTPS `APP_BASE_URL`, a strong `SECRET_KEY`, loopback binding, Firebase client configuration, an absolute Firebase service-account path, Razorpay live credentials/webhook secret, verified business identity, and the tax-invoice identity required by the current launch policy.
+Copy `.env.example` to `.env` and replace only values you have independently verified. Production requires `GRAVITY_ENV=production`, an HTTPS `APP_BASE_URL`, a strong `SECRET_KEY`, loopback binding, Firebase client configuration, an absolute Firebase service-account path, verified business identity, and the tax-invoice identity required by the current launch policy. Razorpay is optional: leave `RAZORPAY_MODE=test` and all Razorpay credentials blank to keep online checkout disabled; if any Razorpay configuration is supplied, the strict live checkout/webhook gates apply.
 For a same-host reverse proxy, the normal trust boundary is:
 
 ```dotenv
@@ -64,7 +64,7 @@ Linux / Termux:
 ./scripts/launch-check.sh
 ```
 
-Exit code `0` is the only go signal. The JSON report must show `launchReady: true` and an empty blocker list. The gate checks production/HTTPS mode, strong secret, loopback binding, trusted proxy boundary, Firebase client/backend configuration and service-account file presence, Razorpay live checkout/webhook configuration, verified business identity plus either receipt-only mode or valid enabled GST tax-invoice identity, SQLite health/current migrations, an active owner, at least one active membership plan, and a verified recovery-tested backup no older than 24 hours.
+Exit code `0` is the only go signal. The JSON report must show `launchReady: true` and an empty blocker list. The gate checks production/HTTPS mode, strong secret, loopback binding, trusted proxy boundary, Firebase client/backend configuration and service-account file presence, verified business identity plus either receipt-only mode or valid enabled GST tax-invoice identity, SQLite health/current migrations, an active owner, at least one active membership plan, and a verified recovery-tested backup no older than 24 hours. Razorpay is checked only when online payments are requested; otherwise it is reported as disabled and does not block launch.
 
 Do not bypass or manually edit the result. Fix the named blocker and rerun the gate.
 
@@ -97,7 +97,7 @@ Linux / Termux uses the equivalent `.sh` wrappers. Keep a verified copy off-host
 
 ## 7. Perform external-provider canaries
 
-Gravity now includes read-only connectivity canaries for the two required launch providers. They do not create customers, orders, payments, memberships, or other provider-side state.
+Gravity includes read-only connectivity canaries for Firebase and optional Razorpay. They do not create customers, orders, payments, memberships, or other provider-side state.
 
 Windows:
 
@@ -111,7 +111,7 @@ Linux / Termux:
 ./scripts/provider-canaries.sh
 ```
 
-The Firebase probe validates the configured Admin SDK credential/project and performs a one-user list permission/connectivity request without returning user data. The Razorpay probe performs only `GET /v1/orders?count=1` using the configured live credentials and returns no order details. Exit code `0` requires both probes to pass.
+The Firebase probe validates the configured Admin SDK credential/project and performs a one-user list permission/connectivity request without returning user data. If Razorpay is intentionally disabled, its probe reports `skipped` and the combined canary may still pass. If Razorpay is requested, its probe performs only `GET /v1/orders?count=1` using verified live credentials and returns no order details; in that state it must pass for exit code `0`.
 
 These read-only probes do not replace end-to-end business canaries. Before accepting production traffic, complete one approved real Firebase customer sign-in and verify the Gravity first-party session. For Razorpay, perform a business-approved controlled live transaction only when the owner intends a real charge, and verify server-side order/signature/webhook handling plus persisted payment/membership state. SMTP is optional; SMS and WhatsApp remain blocked until real adapters exist.
 ## 8. Start and run the launch smoke suite
@@ -165,7 +165,7 @@ Go live only when all of the following are true:
 - The final backup is verified, recovery-drilled, and copied to protected off-host storage.
 - First owner TOTP/recovery material is secured.
 - At least one business-approved membership plan is active.
-- Required Firebase/Razorpay canaries have been completed with real verified configuration.
+- The Firebase canary has passed with real verified configuration; Razorpay canary/transaction checks are required only if online payments are enabled.
 - Public HTTPS resolves to the intended host and the launch smoke suite exits `0` against that exact URL.
 - No secrets, database files, logs, or backup archives are tracked by Git.
 - `npm run test:e2e` is green on the deployed commit, including all eight responsive widths, isolated enquiry submission, serious/critical automated accessibility checks, and account/provider fail-closed behavior.

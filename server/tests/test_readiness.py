@@ -108,7 +108,23 @@ class ReadinessServiceTests(unittest.TestCase):
         self.assertIn("https_base_url", report["blockers"])
         self.assertIn("trusted_proxy_boundary", report["blockers"])
         self.assertIn("firebase_service_account_file", report["blockers"])
+        self.assertTrue(report["razorpay"]["required"])
         self.assertIn("razorpay_live_mode", report["blockers"])
+
+    def test_partial_razorpay_configuration_fails_closed(self):
+        settings = Settings.load(root_dir=ROOT, environ={
+            "GRAVITY_ENV": "production",
+            "APP_BASE_URL": "https://gravity.example",
+            "GRAVITY_TRUST_PROXY": "true",
+            "GRAVITY_TRUSTED_PROXY_CIDRS": "127.0.0.1/32",
+            "SECRET_KEY": "x" * 40,
+            "RAZORPAY_KEY_ID": "rzp_live_partial",
+        })
+        report = ReadinessService(settings).report()
+        self.assertTrue(report["razorpay"]["required"])
+        self.assertIn("razorpay_live_mode", report["blockers"])
+        self.assertIn("razorpay_checkout", report["blockers"])
+        self.assertIn("razorpay_webhook", report["blockers"])
 
     def test_production_proxy_boundary_rejects_broad_trust(self):
         settings = Settings.load(root_dir=ROOT, environ={

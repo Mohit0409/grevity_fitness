@@ -51,7 +51,9 @@ class ProviderCanaryTests(unittest.TestCase):
         report = run_provider_canaries(settings)
         self.assertFalse(report["ok"])
         self.assertEqual(report["firebase"]["status"], "blocked")
-        self.assertEqual(report["razorpay"]["status"], "blocked")
+        self.assertEqual(report["razorpay"], {
+            "ok": True, "status": "skipped", "code": "razorpay_disabled",
+        })
 
     def test_firebase_probe_is_read_only_and_secret_safe(self):
         with TemporaryDirectory() as temporary:
