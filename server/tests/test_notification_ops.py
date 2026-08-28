@@ -97,6 +97,44 @@ class NotificationOperationsRunnerTests(unittest.TestCase):
 
         self.assertEqual((exit_code, report["status"]), (0, "ok"))
 
+    def test_stale_lock_recovers_even_if_pid_was_reused(self) -> None:
+        with TemporaryDirectory() as temporary:
+            runtime = Path(temporary) / "runtime"
+            runtime.mkdir()
+            lock_path = runtime / "notification-runner.lock"
+            lock_path.write_text(json.dumps({"pid": 12345, "token": "stale"}), encoding="utf-8")
+            self.runner.os.utime(lock_path, (1, 1))
+            with patch.object(self.runner, "_provider_readiness", return_value={}), patch.object(
+                self.runner, "_process_running", return_value=True
+            ), patch.object(self.runner.time, "time", return_value=1_000), patch.object(
+                self.runner.subprocess, "run", side_effect=self.fake_success
+            ):
+                report, exit_code = self.runner.run_cycle(ROOT, runtime, Path(sys.executable), 30, 30)
+
+        self.assertEqual((exit_code, report["status"]), (0, "ok"))
+
+    def test_cli_rejects_lock_budget_shorter_than_worst_case_cycle(self) -> None:
+        with TemporaryDirectory() as temporary:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(RUNNER_PATH),
+                    "--runtime-dir",
+                    str(Path(temporary) / "runtime"),
+                    "--timeout-seconds",
+                    "300",
+                    "--stale-lock-seconds",
+                    "1200",
+                    "--status",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("stale lock timeout", result.stderr)
+
     def test_failed_delivery_is_safe_and_retries_on_a_later_cycle(self) -> None:
         def failed_delivery(command, **_kwargs):
             if "--scan-notifications" in command:
@@ -167,8 +205,16 @@ class NotificationOperationsRunnerTests(unittest.TestCase):
             },
         )
 
-        self.assertTrue(all(value["status"] == "blocked" for value in blocked.values()))
-        self.assertTrue(all(value["status"] == "configured" for value in configured.values()))
+        self.assertEqual(blocked["email"]["status"], "blocked_external_config")
+        self.assertEqual(blocked["sms"]["status"], "blocked_external_config")
+        self.assertEqual(blocked["whatsapp"]["status"], "blocked_external_config")
+        self.assertEqual(blocked["owner_email"]["status"], "missing_recipient")
+        self.assertEqual(configured["email"]["status"], "ready")
+        self.assertEqual(configured["sms"]["status"], "blocked_adapter_missing")
+        self.assertEqual(configured["whatsapp"]["status"], "blocked_adapter_missing")
+        self.assertEqual(configured["owner_email"]["status"], "configured")
+        self.assertEqual(configured["owner_phone"]["status"], "configured")
+        self.assertEqual(configured["owner_whatsapp"]["status"], "configured")
         serialized = json.dumps(configured)
         self.assertNotIn("smtp-secret", serialized)
         self.assertNotIn("sms-secret", serialized)

@@ -8,4 +8,5 @@ gravity_capture "$GRAVITY_PYTHON_BIN" "$GRAVITY_PROJECT_ROOT/scripts/run-notific
   --root "$GRAVITY_PROJECT_ROOT" \
   --runtime-dir "$GRAVITY_RUNTIME" \
   --python "$GRAVITY_PYTHON_BIN" \
-  --timeout-seconds "${GRAVITY_NOTIFICATION_TIMEOUT_SECONDS:-900}"
+  --timeout-seconds "${GRAVITY_NOTIFICATION_TIMEOUT_SECONDS:-180}" \
+  --stale-lock-seconds "${GRAVITY_NOTIFICATION_STALE_LOCK_SECONDS:-1200}"

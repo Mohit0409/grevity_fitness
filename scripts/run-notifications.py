@@ -75,15 +75,12 @@ class CycleLock:
                 descriptor = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             except FileExistsError:
                 existing = _read_json(self.path)
-                if "pid" in existing:
-                    if _process_running(existing.get("pid")):
-                        return False
-                else:
-                    try:
-                        age = time.time() - self.path.stat().st_mtime
-                    except OSError:
-                        continue
-                    if age < self.stale_after_seconds:
+                try:
+                    age = max(0.0, time.time() - self.path.stat().st_mtime)
+                except OSError:
+                    continue
+                if age < self.stale_after_seconds:
+                    if "pid" not in existing or _process_running(existing.get("pid")):
                         return False
                 try:
                     self.path.unlink()
@@ -115,12 +112,20 @@ def _provider_readiness(root: Path, environ: Mapping[str, str] | None = None) ->
 
     settings = Settings.load(root_dir=root, environ=environ)
     return {
-        "email": {"status": "configured" if settings.smtp_configured else "blocked"},
-        "sms": {"status": "configured" if settings.sms_credentials_configured else "blocked"},
-        "whatsapp": {"status": "configured" if settings.whatsapp_credentials_configured else "blocked"},
-        "owner_email": {"status": "configured" if settings.owner_email else "blocked"},
-        "owner_phone": {"status": "configured" if settings.owner_phone else "blocked"},
-        "owner_whatsapp": {"status": "configured" if settings.owner_whatsapp else "blocked"},
+        "email": {"status": "ready" if settings.smtp_configured else "blocked_external_config"},
+        "sms": {
+            "status": "blocked_adapter_missing"
+            if settings.sms_credentials_configured
+            else "blocked_external_config"
+        },
+        "whatsapp": {
+            "status": "blocked_adapter_missing"
+            if settings.whatsapp_credentials_configured
+            else "blocked_external_config"
+        },
+        "owner_email": {"status": "configured" if settings.owner_email else "missing_recipient"},
+        "owner_phone": {"status": "configured" if settings.owner_phone else "missing_recipient"},
+        "owner_whatsapp": {"status": "configured" if settings.owner_whatsapp else "missing_recipient"},
     }
 
 
@@ -298,12 +303,16 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--runtime-dir", type=Path, required=True)
     parser.add_argument("--python", dest="python_path", type=Path, default=Path(sys.executable))
-    parser.add_argument("--timeout-seconds", type=int, default=900)
+    parser.add_argument("--timeout-seconds", type=int, default=180)
     parser.add_argument("--stale-lock-seconds", type=int, default=1_200)
     parser.add_argument("--status", action="store_true", help="Print safe scheduler state without sending notifications")
     args = parser.parse_args()
-    if args.timeout_seconds < 30 or args.stale_lock_seconds < args.timeout_seconds:
-        parser.error("lock timeout must be at least the command timeout, which must be at least 30 seconds")
+    minimum_stale_lock = args.timeout_seconds * (len(SCAN_WINDOWS) + 1) + 60
+    if args.timeout_seconds < 30 or args.stale_lock_seconds < minimum_stale_lock:
+        parser.error(
+            "stale lock timeout must exceed the worst-case notification cycle "
+            "and command timeout must be at least 30 seconds"
+        )
     root = args.root.expanduser().resolve()
     runtime_dir = args.runtime_dir.expanduser().resolve()
     python_path = args.python_path.expanduser().resolve()
