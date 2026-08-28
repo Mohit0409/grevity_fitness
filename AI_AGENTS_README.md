@@ -31,12 +31,14 @@ Chat 1 owns these files while auth work is active:
 
 Current Chat 1 state:
 
-- Latest pushed auth commit: `1e1958c` (`fix: allow firebase recaptcha verification`).
-- Real Google login is working on the public Gravity URL.
-- Real Mobile OTP is working after restricting the Firebase SMS region allowlist to India (`IN`); reCAPTCHA remains enabled and fail closed.
+- Latest pushed auth browser fix: `1e1958c` (`fix: allow firebase recaptcha verification`).
+- Real Google login and real Mobile OTP are working on the public Gravity URL; reCAPTCHA remains enabled and fail closed.
 - The verified active customer has both `google.com` and `phone` identities linked to the same Gravity customer, with email and phone both verified; Gravity first-party session creation is confirmed.
+- Duplicate-account, cross-account merge, session rotation/revocation and collision protections pass the 15/15 auth regression suite.
+- The read-only Firebase provider canary now verifies Google enabled, Phone enabled, and India (`IN`) present in the SMS-region allowlist; the live canary passes.
+- Full backend release suite after auth validation: 103/103 tests passed.
 - Firebase providers intentionally exposed by Gravity: `google.com` and `phone`.
-- Remaining Chat 1 validation: repeat-login/duplicate-account canaries and integration of approved Chat 2 / Chat 3 commits.
+- Chat 1 auth validation is complete. Remaining Chat 1 work is controlled integration of approved Chat 2 / Chat 3 commits followed by final release gates.
 - Chat 1 may integrate approved Chat 2 / Chat 3 commits into `main` only after reviewing conflicts and running the full release gates.
 
 ## Chat 2 — Public UI/UX

@@ -61,9 +61,34 @@ class ProviderCanaryTests(unittest.TestCase):
             service_account.write_text("{}", encoding="utf-8")
             settings = self.production_settings(service_account)
             called = []
-            result = firebase_canary(settings, probe=lambda: called.append(True))
+            result = firebase_canary(
+                settings,
+                probe=lambda: called.append(True),
+                policy_probe=lambda: None,
+            )
             self.assertEqual(called, [True])
             self.assertEqual(result, {"ok": True, "status": "passed", "code": None})
+
+    def test_firebase_policy_failures_are_specific_and_secret_safe(self):
+        with TemporaryDirectory() as temporary:
+            service_account = Path(temporary) / "service.json"
+            service_account.write_text("{}", encoding="utf-8")
+            settings = self.production_settings(service_account)
+            for code in (
+                "firebase_phone_provider",
+                "firebase_sms_region",
+                "firebase_google_provider",
+                "firebase_auth_policy_probe",
+            ):
+                with self.subTest(code=code):
+                    result = firebase_canary(
+                        settings,
+                        probe=lambda: None,
+                        policy_probe=lambda code=code: code,
+                    )
+                    self.assertEqual(result, {"ok": False, "status": "failed", "code": code})
+                    self.assertNotIn("api-key", json.dumps(result))
+
     def test_firebase_admin_probe_uses_list_users_without_returning_user_data(self):
         settings = Settings.load(root_dir=ROOT, environ={"SECRET_KEY": "x" * 40})
         verifier = FirebaseAdminVerifier(settings)
