@@ -20,6 +20,7 @@ if (Test-Path -LiteralPath $DotEnv) {
 }
 $Port = if ($env:GRAVITY_PORT) { [int]$env:GRAVITY_PORT } elseif ($DotEnvPort) { $DotEnvPort } else { 8787 }
 $BaseUrl = if ($env:APP_BASE_URL) { $env:APP_BASE_URL.TrimEnd('/') } elseif ($DotEnvBaseUrl) { $DotEnvBaseUrl } else { "http://127.0.0.1:$Port" }
+$HealthUrl = "http://127.0.0.1:$Port"
 
 if (-not (Test-Path -LiteralPath $PythonPath)) {
   throw 'Gravity Python environment is missing. Run .\scripts\setup-gravity.ps1 first.'
@@ -55,7 +56,7 @@ for ($attempt = 0; $attempt -lt 20; $attempt++) {
     throw "Gravity Fitness exited during startup. Check $StderrLog"
   }
   try {
-    $health = Invoke-RestMethod -Uri "$BaseUrl/api/health" -TimeoutSec 1
+    $health = Invoke-RestMethod -Uri "$HealthUrl/api/health" -TimeoutSec 1
     if ($health.service -eq 'Gravity Fitness' -and $health.status -eq 'ok') { break }
     throw "Port $Port is responding, but not with the Gravity health contract."
   } catch {
@@ -68,4 +69,5 @@ for ($attempt = 0; $attempt -lt 20; $attempt++) {
   }
 }
 Write-Host "Gravity Fitness started with PID $($process.Id)." -ForegroundColor Green
-Write-Host "Health: $BaseUrl/api/health"
+Write-Host "Local health: $HealthUrl/api/health"
+Write-Host "Public base URL: $BaseUrl"

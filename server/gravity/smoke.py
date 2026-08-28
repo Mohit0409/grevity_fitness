@@ -12,7 +12,11 @@ MAX_RESPONSE_BYTES = 1024 * 1024
 def _fetch(base_url: str, path: str) -> tuple[int | None, HTTPMessage | None, bytes]:
     request = Request(
         base_url.rstrip("/") + path,
-        headers={"User-Agent": "GravityLaunchSmoke/1.0", "Accept": "application/json,text/html,*/*"},
+        headers={
+            "User-Agent": "GravityLaunchSmoke/1.0",
+            "Accept": "application/json,text/html,*/*",
+            "ngrok-skip-browser-warning": "true",
+        },
     )
     try:
         with urlopen(request, timeout=8) as response:

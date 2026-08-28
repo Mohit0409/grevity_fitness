@@ -12,6 +12,7 @@ if (Test-Path -LiteralPath $DotEnv) {
 }
 $Port = if ($env:GRAVITY_PORT) { [int]$env:GRAVITY_PORT } elseif ($DotEnvPort) { $DotEnvPort } else { 8787 }
 $BaseUrl = if ($env:APP_BASE_URL) { $env:APP_BASE_URL.TrimEnd('/') } elseif ($DotEnvBaseUrl) { $DotEnvBaseUrl } else { "http://127.0.0.1:$Port" }
+$HealthUrl = "http://127.0.0.1:$Port"
 
 if (-not (Test-Path -LiteralPath $PidFile)) {
   Write-Host 'Gravity Fitness is stopped (no PID file).'
@@ -26,7 +27,7 @@ if (-not $process) {
 }
 
 try {
-  $health = Invoke-RestMethod -Uri "$BaseUrl/api/health" -TimeoutSec 3
+  $health = Invoke-RestMethod -Uri "$HealthUrl/api/health" -TimeoutSec 3
   Write-Host "Gravity Fitness is running (PID $processId)." -ForegroundColor Green
   $health | ConvertTo-Json -Compress
   if ($health.status -ne 'ok' -or $health.database -ne 'ok') { exit 2 }
