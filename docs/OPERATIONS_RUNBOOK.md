@@ -127,3 +127,23 @@ For Android/Termux, place the project and `.gravity` data on storage that remain
 - Database migrations are forward-only. Never delete migration records or manually downgrade the SQLite schema to match older code.
 - After code rollback, run `python -m server.gravity --check-db`, start the service, and repeat health/auth/admin/private-route smoke checks.
 - If the rollback also requires database restoration, follow the verified live-restore procedure above rather than copying SQLite files while the service is running.
+
+## Final launch gate
+
+Before a production cutover, follow `docs/LAUNCH_RUNBOOK.md`. The `launch-check` wrappers are fail-closed and require a healthy/current database, active owner, at least one active verified plan, production HTTPS/provider/business readiness, and a verified recovery-tested backup no older than 24 hours. The `smoke-gravity` wrappers then validate public/private route boundaries and security headers against the exact launch URL.
+
+Windows:
+
+```powershell
+.\scripts\launch-check.ps1
+.\scripts\smoke-gravity.ps1 -BaseUrl https://<verified-domain>
+```
+
+Linux / Termux:
+
+```sh
+./scripts/launch-check.sh
+./scripts/smoke-gravity.sh https://<verified-domain>
+```
+
+Do not treat a blocked launch check as an error to bypass; it is the intended no-go signal until the named production dependency has been verified.

@@ -4,7 +4,7 @@ Gravity Fitness is being migrated from a static Firebase-hosted site to a portab
 
 ## Current milestone
 
-Phase 1 establishes the application server, safe static hosting, SQLite migrations, structured logs, health checks, configuration placeholders, local operations scripts, and automated foundation tests. The existing public site is preserved under `web/` while unsafe browser-trusted payment behavior is disabled.
+Phase 11 final launch preparation is implemented. Gravity now has a fail-closed production readiness gate, first-party customer/admin security, server-owned memberships/payments/coaching, verified backup/recovery operations, cross-platform launch smoke checks, and a TLS reverse-proxy deployment template. Real production launch remains blocked until verified external configuration, the first owner bootstrap, business-approved active plans, provider canaries, and the final public HTTPS cutover are completed.
 
 ## Quick start on Windows
 
@@ -13,6 +13,15 @@ Phase 1 establishes the application server, safe static hosting, SQLite migratio
 .\scripts\start-gravity.ps1
 .\scripts\status-gravity.ps1
 ```
+
+For production preparation, run the fail-closed launch gate and smoke suite:
+
+```powershell
+.\scripts\launch-check.ps1
+.\scripts\smoke-gravity.ps1
+```
+
+See [`docs/LAUNCH_RUNBOOK.md`](docs/LAUNCH_RUNBOOK.md) before any public cutover.
 
 Open <http://127.0.0.1:8787/>. Stop the background server with:
 

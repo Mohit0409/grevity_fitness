@@ -315,6 +315,12 @@ class BackupManager:
                 connection = sqlite3.connect(target)
                 customer_count = connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
                 membership_count = connection.execute("SELECT COUNT(*) FROM memberships").fetchone()[0]
+                active_owner_count = connection.execute(
+                    "SELECT COUNT(*) FROM admin_users WHERE role='owner' AND status='active'"
+                ).fetchone()[0]
+                active_plan_count = connection.execute(
+                    "SELECT COUNT(*) FROM membership_plans WHERE status='active'"
+                ).fetchone()[0]
             except sqlite3.Error as error:
                 raise BackupInvalid("Recovered database could not answer application queries") from error
             finally:
@@ -327,6 +333,8 @@ class BackupManager:
             "schemaStage": inspection["schemaStage"],
             "customerRows": int(customer_count),
             "membershipRows": int(membership_count),
+            "activeOwnerRows": int(active_owner_count),
+            "activePlanRows": int(active_plan_count),
             "databaseSha256": restored["databaseSha256"],
         }
 

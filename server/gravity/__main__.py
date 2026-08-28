@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import json
 import logging
 import signal
 from pathlib import Path
@@ -21,6 +22,8 @@ from .notification import NotificationService
 from .operations import BackupManager, OperationsError
 from .http import create_server
 from .logging_config import configure_logging
+from .launch import LaunchGate
+from .smoke import run_smoke
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -37,6 +40,9 @@ def _parser() -> argparse.ArgumentParser:
     operations.add_argument("--verify-backup", type=Path, metavar="ARCHIVE", help="Verify a Gravity backup archive")
     operations.add_argument("--recovery-drill", type=Path, metavar="ARCHIVE", help="Restore a backup into a temporary drill database and validate it")
     operations.add_argument("--restore-backup", type=Path, metavar="ARCHIVE", help="Restore the live database from a verified backup")
+    operations.add_argument("--launch-check", action="store_true", help="Run the fail-closed production launch gate")
+    operations.add_argument("--smoke", action="store_true", help="Run the public/private launch smoke suite")
+    parser.add_argument("--smoke-base-url", help="Override APP_BASE_URL only for the smoke suite")
     parser.add_argument("--backup-label", default="manual", help="Label used when creating a backup")
     parser.add_argument("--confirm-live-restore", action="store_true", help="Required confirmation for replacing the live database")
     return parser
@@ -78,6 +84,17 @@ def main() -> int:
     settings = Settings.load(root_dir=args.root)
     if args.host or args.port is not None:
         settings = settings.with_network(host=args.host, port=args.port)
+
+    if args.launch_check:
+        report = LaunchGate(settings).report()
+        print(json.dumps(report, sort_keys=True))
+        return 0 if report["launchReady"] else 2
+
+    if args.smoke:
+        report = run_smoke(args.smoke_base_url or settings.app_base_url, require_https=settings.production)
+        print(json.dumps(report, sort_keys=True))
+        return 0 if report["ok"] else 2
+
     settings.ensure_directories()
     configure_logging(settings)
 

@@ -1,0 +1,10 @@
+# Replace the environment value with the verified public Gravity domain.
+# The Python application must remain bound to 127.0.0.1:8787.
+{$GRAVITY_PUBLIC_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8787
+
+    header {
+        -Server
+    }
+}

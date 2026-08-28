@@ -1,6 +1,6 @@
 # Gravity Fitness — Codex Project State
 
-Last updated: 2026-08-27
+Last updated: 2026-08-28
 
 ## Architecture decisions
 
@@ -102,7 +102,7 @@ Last updated: 2026-08-27
 - Reduced homepage HTML from roughly 87 KB to about 48 KB, reduced `analytics.js` from roughly 20 KB to about 3.3 KB, removed the embedded map iframe, and deferred the decorative athlete bundle until browser idle on eligible desktop sessions.
 - Rewrote public Trainers and Gallery pages so media is illustrative and coach credentials/availability are not asserted until verified.
 
-### Phase 9 â€” Production-readiness and verified integration hardening
+### Phase 9 - Production-readiness and verified integration hardening
 
 - Added a secret-safe readiness service and owner/admin-only `/api/admin/readiness` surface covering runtime HTTPS/production state, Firebase, Razorpay, notification channels, verified business identity, GST/tax-invoice gating, and analytics configuration without returning credential values.
 - Added an admin Readiness workspace that exposes configuration status and blockers while keeping trainer/reception roles denied by RBAC.
@@ -111,7 +111,7 @@ Last updated: 2026-08-27
 - Notification dispatch resolves customer contact only at send time and does not persist raw email/phone values in the outbox. CLI operations now support explicit expiry scanning and delivery attempts; server startup does not auto-send notifications.
 
 
-### Phase 10 ? Backup, recovery, and deployment operations
+### Phase 10 - Backup, recovery, and deployment operations
 
 - Added `server/gravity/operations.py` with online SQLite backup through the SQLite backup API, ZIP packaging restricted to `gravity.sqlite3` + `manifest.json`, SHA-256 integrity metadata, migration/schema-stage capture, archive allowlisting, verification, non-destructive recovery drills, guarded alternate/live restore, and restrictive backup permissions where supported.
 - Live restore requires explicit confirmation, refuses to proceed while Gravity appears to be running, respects both the default PID file and `GRAVITY_RUNTIME_DIR`, treats POSIX PID permission errors as alive/fail-closed, creates and verifies a pre-restore safety backup, and removes stale SQLite `-wal`/`-shm` sidecars only after that safety backup succeeds.
@@ -123,12 +123,25 @@ Last updated: 2026-08-27
 - No destructive live restore was performed on the production laptop database; unit coverage plus the non-destructive recovery drill are the release evidence for restore behavior.
 - Cross-platform release hardening on 2026-08-28 removed the UTF-8 BOM from `pyproject.toml`, added CI unittest failure annotations, and made the synthetic Firebase service-account fixture use a platform-native absolute path; final local validation after the Linux fixture correction passed readiness 4/4 and the full 77/77 suite in 40.349s.
 
+### Phase 11 - Final launch preparation and cutover gate
+
+- Added `server/gravity/launch.py` and `--launch-check` as a fail-closed go/no-go gate. It combines production readiness with SQLite health/current migration count, active-owner presence, at least one active membership plan, and a newest-backup requirement that is verified, no older than 24 hours, recovery-drilled, migration-current, and proven to recover an active owner plus active plan.
+- Tightened readiness so a configured-looking but nonexistent Firebase service-account path no longer counts as ready, Razorpay must be in `live` mode for production readiness, the Python server must remain loopback-bound, and trusted proxy CIDRs must be loopback-scoped rather than broad networks such as `0.0.0.0/0`.
+- Extended Phase 10 recovery drills to report active-owner and active-plan rows from the recovered database, allowing launch checks to reject a fresh archive that predates final owner/plan setup.
+- Added `server/gravity/smoke.py`, `--smoke`, and Windows/Linux wrappers. The smoke contract checks public home/account/admin pages, the health contract, CSP/frame/nosniff headers, HSTS for production HTTPS, a non-empty active membership catalog, customer/admin private boundaries, and denial of `.env` plus server-source paths.
+- Added `scripts/launch-check.ps1|sh`, `scripts/smoke-gravity.ps1|sh`, `deploy/Caddyfile.example`, and `docs/LAUNCH_RUNBOOK.md`. The runbook covers verified production configuration, trusted reverse-proxy/TLS setup, first-owner bootstrap, active-plan verification, final backup/drill, real provider canaries, exact-URL smoke, go/no-go, and rollback without embedding secrets or invented business facts.
+- Updated the GitHub Actions workflow to current `actions/checkout@v7`, `actions/setup-python@v7`, and `actions/setup-node@v7` major lines and changed JavaScript validation from four hand-picked files to every `web/js/*.js` file.
+- Phase 11 local release gate on 2026-08-28: 84/84 `unittest` tests passed in 43.106s after `compileall`; all 15 browser JavaScript files passed `node --check`; all 10 PowerShell scripts parsed; all 10 POSIX shell scripts passed `sh -n`; `git diff --check` passed after documentation EOF normalization.
+- Live prelaunch evidence remains intentionally blocked rather than fabricated: the laptop database is healthy with 7/7 migrations; the Phase 10 archive is fresh, checksum-valid, migration-current, and recovery-drill valid, but it predates the first owner/active-plan state. Current local launch blockers therefore correctly include external production configuration, first owner, active plan, and backup copies containing those final launch-state records.
+- The live localhost smoke currently passes home, health, account/admin surfaces, security headers, customer/admin private boundaries, and source/`.env` denial; it intentionally fails the active-membership-catalog check because no imported draft has been business-verified and activated.
+
 ## Known issues / production blockers
 
-- `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` credentials/client configuration and an authorized Admin service account are still required for real customer login verification. The application fails closed and reports auth disabled until configured.
-- `BLOCKED_EXTERNAL_CONFIG`: Razorpay, WhatsApp, SMS, SMTP, final domain, verified business contact details, GST/invoice identity, and final analytics IDs are not configured.
-- Broader customer dashboard visualization, final tax-invoice issuance, and final verified production domain/business identity remain pending. SMTP delivery code is ready but external SMTP configuration is absent; SMS/WhatsApp provider adapters remain intentionally blocked.
-- Production launch still requires verified external configuration/canaries, first owner bootstrap, active-plan verification, TLS/reverse-proxy deployment, and final production smoke checks.
+- `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` client configuration and an authorized service-account file are still required for real customer authentication; a real Firebase login canary remains mandatory after configuration.
+- `BLOCKED_EXTERNAL_CONFIG`: Razorpay live keys/webhook secret, the final HTTPS domain/TLS boundary, verified business contact/address/GST identity required by the current launch policy, and any chosen SMTP/analytics configuration are not yet supplied.
+- `BLOCKED_OPERATOR_ACTION`: the first production owner has not been bootstrapped and no imported membership-plan draft has been business-verified/activated. The current recovery-tested Phase 10 backup consequently also predates those launch-state records; create a new final backup after owner/plan setup.
+- SMS and WhatsApp provider adapters remain intentionally unavailable even if credentials are later configured; they are optional future integrations and are not represented as working.
+- Real external-provider canaries and the public production cutover cannot be completed without verified user-supplied credentials/domain/business facts. No code path bypasses these blockers.
 
 ## Test status
 - Phase 1 automated test evidence: 11/11 `unittest` tests passed on 2026-08-26 using Python 3.12.13.
@@ -165,13 +178,15 @@ Last updated: 2026-08-27
 - Phase 9 live laptop smoke after fresh restart: PID 13116; database migrations remain `7`; `/api/health`, `/admin`, `/js/admin-readiness.js`, and `/api/admin/session` return HTTP 200; unauthenticated `/api/admin/readiness` returns HTTP 401; `/.env`, readiness source, and delivery source return HTTP 404. Live configuration reports SMTP/SMS/WhatsApp and tax-invoice identity disabled, so no external delivery or tax claim is enabled.
 
 - Phase 10 focused operations evidence: 9/9 tests pass. Full current regression: 77/77 tests pass in 66.449s, with Python compile, 15 JavaScript syntax checks, PowerShell parser checks, POSIX shell syntax checks, and `git diff --check` all green. Live backup verification and recovery drill pass while the application remains healthy.
+- Phase 11 focused launch/readiness/smoke coverage adds broad-proxy rejection, service-account file presence, Razorpay live-mode readiness, incomplete/complete/stale launch-state behavior, production HTTPS smoke enforcement, active-plan smoke enforcement, and recovery-backup owner/plan proof. Full current regression is 84/84 in 43.106s with 15 JS, 10 PowerShell, 10 shell, compile, and diff gates green.
 
 ## Deployment status
 
 - Firebase public site remains the historical deployment; no new Firebase deployment is planned.
-- Laptop deployment through `scripts/start-gravity.ps1`: running and healthy at `http://127.0.0.1:8787`; Phase 10 live backup/drill proof completed with PID 14196 and database migrations `7`.
-- Termux/Linux: architecture-compatible operational scripts and deployment/recovery runbook are now present; an actual production Termux cutover remains a separate launch action.
+- Laptop deployment through `scripts/start-gravity.ps1` remains healthy at `http://127.0.0.1:8787` with 7/7 migrations. The Phase 11 launch gate is installed and intentionally returns no-go until verified production configuration, first-owner bootstrap, active-plan approval, and a new recovery-tested backup containing that launch state exist.
+- The localhost Phase 11 smoke passes all current route/security checks except the intentionally empty active membership catalog.
+- Termux/Linux now has matching start/status/backup/recovery/launch-check/smoke wrappers plus a documented TLS reverse-proxy template. Actual public production cutover remains an operator action requiring the verified final domain and credentials.
 
 ## Next implementation milestone
 
-Phase 11: final launch preparation ? verified Firebase/domain/business/provider configuration, production TLS/reverse-proxy deployment, external-provider canaries, first owner bootstrap, active membership-plan verification, production smoke tests, and the final launch checklist. Keep every external integration fail-closed until real user-supplied credentials or verified business data exist.
+Code-side Phase 11 launch preparation is complete. The next milestone is the real production cutover after verified external values are supplied: configure the final `.env`, bootstrap the owner, verify/activate plans, create a fresh prelaunch backup, complete approved Firebase/Razorpay canaries, establish public HTTPS through the trusted proxy, run `launch-check`, run smoke against the exact public URL, and go live only if every gate is green. Optional post-launch work includes richer customer dashboards and real SMS/WhatsApp adapters.

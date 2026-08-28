@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ipaddress import ip_network
+
 from .config import Settings
 
 
@@ -25,17 +27,36 @@ class ReadinessService:
         s = self.settings
         https_base = s.app_base_url.startswith("https://")
         strong_secret = len(s.secret_key.encode("utf-8")) >= 32
+        service_account_file_present = bool(
+            s.firebase_service_account_path and s.firebase_service_account_path.is_file()
+        )
+        loopback_host = s.host in {"127.0.0.1", "::1", "localhost"}
+        loopback_v4 = ip_network("127.0.0.0/8")
+        loopback_v6 = ip_network("::1/128")
+        proxy_networks = tuple(ip_network(cidr, strict=False) for cidr in s.trusted_proxy_cidrs)
+        trusted_proxy_boundary = bool(
+            s.trust_proxy
+            and proxy_networks
+            and all(
+                network.subnet_of(loopback_v4) if network.version == 4 else network.subnet_of(loopback_v6)
+                for network in proxy_networks
+            )
+        )
         runtime = {
             "productionMode": s.production,
             "httpsBaseUrl": https_base,
             "strongSecret": strong_secret,
+            "loopbackHost": loopback_host,
+            "trustedProxyBoundary": trusted_proxy_boundary,
         }
         firebase = {
             "clientConfigured": s.firebase_client_configured,
             "backendConfigured": s.firebase_backend_configured,
+            "serviceAccountFilePresent": service_account_file_present,
         }
         razorpay = {
             "mode": s.razorpay_mode,
+            "liveMode": s.razorpay_mode == "live",
             "checkoutConfigured": s.razorpay_checkout_configured,
             "webhookConfigured": s.razorpay_webhook_configured,
         }
@@ -61,8 +82,12 @@ class ReadinessService:
             ("production_mode", s.production),
             ("https_base_url", https_base),
             ("strong_secret", strong_secret),
+            ("loopback_host", loopback_host),
+            ("trusted_proxy_boundary", trusted_proxy_boundary),
             ("firebase_client", s.firebase_client_configured),
             ("firebase_backend", s.firebase_backend_configured),
+            ("firebase_service_account_file", service_account_file_present),
+            ("razorpay_live_mode", s.razorpay_mode == "live"),
             ("razorpay_checkout", s.razorpay_checkout_configured),
             ("razorpay_webhook", s.razorpay_webhook_configured),
             ("business_identity", s.business_identity_configured),

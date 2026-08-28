@@ -102,6 +102,21 @@ class ReadinessServiceTests(unittest.TestCase):
         self.assertFalse(report["productionReady"])
         self.assertIn("production_mode", report["blockers"])
         self.assertIn("https_base_url", report["blockers"])
+        self.assertIn("trusted_proxy_boundary", report["blockers"])
+        self.assertIn("firebase_service_account_file", report["blockers"])
+        self.assertIn("razorpay_live_mode", report["blockers"])
+
+    def test_production_proxy_boundary_rejects_broad_trust(self):
+        settings = Settings.load(root_dir=ROOT, environ={
+            "GRAVITY_ENV": "production",
+            "APP_BASE_URL": "https://gravity.example",
+            "SECRET_KEY": "x" * 40,
+            "GRAVITY_TRUST_PROXY": "true",
+            "GRAVITY_TRUSTED_PROXY_CIDRS": "0.0.0.0/0",
+        })
+        report = ReadinessService(settings).report()
+        self.assertFalse(report["runtime"]["trustedProxyBoundary"])
+        self.assertIn("trusted_proxy_boundary", report["blockers"])
 
     def test_tax_invoice_gate_requires_explicit_enable_and_valid_gstin(self):
         base = {
@@ -118,20 +133,27 @@ class ReadinessServiceTests(unittest.TestCase):
         self.assertTrue(enabled.tax_invoice_identity_configured)
 
     def test_complete_synthetic_production_identity_clears_critical_blockers(self):
-        settings = Settings.load(root_dir=ROOT, environ={
-            "GRAVITY_ENV": "production", "APP_BASE_URL": "https://gravity.example",
-            "SECRET_KEY": "x" * 40, "FIREBASE_PROJECT_ID": "gravity-authe",
-            "FIREBASE_WEB_API_KEY": "api-key", "FIREBASE_AUTH_DOMAIN": "gravity.example",
-            "FIREBASE_APP_ID": "app-id", "FIREBASE_SERVICE_ACCOUNT_PATH": str((ROOT / "fake" / "service.json").resolve()),
-            "RAZORPAY_KEY_ID": "rzp-key", "RAZORPAY_KEY_SECRET": "rzp-secret",
-            "RAZORPAY_WEBHOOK_SECRET": "webhook-secret",
-            "OWNER_PHONE": "+917999526112", "BUSINESS_NAME": "Gravity Fitness",
-            "BUSINESS_ADDRESS": "Verified business address", "BUSINESS_GSTIN": "23ABCDE1234F1Z5",
-            "TAX_INVOICE_ENABLED": "true",
-        })
-        report = ReadinessService(settings).report()
+        with TemporaryDirectory() as temporary:
+            service_account = Path(temporary) / "service.json"
+            service_account.write_text("{}", encoding="utf-8")
+            settings = Settings.load(root_dir=ROOT, environ={
+                "GRAVITY_ENV": "production", "APP_BASE_URL": "https://gravity.example",
+                "GRAVITY_TRUST_PROXY": "true", "GRAVITY_TRUSTED_PROXY_CIDRS": "127.0.0.1/32",
+                "SECRET_KEY": "x" * 40, "FIREBASE_PROJECT_ID": "gravity-authe",
+                "FIREBASE_WEB_API_KEY": "api-key", "FIREBASE_AUTH_DOMAIN": "gravity.example",
+                "FIREBASE_APP_ID": "app-id", "FIREBASE_SERVICE_ACCOUNT_PATH": str(service_account.resolve()),
+                "RAZORPAY_MODE": "live", "RAZORPAY_KEY_ID": "rzp-key",
+                "RAZORPAY_KEY_SECRET": "rzp-secret", "RAZORPAY_WEBHOOK_SECRET": "webhook-secret",
+                "OWNER_PHONE": "+917999526112", "BUSINESS_NAME": "Gravity Fitness",
+                "BUSINESS_ADDRESS": "Verified business address", "BUSINESS_GSTIN": "23ABCDE1234F1Z5",
+                "TAX_INVOICE_ENABLED": "true",
+            })
+            report = ReadinessService(settings).report()
         self.assertTrue(report["productionReady"])
         self.assertEqual(report["blockers"], [])
+        self.assertTrue(report["firebase"]["serviceAccountFilePresent"])
+        self.assertTrue(report["razorpay"]["liveMode"])
+        self.assertTrue(report["runtime"]["trustedProxyBoundary"])
         self.assertTrue(report["business"]["taxInvoiceIdentityConfigured"])
 
 

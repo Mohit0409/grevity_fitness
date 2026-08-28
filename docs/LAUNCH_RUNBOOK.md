@@ -1,0 +1,142 @@
+# Gravity Fitness Final Launch Runbook
+
+Last updated: 2026-08-28
+
+This runbook is the go/no-go procedure for the production cutover. It does not invent or embed credentials, legal identity, pricing, tax data, or provider success. Gravity must stay fail-closed until verified values are supplied by the operator.
+
+## Non-negotiable launch rules
+
+- Keep the Python server bound to loopback (`127.0.0.1` or `::1`). Never expose the raw application port to the public internet.
+- Terminate public HTTPS at a trusted reverse proxy or tunnel and trust forwarded client IPs only from the exact proxy CIDR.
+- Keep `.env`, Firebase service-account files, SQLite data, logs, and backups outside Git.
+- Use Razorpay `live` mode only with verified live credentials and a verified webhook secret.
+- Do not activate imported membership-plan drafts until name, price, duration, currency, and business approval are verified.
+- Do not bootstrap the first owner until the final strong `SECRET_KEY` is in place; protect the one-time TOTP secret and recovery codes offline.
+- Do not call a receipt a tax invoice unless verified business identity, a format-valid GSTIN, and explicit tax-invoice enablement are present.
+
+## 1. Prepare verified production configuration
+
+Copy `.env.example` to `.env` and replace only values you have independently verified. Production requires `GRAVITY_ENV=production`, an HTTPS `APP_BASE_URL`, a strong `SECRET_KEY`, loopback binding, Firebase client configuration, an absolute Firebase service-account path, Razorpay live credentials/webhook secret, verified business identity, and the tax-invoice identity required by the current launch policy.
+For a same-host reverse proxy, the normal trust boundary is:
+
+```dotenv
+GRAVITY_HOST=127.0.0.1
+GRAVITY_TRUST_PROXY=true
+GRAVITY_TRUSTED_PROXY_CIDRS=127.0.0.1/32
+```
+
+Use a different CIDR only when it matches the real proxy peer. Do not trust broad LAN or internet ranges.
+
+The Firebase service-account path must be absolute and must point to an existing file. Gravity's readiness gate checks file presence but a real Firebase login canary is still required before launch.
+
+## 2. Put HTTPS in front of Gravity
+
+`deploy/Caddyfile.example` is a provider-neutral same-host TLS template. Set `GRAVITY_PUBLIC_DOMAIN` to the verified production hostname and point public DNS to the approved TLS host before starting the cutover.
+
+Caddy example invocation:
+
+```sh
+GRAVITY_PUBLIC_DOMAIN=fitness.example.com caddy run --config deploy/Caddyfile.example
+```
+
+The example domain above is illustrative only. Use the actual verified domain. If Cloudflare Tunnel, nginx, or another gateway is used instead, preserve the same invariant: public HTTPS -> trusted proxy -> `127.0.0.1:8787`.
+## 3. Run the fail-closed launch gate
+
+Windows:
+
+```powershell
+.\scripts\launch-check.ps1
+```
+
+Linux / Termux:
+
+```sh
+./scripts/launch-check.sh
+```
+
+Exit code `0` is the only go signal. The JSON report must show `launchReady: true` and an empty blocker list. The gate checks production/HTTPS mode, strong secret, loopback binding, trusted proxy boundary, Firebase client/backend configuration and service-account file presence, Razorpay live checkout/webhook configuration, verified business/tax identity, SQLite health/current migrations, an active owner, at least one active membership plan, and a verified recovery-tested backup no older than 24 hours.
+
+Do not bypass or manually edit the result. Fix the named blocker and rerun the gate.
+
+## 4. Bootstrap the first owner
+
+Only after the final production secret is configured:
+
+```powershell
+.\.venv\Scripts\python.exe -m server.gravity --bootstrap-owner <verified-owner-username>
+```
+
+On Linux use `.venv/bin/python`. The command is intentionally interactive. Save the TOTP enrollment material and one-time recovery codes in a secure offline location. Bootstrap is disabled after an owner exists.
+## 5. Verify and activate membership plans
+
+Sign in to `/admin` as the owner/admin and review every imported draft against the business-approved offering. Activate only plans whose price, duration, currency, name, and description are verified. Public pricing comes only from active server-owned plans.
+
+Rerun the launch gate. `active_owner` and `active_membership_plan` must disappear from blockers.
+
+## 6. Create the final prelaunch recovery point
+
+Windows:
+
+```powershell
+.\scripts\backup-gravity.ps1 -Label prelaunch
+.\scripts\verify-backup.ps1 -BackupPath <created-archive>
+.\scripts\recovery-drill.ps1 -BackupPath <created-archive>
+```
+
+Linux / Termux uses the equivalent `.sh` wrappers. Keep a verified copy off-host on protected storage. The launch gate independently verifies and recovery-drills the newest Gravity backup, requires it to be at most 24 hours old, requires its migration set to match current code, and confirms the recovered copy itself contains an active owner and at least one active membership plan.
+
+## 7. Perform external-provider canaries
+
+External canaries are deliberately not faked or auto-run without real credentials. Before accepting production traffic:
+
+- Firebase: complete one real approved customer sign-in and confirm Gravity creates/resolves the first-party session without exposing the Firebase token.
+- Razorpay: use a business-approved controlled live canary only when the owner intends a real provider transaction; verify server-side order/signature/webhook handling and membership/payment persistence.
+- SMTP, if enabled: send only through the configured adapter to an approved recipient and confirm retry/success state.
+- SMS and WhatsApp remain blocked until real adapters are implemented; configured credentials alone do not count as success.
+## 8. Start and run the launch smoke suite
+
+Start Gravity with the normal platform launcher, then run:
+
+```powershell
+.\scripts\smoke-gravity.ps1
+```
+
+or:
+
+```sh
+./scripts/smoke-gravity.sh
+```
+
+The smoke suite checks the public home/account/admin surfaces, health contract, security headers, HSTS on HTTPS, non-empty active membership catalog, customer/admin private boundaries, and denial of `.env`/server-source paths. Exit code `0` is required.
+
+You may explicitly target a verified URL during cutover:
+
+```powershell
+.\scripts\smoke-gravity.ps1 -BaseUrl https://fitness.example.com
+```
+
+```sh
+./scripts/smoke-gravity.sh https://fitness.example.com
+```
+
+Use the actual verified production domain, not the illustrative hostname above.
+## 9. Go / no-go decision
+
+Go live only when all of the following are true:
+
+- `launch-check` exits `0` with no blockers.
+- GitHub Actions is green on the exact deployed commit for Ubuntu and Windows.
+- The final backup is verified, recovery-drilled, and copied to protected off-host storage.
+- First owner TOTP/recovery material is secured.
+- At least one business-approved membership plan is active.
+- Required Firebase/Razorpay canaries have been completed with real verified configuration.
+- Public HTTPS resolves to the intended host and the launch smoke suite exits `0` against that exact URL.
+- No secrets, database files, logs, or backup archives are tracked by Git.
+
+Any failed item is a no-go. Keep the previous known-good deployment available until the cutover is proven healthy.
+
+## 10. Rollback
+
+If the application code fails after cutover, revert/deploy a known-good Git commit without manually downgrading migrations. If data recovery is required, follow `docs/OPERATIONS_RUNBOOK.md`: stop Gravity, verify the chosen archive again, perform the guarded restore, restart, then repeat launch smoke checks.
+
+Do not restore while the server is running and do not delete the generated `pre-restore` safety backup until the recovered deployment is verified.
