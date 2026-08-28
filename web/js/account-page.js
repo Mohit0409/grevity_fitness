@@ -2,11 +2,15 @@ const FIREBASE_SDK_VERSION = '12.18.0';
 const states = Array.from(document.querySelectorAll('.account-state'));
 const signedOutStatus = document.getElementById('signed-out-status');
 const signedInStatus = document.getElementById('signed-in-status');
+const securityStatus = document.getElementById('security-status');
 let firebaseApi = null;
 let firebaseAuth = null;
 let firebaseConfig = null;
 let phoneConfirmation = null;
 let recaptchaVerifier = null;
+let authConfigEnabled = false;
+let linkPhoneConfirmation = null;
+let linkRecaptchaVerifier = null;
 
 function showState(id) {
   states.forEach((state) => { state.hidden = state.id !== id; });
@@ -32,6 +36,10 @@ function cookieValue(name) {
   return item ? decodeURIComponent(item.slice(prefix.length)) : '';
 }
 
+function csrfCookie() {
+  return cookieValue('gravity_csrf') || cookieValue('__Host-gravity_csrf');
+}
+
 async function jsonRequest(path, options = {}) {
   const response = await fetch(path, {
     credentials: 'same-origin',
@@ -53,7 +61,8 @@ function friendlyError(error) {
   if (error && (error.code === 'account_disabled' || error.code === 'auth/user-disabled')) {
     return 'This account is unavailable. Please contact Gravity Fitness for help.';
   }
-  if (error && (error.code === 'account_link_required' || error.code === 'account_conflict')) {
+  if (error && (error.code === 'account_link_required' || error.code === 'account_conflict' ||
+      error.code === 'auth/credential-already-in-use' || error.code === 'auth/email-already-in-use')) {
     return 'That verified email or mobile is already linked. Sign in to the existing account or contact support.';
   }
   if (error && error.code === 'rate_limited') return 'Too many attempts. Please wait and try again.';
@@ -77,6 +86,11 @@ function selectMode() {
 
 async function loadFirebase() {
   if (firebaseApi) return;
+  if (!authConfigEnabled || !firebaseConfig) {
+    const error = new Error('authentication_unavailable');
+    error.code = 'authentication_unavailable';
+    throw error;
+  }
   const base = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}`;
   const [appModule, authModule] = await Promise.all([
     import(`${base}/firebase-app.js`),
@@ -101,8 +115,45 @@ async function exchangeFirebaseUser(user) {
   }
 }
 
+async function linkFirebaseUser(user) {
+  const idToken = await user.getIdToken(true);
+  try {
+    return await jsonRequest('/api/auth/link', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        'X-CSRF-Token': csrfCookie()
+      },
+      body: ''
+    });
+  } finally {
+    await firebaseApi.signOut(firebaseAuth).catch(() => {});
+  }
+}
+
+function renderSecurity(user) {
+  const providers = Array.isArray(user.providers) ? user.providers : [];
+  const labels = { password: 'Email/password', 'google.com': 'Google', phone: 'Mobile OTP' };
+  document.getElementById('security-email').textContent = user.email || 'Not linked';
+  document.getElementById('security-phone').textContent = user.phone || 'Not linked';
+  document.getElementById('security-provider-count').textContent = `${providers.length} ${providers.length === 1 ? 'method' : 'methods'}`;
+  document.getElementById('security-provider-summary').textContent = providers.length
+    ? `Enabled: ${providers.map((provider) => labels[provider] || provider).join(' / ')}`
+    : 'No verified Firebase sign-in method is recorded.';
+  const googleButton = document.getElementById('link-google');
+  const phoneButton = document.getElementById('link-phone-toggle');
+  googleButton.hidden = !authConfigEnabled || Boolean(user.email);
+  googleButton.textContent = 'Add verified Google email';
+  phoneButton.hidden = !authConfigEnabled || providers.includes('phone') || Boolean(user.phone);
+  document.getElementById('security-link-actions').hidden = googleButton.hidden && phoneButton.hidden;
+  if (user.phone || !authConfigEnabled) {
+    document.getElementById('link-phone-form').hidden = true;
+  }
+}
+
 function renderUser(user) {
   showState('account-signed-in');
+  renderSecurity(user);
   document.getElementById('member-heading').textContent = user.profileComplete ? 'Your member account' : 'Complete your profile';
   document.getElementById('member-email').textContent = user.email || 'Not linked';
   document.getElementById('member-phone').textContent = user.phone || 'Not linked';
@@ -191,15 +242,16 @@ async function initializeAccount() {
       jsonRequest('/api/auth/config'),
       refreshSession()
     ]);
+    authConfigEnabled = Boolean(config.enabled && config.firebase);
+    firebaseConfig = authConfigEnabled ? config.firebase : null;
     if (session.authenticated) {
       renderUser(session.user);
       return;
     }
-    if (!config.enabled || !config.firebase) {
+    if (!authConfigEnabled) {
       showState('account-unavailable');
       return;
     }
-    firebaseConfig = config.firebase;
     await loadFirebase();
     selectMode();
     showState('account-signed-out');
@@ -350,6 +402,88 @@ document.getElementById('confirm-phone-code').addEventListener('click', async (e
   }
 });
 
+document.getElementById('link-google').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  setStatus(securityStatus, 'Opening Google verification...');
+  try {
+    await loadFirebase();
+    const credential = await firebaseApi.signInWithPopup(firebaseAuth, new firebaseApi.GoogleAuthProvider());
+    const result = await linkFirebaseUser(credential.user);
+    renderUser(result.user);
+    setStatus(securityStatus, 'Verified Google email linked to this Gravity account.', 'success');
+  } catch (error) {
+    setStatus(securityStatus, friendlyError(error), 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('link-phone-toggle').addEventListener('click', () => {
+  const form = document.getElementById('link-phone-form');
+  form.hidden = !form.hidden;
+  if (!form.hidden) document.getElementById('link-phone-number').focus();
+});
+
+document.getElementById('link-phone-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  setBusy(form, true, 'Sending code...');
+  setStatus(securityStatus, 'Requesting mobile verification...');
+  try {
+    await loadFirebase();
+    if (!linkRecaptchaVerifier) {
+      linkRecaptchaVerifier = new firebaseApi.RecaptchaVerifier(
+        firebaseAuth,
+        'link-recaptcha-container',
+        { size: 'invisible' }
+      );
+    }
+    linkPhoneConfirmation = await firebaseApi.signInWithPhoneNumber(
+      firebaseAuth,
+      document.getElementById('link-phone-number').value.trim(),
+      linkRecaptchaVerifier
+    );
+    document.getElementById('link-phone-code-wrap').hidden = false;
+    setStatus(securityStatus, 'Enter the verification code sent to your mobile.', 'success');
+    document.getElementById('link-phone-code').focus();
+  } catch (error) {
+    if (linkRecaptchaVerifier) {
+      linkRecaptchaVerifier.clear();
+      linkRecaptchaVerifier = null;
+    }
+    setStatus(securityStatus, friendlyError(error), 'error');
+  } finally {
+    setBusy(form, false, '');
+  }
+});
+
+document.getElementById('link-phone-confirm').addEventListener('click', async (event) => {
+  const code = document.getElementById('link-phone-code');
+  if (!linkPhoneConfirmation || !code.checkValidity() || !code.value) {
+    code.reportValidity();
+    return;
+  }
+  event.currentTarget.disabled = true;
+  setStatus(securityStatus, 'Verifying and linking your mobile...');
+  try {
+    const credential = await linkPhoneConfirmation.confirm(code.value);
+    const result = await linkFirebaseUser(credential.user);
+    linkPhoneConfirmation = null;
+    if (linkRecaptchaVerifier) {
+      linkRecaptchaVerifier.clear();
+      linkRecaptchaVerifier = null;
+    }
+    renderUser(result.user);
+    setStatus(securityStatus, 'Verified mobile linked to this Gravity account.', 'success');
+  } catch (error) {
+    setStatus(securityStatus, friendlyError(error), 'error');
+  } finally {
+    event.currentTarget.disabled = false;
+  }
+});
+
 document.getElementById('profile-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
@@ -363,7 +497,7 @@ document.getElementById('profile-form').addEventListener('submit', async (event)
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-Token': cookieValue('gravity_csrf') || cookieValue('__Host-gravity_csrf')
+        'X-CSRF-Token': csrfCookie()
       },
       body: JSON.stringify(payload)
     });
@@ -383,7 +517,7 @@ async function logout(allDevices) {
   try {
     await jsonRequest(allDevices ? '/api/auth/logout-all' : '/api/auth/logout', {
       method: 'POST',
-      headers: { 'X-CSRF-Token': cookieValue('gravity_csrf') || cookieValue('__Host-gravity_csrf') },
+      headers: { 'X-CSRF-Token': csrfCookie() },
       body: ''
     });
     await initializeAccount();

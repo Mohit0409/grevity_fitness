@@ -765,6 +765,16 @@ class AuthService:
         ).fetchone()
         if not row:
             raise InvalidSession("Customer account is missing")
+        providers = [
+            provider_row["sign_in_provider"]
+            for provider_row in connection.execute(
+                "SELECT DISTINCT p.sign_in_provider "
+                "FROM firebase_provider_identities p "
+                "JOIN firebase_identities i ON i.project_id = p.project_id AND i.firebase_uid = p.firebase_uid "
+                "WHERE i.customer_id = ? ORDER BY p.sign_in_provider",
+                (customer_id,),
+            ).fetchall()
+        ]
         return {
             "id": row["id"],
             "status": row["status"],
@@ -774,6 +784,7 @@ class AuthService:
             "phone": row["phone_e164"],
             "phoneVerified": bool(row["phone_verified"]),
             "photoUrl": row["photo_url"],
+            "providers": providers,
             "profileComplete": row["completed_at"] is not None,
             "profile": {
                 "dateOfBirth": row["date_of_birth"],

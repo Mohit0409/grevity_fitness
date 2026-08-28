@@ -10,7 +10,7 @@
   <link rel="icon" href="/assets/icons/favicon-32.png" sizes="32x32" type="image/png"/>
   <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" sizes="180x180"/>
   <link rel="stylesheet" href="/css/style.css?v=gravity2-rc2"/>
-  <link rel="stylesheet" href="/css/account.css?v=gravity2-rc2"/>
+  <link rel="stylesheet" href="/css/account.css?v=gravity2-rc3"/>
   <meta name="theme-color" content="#11130f"/>
   <link rel="manifest" href="/site.webmanifest"/>
 </head>
@@ -164,6 +164,37 @@
           <div id="membership-upcoming" class="membership-upcoming" hidden><span>UPCOMING</span><strong id="membership-upcoming-plan">—</strong><small id="membership-upcoming-date">—</small></div>
           <details id="membership-history-wrap" class="membership-history" hidden><summary>Membership history</summary><div id="membership-history"></div></details>
         </section>
+        <section class="account-security-card" aria-labelledby="account-security-heading">
+          <div class="account-security-head">
+            <div><span class="membership-label">ACCOUNT SECURITY</span><h3 id="account-security-heading">Verified sign-in methods</h3></div>
+            <span class="account-security-count" id="security-provider-count">0 linked</span>
+          </div>
+          <div class="account-security-grid">
+            <div><span>Email</span><strong id="security-email">Not linked</strong></div>
+            <div><span>Mobile</span><strong id="security-phone">Not linked</strong></div>
+          </div>
+          <p class="membership-muted" id="security-provider-summary">Checking verified providers...</p>
+          <div class="account-form-actions account-security-actions" id="security-link-actions">
+            <button class="btn btn-outline" type="button" id="link-google">Add verified Google email</button>
+            <button class="btn btn-outline" type="button" id="link-phone-toggle">Add mobile number</button>
+          </div>
+          <form class="account-form account-link-form" id="link-phone-form" hidden novalidate>
+            <div class="account-field">
+              <label for="link-phone-number">Mobile number</label>
+              <input id="link-phone-number" type="tel" autocomplete="tel" inputmode="tel" placeholder="+919000000000" required/>
+              <div class="account-field-error" id="link-phone-error"></div>
+            </div>
+            <button class="btn btn-primary" type="submit">Send verification code</button>
+            <div class="account-field" id="link-phone-code-wrap" hidden>
+              <label for="link-phone-code">Verification code</label>
+              <input id="link-phone-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required/>
+              <button class="btn btn-primary" type="button" id="link-phone-confirm">Verify and link mobile</button>
+            </div>
+            <p class="account-consent">By requesting a code, you may receive an SMS used only to verify this sign-in method. Carrier rates may apply.</p>
+            <div id="link-recaptcha-container"></div>
+          </form>
+          <p class="account-status" id="security-status" aria-live="polite" tabindex="-1"></p>
+        </section>
         <form class="account-form" id="profile-form" novalidate>
           <div class="account-field">
             <label for="profile-name">Full name</label>
@@ -214,7 +245,7 @@
   </div>
 </main>
 
-<script src="/js/account-page.js?v=phase2" type="module"></script>
+<script src="/js/account-page.js?v=phase14" type="module"></script>
 <script src="/js/account-notifications.js" defer></script>
 <script src="/js/account-payments.js" defer></script>
 <script src="/js/account-coaching.js" defer></script>

@@ -56,6 +56,10 @@ No plan benefits, coach identities, credentials, testimonials, transformations, 
    - Polished fail-closed member account state when Firebase is unavailable and no dead public checkout when Razorpay is unavailable.
    - Dynamic canonical/OG metadata from `APP_BASE_URL`, branded SVG/PNG icon family, Apple touch icon, manifest icons, and 1200×630 social artwork.
    - Playwright release gates for 320/360/375/390/430/768/1024/1440 widths, real isolated enquiry submission, focus/scroll behavior, console errors, first-party-only account failure, SEO endpoints, and axe WCAG checks.
+14. Customer account security hardening:
+   - Customer payloads now expose only the verified Firebase provider names attached to that Gravity customer.
+   - Signed-in members can explicitly add a Google identity or verified mobile OTP identity from the account security panel.
+   - Linking reuses the existing recent-token, exact-origin, CSRF, conflict detection, audit, and first-party session-rotation boundary; the browser never merges customers itself.
 
 ## Database and operations
 
@@ -84,11 +88,11 @@ git diff --check
 ## External blockers
 
 - `BLOCKED_EXTERNAL_DOMAIN`: the current ngrok hostname is staging-only and may present an interstitial/warning. It is not a verified production domain.
-- `BLOCKED_EXTERNAL_FIREBASE`: customer authentication remains unavailable until verified Firebase client/backend configuration and a real sign-in canary pass.
+- `BLOCKED_EXTERNAL_FIREBASE`: customer authentication remains unavailable until verified Firebase client/backend configuration and a real sign-in canary pass. On 2026-08-28 the authenticated workstation Firebase CLI returned `403 PERMISSION_DENIED` for project `gravity-authe`; do not substitute configuration from the separately accessible `gravityfitnessnmh` project.
 - `BLOCKED_EXTERNAL_RAZORPAY`: online checkout remains unavailable until verified live credentials, webhook configuration, provider canary, and an approved real end-to-end transaction pass.
 - `REQUIRES_OPERATOR_LEGAL_REVIEW`: the privacy notice is an implementation draft and requires operator/legal approval before production launch.
 - Final production launch still requires the existing fail-closed launch and cutover gates to report ready. No code in this recovery pass bypasses or weakens those gates.
 
 ## Next operator milestone
 
-Verify the exact staging build and CI commit, then supply and validate a durable production HTTPS domain, Firebase configuration, Razorpay live configuration if online payments are desired, final legal/privacy approval, and the required owner/backup/provider canaries. Only the existing launch/cutover gates can promote the release from staging-ready to production-ready.
+Restore operator access to Firebase project `gravity-authe`, retrieve and verify that project's web-app configuration, supply a private service-account credential outside Git, and pass the Firebase provider plus real customer sign-in canaries. Then validate the durable production HTTPS domain, Razorpay live configuration if online payments are desired, final legal/privacy approval, and the remaining launch/cutover gates.

@@ -102,6 +102,54 @@ test('mobile navigation locks scrolling and restores focus', async ({ page }) =>
   await expect(page.locator('html')).not.toHaveClass(/modal-open/);
 });
 
+test('signed-in account exposes explicit verified identity linking without eager provider loading', async ({ page }) => {
+  const external = [];
+  let sessionUser = {
+    id: 'customer-email', status: 'active', displayName: 'Gravity Member',
+    email: 'member@example.com', emailVerified: true, phone: null, phoneVerified: false,
+    photoUrl: null, providers: ['password'], profileComplete: true, profile: {},
+  };
+  page.on('request', (request) => {
+    const host = new URL(request.url()).hostname;
+    if (!['127.0.0.1', 'localhost'].includes(host)) external.push(request.url());
+  });
+  await page.route('**/api/auth/config', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({
+      enabled: true,
+      firebase: {
+        apiKey: 'public-test-key', authDomain: 'gravity-authe.firebaseapp.com',
+        projectId: 'gravity-authe', appId: '1:123:web:test',
+      },
+    }),
+  }));
+  await page.route('**/api/auth/session', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ authenticated: true, user: sessionUser }),
+  }));
+  await page.route('**/api/me/membership', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ membership: { current: null, upcoming: null, history: [] } }),
+  }));
+
+  await page.goto('/account');
+  await expect(page.locator('#account-signed-in')).toBeVisible();
+  await expect(page.locator('#security-provider-count')).toHaveText('1 method');
+  await expect(page.locator('#security-provider-summary')).toContainText('Email/password');
+  await expect(page.locator('#link-google')).toBeHidden();
+  await expect(page.locator('#link-phone-toggle')).toBeVisible();
+
+  sessionUser = {
+    ...sessionUser, id: 'customer-phone', email: null, emailVerified: false,
+    phone: '+919876543210', phoneVerified: true, providers: ['phone'],
+  };
+  await page.reload();
+  await expect(page.locator('#security-provider-summary')).toContainText('Mobile OTP');
+  await expect(page.locator('#link-google')).toBeVisible();
+  await expect(page.locator('#link-google')).toHaveText('Add verified Google email');
+  await expect(page.locator('#link-phone-toggle')).toBeHidden();
+  expect(external).toEqual([]);
+});
+
 test('account fails closed without loading external authentication providers', async ({ page }) => {
   const external = [];
   page.on('request', (request) => {

@@ -205,6 +205,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertTrue(payload["authenticated"])
             self.assertEqual(payload["user"]["email"], "Alice@Example.COM")
+            self.assertEqual(payload["user"]["providers"], ["password"])
             self.assertFalse(payload["user"]["profileComplete"])
             cookies = cookies_from(headers)
             self.assertIn("gravity_session", cookies)
@@ -503,6 +504,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
             )
             self.assertEqual(status, 200)
             self.assertEqual(linked["user"]["phone"], "+919876543210")
+            self.assertEqual(linked["user"]["providers"], ["password", "phone"])
             linked_cookies = cookies_from(linked_headers)
             self.assertNotEqual(linked_cookies["gravity_session"], email_cookies["gravity_session"])
             with closing(sqlite3.connect(app.settings.database_path)) as connection:

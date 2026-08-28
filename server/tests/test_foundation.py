@@ -208,6 +208,20 @@ class HttpFoundationTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertIn(b'/js/account-coaching.js', account)
 
+    def test_account_identity_linking_ui_contract_is_wired(self):
+        with running_server() as (base, _settings):
+            status, _headers, account = fetch(base, "/account")
+            self.assertEqual(status, 200)
+            for marker in (
+                b'id="account-security-heading"', b'id="link-google"', b'id="link-phone-form"',
+                b'id="link-phone-confirm"', b'id="security-provider-summary"',
+            ):
+                self.assertIn(marker, account)
+            status, _headers, script = fetch(base, "/js/account-page.js")
+            self.assertEqual(status, 200)
+            self.assertIn(b"/api/auth/link", script)
+            self.assertIn(b"linkFirebaseUser", script)
+
     def test_readiness_ui_contract_is_wired(self):
         with running_server() as (base, _settings):
             status, _headers, admin = fetch(base, "/admin")

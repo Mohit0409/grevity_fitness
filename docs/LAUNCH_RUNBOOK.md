@@ -29,6 +29,16 @@ Use a different CIDR only when it matches the real proxy peer. Do not trust broa
 
 The Firebase service-account path must be absolute and must point to an existing file. Gravity's readiness gate checks file presence but a real Firebase login canary is still required before launch.
 
+Before copying any public Firebase web configuration, confirm the authenticated Firebase CLI account can access the exact project configured by `FIREBASE_PROJECT_ID`. For the current Gravity auth boundary that project is `gravity-authe`:
+
+```powershell
+firebase projects:list
+firebase apps:list WEB --project gravity-authe
+firebase apps:sdkconfig WEB VERIFIED_WEB_APP_ID --project gravity-authe
+```
+
+The SDK config supplies public client values such as API key, auth domain, project ID, and app ID; it does **not** replace the private Firebase Admin service-account credential. Refuse project-ID mismatches. In particular, do not copy the older `gravityfitnessnmh` web configuration into the `gravity-authe` auth boundary merely because that project is accessible. Keep the service-account JSON outside the repository and public web root.
+
 ## 2. Put HTTPS in front of Gravity
 
 `deploy/Caddyfile.example` is a provider-neutral same-host TLS template. Set `GRAVITY_PUBLIC_DOMAIN` to the verified production hostname and point public DNS to the approved TLS host before starting the cutover.
