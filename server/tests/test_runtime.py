@@ -28,8 +28,11 @@ class RuntimeLeaseTests(unittest.TestCase):
             self.assertEqual(int(lease.pid_file.read_text()), os.getpid())
             state = json.loads(lease.state_file.read_text(encoding="utf-8"))
             self.assertEqual(state["pid"], os.getpid())
-            self.assertEqual(Path(state["projectRoot"]), self.settings.root_dir.resolve())
-            self.assertEqual(Path(state["executable"]), Path(os.sys.executable).resolve())
+            # Windows may expose the same directory through an 8.3 short path
+            # (for example RUNNER~1) and its long-name alias. Compare filesystem
+            # identity rather than the textual spelling of those equivalent paths.
+            self.assertTrue(os.path.samefile(state["projectRoot"], self.settings.root_dir))
+            self.assertTrue(os.path.samefile(state["executable"], os.sys.executable))
             self.assertEqual(state["module"], "server.gravity")
             self.assertEqual(state["host"], "127.0.0.1")
         self.assertFalse(lease.pid_file.exists())
