@@ -65,6 +65,24 @@ class OperationsScriptTests(unittest.TestCase):
         self.assertNotRegex(example, r"(?m)^SECRET_KEY=.+$")
         self.assertNotRegex(example, r"(?m)^CLOUDFLARED_TOKEN=.+$")
 
+    def test_termux_installer_has_network_audit_dependency_and_safe_boot_install(self) -> None:
+        installer = (ROOT / "deploy" / "termux" / "install-termux.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("iproute2", installer)
+        self.assertRegex(installer, r"for command in python3 git curl ss sv svlogd")
+        self.assertNotIn("ln -sfn", installer)
+        self.assertIn("Refusing to replace existing boot script", installer)
+
+    def test_migration_runbook_uses_valid_windows_script_paths(self) -> None:
+        runbook = (ROOT / "docs" / "TERMUX_MIGRATION_RUNBOOK.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(".\\scripts\\status-gravity.ps1", runbook)
+        self.assertIn(".\\scripts\\export-gravity-migration.ps1", runbook)
+        self.assertNotIn(".scriptsstatus-gravity.ps1", runbook)
+        self.assertNotIn(".scriptsexport-gravity-migration.ps1", runbook)
+
 
 if __name__ == "__main__":
     unittest.main()

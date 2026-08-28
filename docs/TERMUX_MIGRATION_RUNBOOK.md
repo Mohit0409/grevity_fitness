@@ -37,8 +37,8 @@ Do not stop the laptop site yet.
 ```powershell
 git status --short
 git rev-parse HEAD
-.scriptsstatus-gravity.ps1 -ConfigPath C:\ProgramData\GravityFitness\gravity.env
-.scriptsexport-gravity-migration.ps1 `
+.\scripts\status-gravity.ps1 -ConfigPath C:\ProgramData\GravityFitness\gravity.env
+.\scripts\export-gravity-migration.ps1 `
   -ConfigPath C:\ProgramData\GravityFitness\gravity.env `
   -OutputDirectory E:\GravityMigration
 ```

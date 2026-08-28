@@ -27,9 +27,9 @@ SERVICE_ROOT="$PREFIX/var/service"
 
 if $INSTALL_PACKAGES; then
   pkg update
-  pkg install -y python git termux-services curl rclone cloudflared
+  pkg install -y python git termux-services curl rclone cloudflared iproute2
 fi
-for command in python3 git curl sv svlogd; do
+for command in python3 git curl ss sv svlogd; do
   command -v "$command" >/dev/null 2>&1 || { echo "Missing command: $command" >&2; exit 1; }
 done
 
@@ -83,7 +83,19 @@ install_service() {
 install_service gravity "$REPO/deploy/termux/services/gravity"
 install_service gravity-health "$REPO/deploy/termux/services/gravity-health"
 install_service gravity-tunnel "$REPO/deploy/termux/services/gravity-tunnel"
-ln -sfn "$REPO/deploy/termux/termux-boot-gravity.sh" "$HOME/.termux/boot/gravity-fitness"
+install_boot_script() {
+  source="$REPO/deploy/termux/termux-boot-gravity.sh"
+  target="$HOME/.termux/boot/gravity-fitness"
+  if [ -e "$target" ] || [ -L "$target" ]; then
+    if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
+      return
+    fi
+    echo "Refusing to replace existing boot script: $target" >&2
+    exit 1
+  fi
+  ln -s "$source" "$target"
+}
+install_boot_script
 
 source "$PREFIX/etc/profile.d/start-services.sh"
 sv-enable gravity
