@@ -4,9 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <title>Gravity Control Room</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="/assets/icons/gravity-mark.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="stylesheet" href="/css/admin.css">
 </head>
 <body>
@@ -30,11 +29,19 @@
 </section>
 <section class="app" id="app" hidden>
 <aside><div class="sidebrand"><span class="mark small">GF</span><div><strong>Gravity</strong><small>Control Room</small></div></div>
-<nav><button data-view="dashboard" class="active">Overview</button><button data-view="members">Members</button><button data-view="memberships" id="membershipsNav">Memberships</button><button data-view="coaching" id="coachingNav">Coaching</button><button data-view="notifications" id="notificationsNav">Notifications</button><button data-view="readiness" id="readinessNav" hidden>Readiness</button><button data-view="admins" id="adminsNav">Team access</button><button data-view="audit" id="auditNav">Audit trail</button></nav>
+<nav><button data-view="dashboard" class="active">Overview</button><button data-view="enquiries" id="enquiriesNav">Enquiries</button><button data-view="members">Members</button><button data-view="memberships" id="membershipsNav">Memberships</button><button data-view="coaching" id="coachingNav">Coaching</button><button data-view="notifications" id="notificationsNav">Notifications</button><button data-view="readiness" id="readinessNav" hidden>Readiness</button><button data-view="admins" id="adminsNav">Team access</button><button data-view="audit" id="auditNav">Audit trail</button></nav>
 <div class="asidefoot"><span id="adminIdentity"></span><button class="ghost" id="logout">Sign out</button></div></aside>
 <section class="workspace"><header><div><p class="eyebrow">OPERATIONS</p><h2 id="viewTitle">Overview</h2></div><span class="secure">● SECURE SESSION</span></header>
 <div id="flash" class="flash" hidden></div>
 <section id="dashboardView" class="view"><div class="stats" id="stats"></div><div class="panel"><h3>Recent security activity</h3><div id="recentAudit"></div></div></section>
+<section id="enquiriesView" class="view" hidden>
+<div class="lead-grid">
+<div class="panel"><div class="panelhead lead-head"><div><h3>Website enquiries</h3><p class="micro">Trial, membership, coaching and general requests received through the public site.</p></div><button id="refreshEnquiries" class="ghost" type="button">Refresh</button></div>
+<div class="lead-filters" aria-label="Enquiry filters"><label>Search<input id="enquirySearch" type="search" placeholder="Reference, name or contact"></label><label>Status<select id="enquiryStatusFilter"><option value="">All statuses</option><option value="new">New</option><option value="contacted">Contacted</option><option value="confirmed">Confirmed</option><option value="closed">Closed</option></select></label><label>Type<select id="enquiryTypeFilter"><option value="">All types</option><option value="trial_visit">Trial visit</option><option value="membership">Membership</option><option value="coaching">Coaching</option><option value="general">General</option></select></label></div>
+<div class="tablewrap"><table class="lead-table"><thead><tr><th>Request</th><th>Contact</th><th>Type</th><th>Status</th><th>Received</th></tr></thead><tbody id="enquiriesBody"></tbody></table></div></div>
+<aside class="panel lead-detail" id="enquiryDetail" hidden aria-live="polite"><div class="panelhead"><div><p class="eyebrow">ENQUIRY DETAIL</p><h3 id="enquiryDetailReference">Request</h3></div><button id="closeEnquiryDetail" class="ghost" type="button">Close</button></div><dl id="enquiryFacts"></dl><div class="lead-message" id="enquiryMessage" hidden></div><label>Status<select id="enquiryDetailStatus"><option value="new">New</option><option value="contacted">Contacted</option><option value="confirmed">Confirmed</option><option value="closed">Closed</option></select></label><button id="saveEnquiryStatus" type="button">Save status</button><div class="lead-notes"><h3>Private notes</h3><div id="enquiryNotes"></div><form id="enquiryNoteForm"><label for="enquiryNote">Add a note</label><textarea id="enquiryNote" maxlength="1000" required></textarea><button type="submit">Add note</button></form></div></aside>
+</div>
+</section>
 <section id="membersView" class="view" hidden>
 <div class="panel"><div class="panelhead"><h3>Members</h3><input id="memberSearch" placeholder="Search name, phone or email"></div><div class="tablewrap"><table><thead><tr><th>Member</th><th>Contact</th><th>Status</th><th>Action</th></tr></thead><tbody id="membersBody"></tbody></table></div></div>
 <div id="memberMembershipPanel" class="panel membership-panel" hidden><div class="panelhead"><div><p class="eyebrow">MEMBERSHIP</p><h3 id="memberMembershipName">Member access</h3></div><button id="closeMemberMembership" class="ghost">Close</button></div><form id="memberMembershipForm" class="membership-form"><select id="memberMembershipPlan" required></select><input id="memberMembershipStart" type="datetime-local" aria-label="Optional membership start"><button id="assignMembership" type="submit">Assign / renew</button></form><p id="memberMembershipHint" class="micro"></p><div class="tablewrap"><table><thead><tr><th>Plan</th><th>Status</th><th>Starts</th><th>Ends</th><th>Action</th></tr></thead><tbody id="memberMembershipsBody"></tbody></table></div></div>
@@ -62,6 +69,7 @@
 <section id="auditView" class="view" hidden><div class="panel"><h3>Audit trail</h3><div class="tablewrap"><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Result</th></tr></thead><tbody id="auditBody"></tbody></table></div></div></section>
 </section></section></main>
 <script src="/js/admin.js" defer></script>
+<script src="/js/admin-enquiries.js" defer></script>
 <script src="/js/admin-memberships.js" defer></script>
 <script src="/js/admin-notifications.js" defer></script>
 <script src="/js/admin-coaching.js" defer></script>

@@ -1,27 +1,36 @@
-(function () {
+(() => {
   'use strict';
-  const nav = document.getElementById('mobile-nav');
-  const openButton = document.querySelector('.hamburger');
-  const closeButton = document.querySelector('.mobile-nav-close');
-
-  function setOpen(open) {
-    if (!nav) return;
-    nav.classList.toggle('open', open);
-    openButton?.setAttribute('aria-expanded', String(open));
-    document.body.style.overflow = open ? 'hidden' : '';
-    if (open) closeButton?.focus();
+  const header = document.getElementById('site-header') || document.getElementById('header');
+  const menu = document.getElementById('mobile-menu');
+  const open = document.getElementById('menu-open');
+  const close = document.getElementById('menu-close');
+  const setScrolled = () => header?.classList.toggle('is-scrolled', window.scrollY > 12);
+  function closeMenu() {
+    if (!menu?.open) return;
+    menu.close();
+    document.body.classList.remove('modal-open');
+    document.documentElement.classList.remove('modal-open');
+    open?.setAttribute('aria-expanded', 'false');
+    open?.focus();
   }
-
-  openButton?.addEventListener('click', () => setOpen(true));
-  closeButton?.addEventListener('click', () => setOpen(false));
-  nav?.querySelectorAll('a').forEach(link => link.addEventListener('click', () => setOpen(false)));
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && nav?.classList.contains('open')) {
-      setOpen(false);
-      openButton?.focus();
-    }
+  open?.addEventListener('click', () => {
+    if (!menu || menu.open) return;
+    menu.showModal();
+    document.body.classList.add('modal-open');
+    document.documentElement.classList.add('modal-open');
+    open.setAttribute('aria-expanded', 'true');
+    menu.querySelector('a')?.focus();
   });
-
-  const header = document.getElementById('header');
-  window.addEventListener('scroll', () => header?.classList.toggle('scrolled', window.scrollY > 20), { passive: true });
+  close?.addEventListener('click', closeMenu);
+  menu?.addEventListener('close', () => {
+    document.body.classList.remove('modal-open');
+    document.documentElement.classList.remove('modal-open');
+    open?.setAttribute('aria-expanded', 'false');
+  });
+  menu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => {
+    if (menu.open) menu.close();
+  }));
+  menu?.addEventListener('click', (event) => { if (event.target === menu) closeMenu(); });
+  window.addEventListener('scroll', setScrolled, { passive: true });
+  setScrolled();
 })();

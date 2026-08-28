@@ -314,5 +314,12 @@ class Settings:
             return "__Host-gravity_admin_challenge"
         return "gravity_admin_challenge"
 
+    @property
+    def enquiry_csrf_cookie_name(self) -> str:
+        # Public enquiry CSRF tokens are signed, short lived and readable by
+        # JavaScript. Keep one stable first-party name so the production server
+        # can also be exercised safely through its loopback-only local URL.
+        return "gravity_enquiry_csrf"
+
     def with_network(self, *, host: str | None = None, port: int | None = None) -> "Settings":
         return replace(self, host=host or self.host, port=self.port if port is None else port)

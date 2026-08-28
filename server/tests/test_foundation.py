@@ -73,12 +73,12 @@ class DatabaseTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "gravity.sqlite3"
             database = Database(path, ROOT / "server" / "migrations")
-            self.assertEqual(database.migrate(), ["001", "002", "003", "004", "005", "006", "007"])
+            self.assertEqual(database.migrate(), ["001", "002", "003", "004", "005", "006", "007", "008"])
             self.assertEqual(database.migrate(), [])
-            self.assertEqual(database.health(), {"database": "ok", "migrations": "7"})
+            self.assertEqual(database.health(), {"database": "ok", "migrations": "8"})
             with closing(sqlite3.connect(path)) as connection:
                 versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
-                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",), ("005",), ("006",), ("007",)])
+                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",), ("005",), ("006",), ("007",), ("008",)])
 
     def test_changed_applied_migration_is_rejected(self):
         with TemporaryDirectory() as temporary:
@@ -109,14 +109,17 @@ class HttpFoundationTests(unittest.TestCase):
     def test_static_site_and_subpages_are_served(self):
         with running_server() as (base, _settings):
             for path, marker in (
-                ("/", b"Transform Your Body"),
-                ("/pages/trainers.html", b"Confirm the Coach Who Fits Your Goal"),
-                ("/pages/gallery.html", b"Gravity Fitness Gallery"),
-                ("/account", b"Your training starts"),
+                ("/", b"Make your next rep"),
+                ("/pages/trainers.html", b"Start with your goal"),
+                ("/pages/gallery.html", b"Current posts, from the source"),
+                ("/account", b"Your member space"),
                 ("/admin", b"Control Room"),
-                ("/trainers", b"Confirm the Coach Who Fits Your Goal"),
-                ("/gallery", b"Gravity Fitness Gallery"),
-                ("/css/style.css", b"GRAVITY FITNESS"),
+                ("/trainers", b"Start with your goal"),
+                ("/coaching", b"Start with your goal"),
+                ("/gallery", b"Current posts, from the source"),
+                ("/privacy", b"REQUIRES_OPERATOR_LEGAL_REVIEW"),
+                ("/favicon.ico", b"Gravity Fitness GF mark"),
+                ("/css/style.css", b"--lime"),
             ):
                 status, _headers, body = fetch(base, path)
                 self.assertEqual(status, 200, path)
@@ -164,7 +167,10 @@ class HttpFoundationTests(unittest.TestCase):
             status, _headers, body = fetch(base, "/api/membership/plans")
             self.assertEqual(status, 200)
             plans = json.loads(body)["plans"]
-            self.assertEqual(plans, [], "Unverified imported pricing must not be public")
+            self.assertEqual(
+                [(plan["name"], plan["pricePaise"], plan["durationMonths"], plan["description"]) for plan in plans],
+                [("Basic", 99900, 1, None), ("Pro", 149900, 1, None), ("Elite", 249900, 1, None)],
+            )
             status, _headers, body = fetch(base, "/api/me/membership")
             self.assertEqual(status, 401)
             self.assertEqual(json.loads(body), {"error": "unauthenticated"})
@@ -185,13 +191,12 @@ class HttpFoundationTests(unittest.TestCase):
         self.assertNotIn("jsPDF", html)
         self.assertNotIn("IGST @ 18%", html)
 
-    def test_homepage_loader_is_fail_safe_after_section_removal(self):
+    def test_homepage_has_no_legacy_loader_or_athlete_runtime(self):
         html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("window.GravityDismissLoader = dismiss", html)
-        self.assertIn("window.setTimeout(dismiss, 3000)", html)
-        self.assertIn("const heroStats = document.querySelector('.hero-stats')", html)
-        self.assertIn("if (heroStats) counterObs.observe(heroStats)", html)
-        self.assertNotIn("counterObs.observe(document.querySelector('.hero-stats'))", html)
+        self.assertNotIn("loader", html.casefold())
+        self.assertNotIn("athlete", html.casefold())
+        self.assertNotIn("gsap", html.casefold())
+        self.assertIn('/js/enquiry-form.js', html)
 
     def test_coaching_ui_contract_is_wired(self):
         with running_server() as (base, _settings):
@@ -232,7 +237,7 @@ class HttpFoundationTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertTrue(headers["Content-Type"].startswith("application/xml"))
             sitemap = body.decode("utf-8")
-            for url in ("https://gravity.example/", "https://gravity.example/trainers", "https://gravity.example/gallery"):
+            for url in ("https://gravity.example/", "https://gravity.example/coaching", "https://gravity.example/gallery", "https://gravity.example/privacy"):
                 self.assertIn(f"<loc>{url}</loc>", sitemap)
             self.assertNotIn("/account</loc>", sitemap)
             self.assertNotIn("/admin</loc>", sitemap)
@@ -244,15 +249,16 @@ class HttpFoundationTests(unittest.TestCase):
 
     def test_public_truth_and_accessibility_guards(self):
         index = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
-        analytics = (ROOT / "web" / "js" / "analytics.js").read_text(encoding="utf-8")
         trainers = (ROOT / "web" / "pages" / "trainers.html").read_text(encoding="utf-8")
         gallery = (ROOT / "web" / "pages" / "gallery.html").read_text(encoding="utf-8")
+        privacy = (ROOT / "web" / "pages" / "privacy.html").read_text(encoding="utf-8")
         public_plans = (ROOT / "web" / "js" / "public-membership.js").read_text(encoding="utf-8")
-        combined = "\n".join((index, analytics, trainers, gallery, public_plans))
+        enquiry_form = (ROOT / "web" / "js" / "enquiry-form.js").read_text(encoding="utf-8")
+        combined = "\n".join((index, trainers, gallery, privacy, public_plans, enquiry_form))
 
         forbidden = (
             "Neemuch's #1", "4.9/5", "2,000+", "100+ Member",
-            "First Month FREE", "₹999", "IGFIT", "aggregateRating",
+            "First Month FREE", "IGFIT", "aggregateRating",
             '"priceRange"', '"ratingValue"', "Daily Calories", "Recommended Plan",
             "Underweight", "Overweight", "Obese", "G-QCV4MEH4R4",
             "hello@gravityfitness.in", "919876543210", "step-invoice",
@@ -261,12 +267,19 @@ class HttpFoundationTests(unittest.TestCase):
         for marker in forbidden:
             self.assertNotIn(marker, combined, marker)
 
-        for page in (index, trainers, gallery):
+        for page in (index, trainers, gallery, privacy):
             self.assertIn('class="skip-link"', page)
             self.assertIn('id="main-content"', page)
         self.assertIn('/api/membership/plans', public_plans)
         self.assertIn('textContent', public_plans)
-        self.assertIn('General reference only', analytics)
+        self.assertIn('/api/enquiries/token', enquiry_form)
+        self.assertIn('/api/enquiries', enquiry_form)
+        self.assertNotIn('onclick=', combined)
+        self.assertNotIn('href="#"', combined)
+        self.assertIn('₹999', index)
+        self.assertIn('₹1,499', index)
+        self.assertIn('₹2,499', index)
+        self.assertIn('REQUIRES_OPERATOR_LEGAL_REVIEW', privacy)
 
     def test_head_returns_content_length_without_body(self):
         with running_server() as (base, _settings):

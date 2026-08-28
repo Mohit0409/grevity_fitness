@@ -21,6 +21,7 @@
 .account-field input[readonly]{color:var(--muted);cursor:not-allowed;}
 .account-field-error{min-height:1em;color:#ff8b8b;font-size:.74rem;}
 .account-form-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.account-actions-spaced{margin-top:22px}.account-back-link{margin-top:20px}.optional-label{color:var(--muted);font-weight:500}
 .account-form-actions .btn{min-height:44px;}
 .account-separator{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:1px;margin:22px 0;}
 .account-separator::before,.account-separator::after{content:"";height:1px;background:var(--border);flex:1;}

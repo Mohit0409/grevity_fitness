@@ -71,9 +71,8 @@ class MembershipServiceTests(unittest.TestCase):
         plans = self.service.list_plans(active_only=False)
         self.assertEqual([plan["name"] for plan in plans], ["Basic", "Pro", "Elite"])
         self.assertEqual([plan["pricePaise"] for plan in plans], [99900, 149900, 249900])
-        self.assertEqual([plan["status"] for plan in plans], ["inactive", "inactive", "inactive"])
-        self.assertEqual(self.service.list_plans(), [])
-        self.activate("plan-basic-monthly")
+        self.assertEqual([plan["status"] for plan in plans], ["active", "active", "active"])
+        self.assertEqual(len(self.service.list_plans()), 3)
         membership = self.service.create_membership(
             "customer-1",
             "plan-basic-monthly",
@@ -164,7 +163,7 @@ class MembershipServiceTests(unittest.TestCase):
                 "SELECT event_type FROM membership_plan_events WHERE plan_id=? ORDER BY id",
                 ("plan-basic-monthly",),
             ).fetchall()
-        self.assertEqual([row["event_type"] for row in events], ["updated", "activated", "updated"])
+        self.assertEqual([row["event_type"] for row in events], ["updated"])
 
     def test_inactive_customer_and_invalid_payment_source_are_rejected(self) -> None:
         with self.database.session() as connection:

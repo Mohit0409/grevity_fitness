@@ -1,0 +1,14 @@
+{
+  "name": "gravity-fitness",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Browser release gates for Gravity Fitness Neemuch",
+  "scripts": {
+    "test:e2e": "node scripts/run-browser-tests.mjs",
+    "test:e2e:headed": "node scripts/run-browser-tests.mjs --headed"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "latest",
+    "@playwright/test": "latest"
+  }
+}

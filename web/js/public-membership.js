@@ -1,72 +1,63 @@
 (() => {
   'use strict';
-
   const container = document.getElementById('public-membership-plans');
   if (!container) return;
-
-  function node(tag, className, text) {
-    const element = document.createElement(tag);
-    if (className) element.className = className;
-    if (text != null) element.textContent = text;
-    return element;
+  const verified = new Map([
+    ['basic-monthly', { name: 'Basic', pricePaise: 99900, order: 1 }],
+    ['pro-monthly', { name: 'Pro', pricePaise: 149900, order: 2 }],
+    ['elite-monthly', { name: 'Elite', pricePaise: 249900, order: 3 }],
+  ]);
+  function element(tag, className, copy) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (copy !== undefined) node.textContent = copy;
+    return node;
   }
-
-  function formatMoney(plan) {
-    const amount = Number(plan.pricePaise || 0) / 100;
-    try {
-      return new Intl.NumberFormat('en-IN', {
-        style: 'currency', currency: plan.currency || 'INR', maximumFractionDigits: 2,
-      }).format(amount);
-    } catch (_) {
-      return `${plan.currency || 'INR'} ${amount.toFixed(2)}`;
-    }
-  }
-
-  function emptyCard(message) {
-    const card = node('div', 'price-card reveal');
-    card.append(node('div', 'price-name', 'Membership enquiries'));
-    card.append(node('div', 'price-duration', message));
-    const link = node('a', 'plan-book-btn outline', 'Contact Gravity →');
-    link.href = '#contact';
-    card.append(link);
-    return card;
-  }
-  function renderPlan(plan) {
-    const card = node('div', 'price-card reveal');
-    card.append(node('div', 'price-name', plan.name || 'Membership'));
-    card.append(node('div', 'price-amount', formatMoney(plan)));
-    const months = Number(plan.durationMonths || 1);
-    card.append(node('div', 'price-duration', `${months} month${months === 1 ? '' : 's'} · verified active plan`));
-    if (plan.description) card.append(node('p', 'price-description', plan.description));
-
-    const button = node('button', 'plan-book-btn outline', 'Enquire →');
+  const formatPrice = (value) => new Intl.NumberFormat('en-IN', {
+    style: 'currency', currency: 'INR', maximumFractionDigits: 0,
+  }).format(Number(value) / 100);
+  function renderCard(plan, index) {
+    const card = element('article', 'plan-card');
+    card.appendChild(element('span', 'plan-card__number', `0${index + 1}`));
+    card.appendChild(element('h3', '', plan.name));
+    const price = element('div', 'plan-price');
+    price.append(element('strong', '', formatPrice(plan.pricePaise)), element('span', '', 'per month'));
+    card.appendChild(price);
+    card.appendChild(element('p', 'plan-card__copy', 'Monthly membership price. Ask Gravity to confirm the next step.'));
+    const button = element('button', 'button', 'Enquire about this plan');
     button.type = 'button';
-    button.addEventListener('click', () => {
-      if (typeof window.openBooking !== 'function') return;
-      window.openBooking('plan', plan.name || 'Membership', Number(plan.pricePaise || 0) / 100, months);
-    });
-    card.append(button);
+    button.dataset.requestKind = 'membership';
+    button.dataset.planId = plan.id;
+    button.dataset.planName = plan.name;
+    card.appendChild(button);
     return card;
   }
-
+  function renderUnavailable() {
+    const card = element('article', 'plan-card');
+    card.append(element('span', 'plan-card__number', 'MEMBERSHIP'), element('h3', '', 'Prices unavailable'));
+    card.appendChild(element('p', 'plan-card__copy', 'Verified membership prices could not be loaded. Contact Gravity before relying on a price.'));
+    const link = element('a', 'button', 'Call Gravity');
+    link.href = 'tel:+917999526112';
+    card.appendChild(link);
+    container.replaceChildren(card);
+  }
   async function load() {
     try {
-      const response = await fetch('/api/membership/plans', {
-        credentials: 'same-origin', headers: { Accept: 'application/json' },
-      });
+      const response = await fetch('/api/membership/plans', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
-      const plans = Array.isArray(payload.plans) ? payload.plans : [];
-      container.replaceChildren();
-      if (!plans.length) {
-        container.append(emptyCard('No membership price is currently published. Contact Gravity for current options.'));
-        return;
-      }
-      for (const plan of plans) container.append(renderPlan(plan));
-    } catch (_) {
-      container.replaceChildren(emptyCard('Verified membership options are temporarily unavailable. Please contact Gravity.'));
-    }
+      const plans = (Array.isArray(payload.plans) ? payload.plans : [])
+        .filter((item) => {
+          const expected = verified.get(item.code);
+          return expected && item.name === expected.name && Number(item.pricePaise) === expected.pricePaise
+            && Number(item.durationMonths) === 1 && item.currency === 'INR' && item.status === 'active';
+        })
+        .sort((a, b) => verified.get(a.code).order - verified.get(b.code).order);
+      if (plans.length !== verified.size) throw new Error('Verified plan set is incomplete');
+      container.replaceChildren(...plans.map(renderCard));
+      window.dispatchEvent(new CustomEvent('gravity:plans-ready', { detail: { plans } }));
+    } catch (_) { renderUnavailable(); }
+    finally { container.setAttribute('aria-busy', 'false'); }
   }
-
   load();
 })();

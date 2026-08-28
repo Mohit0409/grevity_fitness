@@ -66,7 +66,8 @@ class LaunchGateTests(unittest.TestCase):
             report = LaunchGate(settings, database).report()
         self.assertFalse(report["launchReady"])
         self.assertIn("active_owner", report["blockers"])
-        self.assertIn("active_membership_plan", report["blockers"])
+        self.assertNotIn("active_membership_plan", report["blockers"])
+        self.assertEqual(report["operations"]["business"]["activePlanCount"], 3)
         self.assertIn("recent_verified_backup", report["blockers"])
         self.assertIn("recovery_drill", report["blockers"])
         self.assertNotIn(TEST_SECRET, json.dumps(report, sort_keys=True))
@@ -80,7 +81,7 @@ class LaunchGateTests(unittest.TestCase):
         self.assertEqual(report["blockers"], [])
         self.assertTrue(report["operations"]["database"]["migrationsCurrent"])
         self.assertTrue(report["operations"]["business"]["activeOwner"])
-        self.assertEqual(report["operations"]["business"]["activePlanCount"], 1)
+        self.assertEqual(report["operations"]["business"]["activePlanCount"], 3)
         self.assertTrue(report["operations"]["backup"]["verified"])
         self.assertTrue(report["operations"]["backup"]["recoveryDrillPassed"])
 

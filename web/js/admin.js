@@ -59,10 +59,10 @@
   }
 
   function formatTime(value) {
-    if (!value) return 'â€”';
+    if (!value) return '—';
     const ms = Number(value) < 10_000_000_000 ? Number(value) * 1000 : Number(value);
     const date = new Date(ms);
-    return Number.isNaN(date.getTime()) ? 'â€”' : date.toLocaleString();
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
   }
 
   function badge(status) {
@@ -110,7 +110,7 @@
       const label = document.createElement('span');
       label.textContent = item.action || 'activity';
       const time = document.createElement('small');
-      time.textContent = `${item.result || ''} Â· ${formatTime(item.createdAt)}`;
+      time.textContent = `${item.result || ''} · ${formatTime(item.createdAt)}`;
       row.append(label, time);
       recent.appendChild(row);
     }
@@ -131,7 +131,7 @@
       const name = document.createElement('td');
       name.textContent = member.displayName || member.id;
       const contact = document.createElement('td');
-      contact.textContent = member.email || member.phone || 'â€”';
+      contact.textContent = member.email || member.phone || '—';
       const status = document.createElement('td');
       status.appendChild(badge(member.status));
       const actions = document.createElement('td');
@@ -204,7 +204,7 @@
     body.replaceChildren();
     for (const item of data.audit || []) {
       const row = document.createElement('tr');
-      for (const value of [formatTime(item.createdAt), item.username || 'system', item.action || 'â€”', item.result || 'â€”']) {
+      for (const value of [formatTime(item.createdAt), item.username || 'system', item.action || '—', item.result || '—']) {
         const cell = document.createElement('td');
         cell.textContent = value;
         row.appendChild(cell);
@@ -215,15 +215,16 @@
   }
 
   async function showView(view) {
-    const allowed = new Set(['dashboard', 'members', 'memberships', 'coaching', 'notifications', 'readiness', 'admins', 'audit']);
+    const allowed = new Set(['dashboard', 'enquiries', 'members', 'memberships', 'coaching', 'notifications', 'readiness', 'admins', 'audit']);
     state.view = allowed.has(view) ? view : 'dashboard';
-    const titles = { dashboard: 'Overview', members: 'Members', memberships: 'Memberships', coaching: 'Coaching', notifications: 'Notifications', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
+    const titles = { dashboard: 'Overview', enquiries: 'Enquiries', members: 'Members', memberships: 'Memberships', coaching: 'Coaching', notifications: 'Notifications', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
     document.querySelectorAll('.view').forEach((node) => { node.hidden = node.id !== `${state.view}View`; });
     document.querySelectorAll('nav [data-view]').forEach((node) => {
       node.classList.toggle('active', node.dataset.view === state.view);
     });
     $('viewTitle').textContent = titles[state.view];
     if (state.view === 'dashboard') await renderDashboard();
+    if (state.view === 'enquiries' && window.GravityEnquiryAdmin) await window.GravityEnquiryAdmin.renderWorkspace();
     if (state.view === 'members') await renderMembers($('memberSearch').value);
     if (state.view === 'coaching' && window.GravityCoachingAdmin) await window.GravityCoachingAdmin.renderWorkspace();
     if (state.view === 'notifications' && window.GravityNotificationAdmin) await window.GravityNotificationAdmin.renderWorkspace();
@@ -238,6 +239,12 @@
     $('adminsNav').hidden = admin.role !== 'owner';
     $('newAdmin').hidden = admin.role !== 'owner';
     $('auditNav').hidden = !hasPermission('audit.read');
+    $('enquiriesNav').hidden = !hasPermission('enquiries.read');
+    window.GravityEnquiryAdmin?.setAdmin(admin);
+    window.GravityMembershipAdmin?.setAdmin(admin);
+    window.GravityCoachingAdmin?.setAdmin(admin);
+    window.GravityNotificationAdmin?.setAdmin(admin);
+    window.GravityReadinessAdmin?.setAdmin(admin);
     setAuthScreen('app');
     await showView('dashboard');
   }

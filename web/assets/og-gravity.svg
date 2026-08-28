@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Gravity Fitness Neemuch</title><desc id="desc">Acid lime and charcoal Gravity Fitness brand graphic</desc>
+  <rect width="1200" height="630" fill="#11130f"/>
+  <path d="M0 0h1200v630H0z" fill="url(#grid)" opacity=".32"/>
+  <defs><pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0v48" fill="none" stroke="#eef0e8" stroke-opacity=".08"/></pattern></defs>
+  <circle cx="940" cy="315" r="218" fill="none" stroke="#b8ff2c" stroke-width="2" opacity=".65"/>
+  <circle cx="940" cy="315" r="116" fill="none" stroke="#b8ff2c" stroke-width="36" opacity=".13"/>
+  <rect x="80" y="74" width="88" height="88" fill="#b8ff2c"/>
+  <text x="124" y="132" fill="#11130f" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="28" font-weight="900">GF</text>
+  <text x="80" y="330" fill="#f2f0e8" font-family="Arial Black,Arial,sans-serif" font-size="112" font-weight="900" letter-spacing="-7">GRAVITY</text>
+  <text x="84" y="409" fill="#b8ff2c" font-family="Arial Black,Arial,sans-serif" font-size="69" font-weight="900" letter-spacing="4">FITNESS</text>
+  <text x="85" y="506" fill="#9da397" font-family="Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="8">NEEMUCH · MADHYA PRADESH</text>
+  <text x="940" y="324" fill="#b8ff2c" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="34" font-weight="900">06—22</text>
+</svg>

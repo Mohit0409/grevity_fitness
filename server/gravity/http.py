@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from email.utils import formatdate
+from html import escape
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,6 +14,7 @@ from uuid import uuid4
 import json
 import logging
 import mimetypes
+import sys
 
 from .auth import (
     AccountDisabled,
@@ -36,6 +38,8 @@ from .notification import NotificationService
 from .payment import PaymentService
 from .coaching import CoachingService
 from .readiness import ReadinessService
+from .enquiry import EnquiryService
+from .enquiry_http import handle_enquiry_request
 from .coaching_http import handle_coaching_request
 from .payment_http import handle_payment_request
 from .firebase_auth import (
@@ -54,7 +58,10 @@ STATIC_ROUTE_ALIASES = {
     "/account": "pages/account.html",
     "/admin": "pages/admin.html",
     "/trainers": "pages/trainers.html",
+    "/coaching": "pages/trainers.html",
     "/gallery": "pages/gallery.html",
+    "/privacy": "pages/privacy.html",
+    "/favicon.ico": "assets/icons/gravity-mark.svg",
     "/site.webmanifest": "assets/site.webmanifest",
 }
 SENSITIVE_QUERY_KEYS = {"access_token", "code", "id_token", "session", "token"}
@@ -101,6 +108,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         payment_service: PaymentService,
         coaching_service: CoachingService,
         readiness_service: ReadinessService,
+        enquiry_service: EnquiryService,
     ) -> None:
         super().__init__(address, handler)
         self.settings = settings
@@ -112,6 +120,14 @@ class GravityHTTPServer(ThreadingHTTPServer):
         self.payment_service = payment_service
         self.coaching_service = coaching_service
         self.readiness_service = readiness_service
+        self.enquiry_service = enquiry_service
+
+    def handle_error(self, request: object, client_address: object) -> None:
+        error = sys.exc_info()[1]
+        if isinstance(error, (BrokenPipeError, ConnectionAbortedError, ConnectionResetError, TimeoutError)):
+            LOGGER.debug("client_connection_closed", extra={"event_data": {"client": str(client_address)}})
+            return
+        super().handle_error(request, client_address)
 
 
 class GravityRequestHandler(BaseHTTPRequestHandler):
@@ -189,6 +205,16 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
                     send_body=send_body,
                 )
                 return
+            if path in {"/api/enquiries", "/api/enquiries/token"} or path.startswith("/api/admin/enquiries"):
+                try:
+                    enquiry_status = handle_enquiry_request(self, path, request_id, send_body)
+                except RequestError as error:
+                    status = error.status
+                    self._json_response(status, {"error": error.code}, request_id=request_id, send_body=send_body)
+                    return
+                if enquiry_status is not None:
+                    status = enquiry_status
+                    return
             if path in {"/robots.txt", "/sitemap.xml"}:
                 if self.command not in {"GET", "HEAD"}:
                     status = self._method_not_allowed({"GET", "HEAD"}, request_id, send_body)
@@ -577,13 +603,39 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             return False
         expected = urlsplit(self.server.settings.app_base_url)
         actual = urlsplit(origins[0])
-        return (
+        canonical = (
             actual.scheme in {"http", "https"}
             and actual.scheme == expected.scheme
             and actual.netloc == expected.netloc
             and not actual.path
             and not actual.query
             and not actual.fragment
+        )
+        if canonical:
+            return True
+        return self._local_loopback_request(actual)
+
+    def _local_loopback_request(self, origin: object | None = None) -> bool:
+        actual = origin if origin is not None else urlsplit("")
+        host_values = self.headers.get_all("Host", [])
+        if len(host_values) != 1 or not host_values[0] or any(character.isspace() for character in host_values[0]):
+            return False
+        host = urlsplit(f"//{host_values[0]}")
+        try:
+            host_loopback = host.hostname == "localhost" or ip_address(host.hostname or "").is_loopback
+            peer_loopback = ip_address(self.client_address[0]).is_loopback
+        except ValueError:
+            return False
+        if not host_loopback or not peer_loopback:
+            return False
+        if origin is None:
+            return True
+        return (
+            getattr(actual, "scheme", "") == "http"
+            and getattr(actual, "netloc", "") == host_values[0]
+            and not getattr(actual, "path", "")
+            and not getattr(actual, "query", "")
+            and not getattr(actual, "fragment", "")
         )
 
     def _bearer_token(self) -> str:
@@ -737,7 +789,7 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             )
             content_type = "text/plain; charset=utf-8"
         else:
-            urls = [f"{base}/", f"{base}/trainers", f"{base}/gallery"]
+            urls = [f"{base}/", f"{base}/coaching", f"{base}/gallery", f"{base}/privacy"]
             items = "".join(f"<url><loc>{url}</loc></url>" for url in urls)
             body = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{items}</urlset>'
             content_type = "application/xml; charset=utf-8"
@@ -775,6 +827,9 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             return self._not_found(request_id, send_body)
 
         data = candidate.read_bytes()
+        if candidate.suffix == ".html" and b"{{APP_BASE_URL}}" in data:
+            safe_base = escape(self.server.settings.app_base_url.rstrip("/"), quote=True).encode("utf-8")
+            data = data.replace(b"{{APP_BASE_URL}}", safe_base)
         mime, _encoding = mimetypes.guess_type(candidate.name)
         if candidate.suffix == ".js":
             mime = "application/javascript"
@@ -866,15 +921,15 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             "Content-Security-Policy",
             "default-src 'self'; "
             "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
-            "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com "
+            "script-src 'self' 'sha256-JzzOEVfQFE3m1nzmouGyDTsVkd/OZr7ITj2TNykRv4g=' "
             "https://www.gstatic.com https://www.google.com https://recaptcha.net https://www.recaptcha.net https://checkout.razorpay.com; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; "
+            "style-src 'self'; "
+            "font-src 'self'; "
             "img-src 'self' data: https:; "
             "connect-src 'self' "
             "https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.razorpay.com https://checkout.razorpay.com; "
             "frame-src https://www.google.com https://recaptcha.net https://www.recaptcha.net https://*.firebaseapp.com https://api.razorpay.com https://checkout.razorpay.com; "
-            "form-action 'self' https://wa.me; upgrade-insecure-requests",
+            "form-action 'self'; upgrade-insecure-requests",
         )
         if self.server.settings.production and self.server.settings.app_base_url.startswith("https://"):
             self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
@@ -905,6 +960,18 @@ def create_server(
     payment_service = PaymentService(database, configured, membership_service, **({"clock": clock} if clock else {}))
     coaching_service = CoachingService(database, **({"clock": clock} if clock else {}))
     readiness_service = ReadinessService(configured)
+    enquiry_service = EnquiryService(
+        database,
+        configured,
+        admin_service,
+        **({"clock": clock} if clock else {}),
+    )
+    purged_enquiries = enquiry_service.purge_expired()
+    if purged_enquiries:
+        logging.getLogger("gravity.privacy").info(
+            "expired_enquiries_purged",
+            extra={"event_data": {"count": purged_enquiries}},
+        )
     return GravityHTTPServer(
         (configured.host, configured.port),
         GravityRequestHandler,
@@ -917,4 +984,5 @@ def create_server(
         payment_service,
         coaching_service,
         readiness_service,
+        enquiry_service,
     )

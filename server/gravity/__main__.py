@@ -21,6 +21,7 @@ from .membership import MembershipService
 from .notification import NotificationService
 from .operations import BackupManager, OperationsError
 from .http import create_server
+from .enquiry import EnquiryService
 from .logging_config import configure_logging
 from .canary import run_provider_canaries
 from .cutover import CutoverVerifier
@@ -46,6 +47,7 @@ def _parser() -> argparse.ArgumentParser:
     operations.add_argument("--provider-canaries", action="store_true", help="Run read-only Firebase and Razorpay production canaries")
     operations.add_argument("--smoke", action="store_true", help="Run the public/private launch smoke suite")
     operations.add_argument("--cutover-check", action="store_true", help="Run launch gate, provider canaries, and public HTTPS smoke")
+    operations.add_argument("--purge-expired-enquiries", action="store_true", help="Delete enquiry PII whose 180-day retention period has elapsed")
     parser.add_argument("--smoke-base-url", help="Override APP_BASE_URL for smoke/cutover verification")
     parser.add_argument("--backup-label", default="manual", help="Label used when creating a backup")
     parser.add_argument("--confirm-live-restore", action="store_true", help="Required confirmation for replacing the live database")
@@ -140,6 +142,13 @@ def main() -> int:
             print(f"Gravity operation failed: {error}")
             return 2
         print(result)
+        return 0
+
+    if args.purge_expired_enquiries:
+        database = Database(settings.database_path, settings.migrations_dir)
+        database.migrate()
+        service = EnquiryService(database, settings, AdminService(database, settings))
+        print({"expiredEnquiriesPurged": service.purge_expired()})
         return 0
 
     if args.scan_notifications is not None or args.deliver_notifications:

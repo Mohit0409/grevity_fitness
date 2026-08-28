@@ -11,8 +11,8 @@ Browser / mobile web
 Gravity HTTP application (loopback by default)
         |-- allowlisted public files from web/
         |-- /api/health
-        |-- future customer/auth/membership APIs
-        |-- future private admin boundary
+        |-- public enquiry + customer/auth/membership APIs
+        |-- private admin/TOTP/RBAC boundary
         |
         v
 SQLite (WAL, foreign keys, migrations, integrity checks)
@@ -25,6 +25,8 @@ SQLite (WAL, foreign keys, migrations, integrity checks)
 - Admin authentication and authorization will be separate from customer authentication. Public requests will never fall through to admin resources.
 - Razorpay order totals and fulfillment will be server-authoritative. Browser callbacks alone will never activate membership or create a paid invoice.
 - Runtime state is outside `web/`. The server exposes only `index.html` plus the `assets`, `css`, `js`, and `pages` public prefixes.
+- Anonymous enquiries use a signed short-lived double-submit CSRF token, exact-origin checks, idempotency fingerprints, hashed IP/contact throttles, bounded validation, and non-sequential references. Authorised admin/reception users manage workflow state and notes through the separate administrator boundary.
+- Public enquiry PII expires after 180 days. Startup and the explicit operator command purge expired parent records and their cascaded notes/events.
 
 ## Phase 1 foundation
 
@@ -40,8 +42,9 @@ SQLite (WAL, foreign keys, migrations, integrity checks)
 
 Core application code uses Python 3.11+ standard library features and relative/configurable paths. Windows scripts are operational wrappers only; the same Python module and SQLite database design run on Linux and Termux. Production internet exposure will require a TLS reverse proxy or tunnel and explicit trusted-proxy configuration.
 
-## Deferred decisions
+## Current external decisions
 
 - The `gravity-authe` Firebase project is not visible to the currently signed-in Firebase account. Auth integration remains `BLOCKED_EXTERNAL_CONFIG`, without blocking local development.
 - Legal invoice/GST fields require verified business details before production issuance.
-- Public contact details, metrics, reviews, trainer rosters, opening hours, and pricing remain owner-verification items and must move to managed settings.
+- Verified contact details, hours, and the three monthly prices are published. Metrics, reviews, plan benefits, trainer rosters/credentials, testimonials, transformations, and facility/media claims remain unpublished until operator verification.
+- The current staging tunnel is not a production domain. Firebase, Razorpay, and the privacy notice remain fail-closed or explicitly review-blocked until external verification is complete.

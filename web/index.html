@@ -1,663 +1,74 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Gravity Fitness Neemuch | Gym & Training Enquiries</title>
-  <meta name="description" content="Gravity Fitness in Neemuch. Explore training enquiries, verified membership options, member accounts, and contact information."/>
-  <meta name="robots" content="index, follow"/>
-  <link rel="canonical" href="/"/>
-  <!-- Open Graph -->
-  <meta property="og:type"        content="website"/>
-  <meta property="og:title" content="Gravity Fitness Neemuch"/>
-  <meta property="og:description" content="Training and membership enquiries for Gravity Fitness in Neemuch."/>
-  <meta property="og:site_name"   content="Gravity Fitness Neemuch"/>
-  <!-- Twitter Card -->
-  <meta name="twitter:card"        content="summary_large_image"/>
-  <meta name="twitter:title"       content="Gravity Fitness Neemuch"/>
-  <meta name="twitter:description" content="Training and membership enquiries for Gravity Fitness in Neemuch."/>
-  <!-- Fonts & Styles -->
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="css/style.css?v=phase8"/>
-  <!-- Preload hero -->
-  <link rel="preload" as="image" href="assets/images/hero-fighter.png"/>
-  <!-- ══ GOOGLE ANALYTICS 4 ══════════════════════════════════════════
-       1. Go to analytics.google.com → Create Account → Web Property
-       2. Copy your Measurement ID (looks like G-XXXXXXXXXX)
-       3. Uncomment the two script tags below and replace G-XXXXXXXXXX
-  ════════════════════════════════════════════════════════════════════ -->
-<!-- Analytics network loading is disabled until a verified production ID is configured. -->
-
-  <meta name="theme-color" content="#13151b"/>
-  <link rel="manifest" href="/site.webmanifest"/>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gravity Fitness Neemuch | Membership & Visit Enquiries</title>
+  <meta name="description" content="Explore verified monthly membership prices and send a visit, membership or coaching enquiry to Gravity Fitness in Neemuch.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <meta name="theme-color" content="#11130f">
+  <link rel="canonical" href="{{APP_BASE_URL}}/">
+  <link rel="icon" href="/assets/icons/gravity-mark.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" sizes="180x180">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Gravity Fitness">
+  <meta property="og:title" content="Gravity Fitness Neemuch">
+  <meta property="og:description" content="Verified monthly membership prices and a direct way to request a visit.">
+  <meta property="og:url" content="{{APP_BASE_URL}}/">
+  <meta property="og:image" content="{{APP_BASE_URL}}/assets/og-gravity.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="/css/style.css?v=gravity2-rc2">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"HealthClub","name":"Gravity Fitness","telephone":"+91 79995 26112","address":{"@type":"PostalAddress","streetAddress":"Bungalow No. 41, 1st Floor, Above Canara Bank, CRPF Road, Neemuch Chawni","addressLocality":"Neemuch","addressRegion":"Madhya Pradesh","postalCode":"458441","addressCountry":"IN"},"openingHours":["Mo-Sa 06:00-22:00"],"sameAs":["https://www.instagram.com/gravity_fitness_nmh/"]}</script>
 </head>
 <body>
-<a class="skip-link" href="#main-content">Skip to main content</a>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <header class="site-header" id="site-header">
+    <div class="shell header-row">
+      <a class="brand" href="/" aria-label="Gravity Fitness home"><span class="brand-mark" aria-hidden="true">GF</span><span class="brand-copy"><strong>Gravity</strong><small>Fitness · Neemuch</small></span></a>
+      <nav class="desktop-nav" aria-label="Primary navigation"><a href="#training">Explore</a><a href="#membership">Membership</a><a href="/coaching">Coaching</a><a href="/gallery">Gallery</a><a href="#visit">Visit</a></nav>
+      <div class="header-actions"><button class="button button--compact" type="button" data-request-kind="trial_visit">Request a visit</button><button class="menu-button" id="menu-open" type="button" aria-label="Open navigation" aria-controls="mobile-menu" aria-expanded="false"><span></span><span></span></button></div>
+    </div>
+  </header>
+  <dialog class="menu-dialog" id="mobile-menu" aria-label="Navigation"><div class="menu-dialog__top"><span class="brand-mark" aria-hidden="true">GF</span><button class="icon-button" id="menu-close" type="button" aria-label="Close navigation">Close</button></div><nav aria-label="Mobile navigation"><a href="#training">Explore <span aria-hidden="true">01</span></a><a href="#membership">Membership <span aria-hidden="true">02</span></a><a href="/coaching">Coaching <span aria-hidden="true">03</span></a><a href="/gallery">Gallery <span aria-hidden="true">04</span></a><a href="#visit">Visit <span aria-hidden="true">05</span></a></nav><button class="button" type="button" data-request-kind="trial_visit">Request a visit</button></dialog>
 
-<!-- LOADER -->
-<div id="loader">
-  <div class="loader-logo">GRAVITY<span>.</span></div>
-  <div class="loader-bar"><div class="loader-fill"></div></div>
-  <div class="loader-text">Loading your fitness journey...</div>
-</div>
-<script>
-(() => {
-  const dismiss = () => {
-    const loader = document.getElementById('loader');
-    if (!loader) return;
-    loader.classList.add('hide');
-    window.setTimeout(() => { loader.style.display = 'none'; }, 550);
-  };
-  window.GravityDismissLoader = dismiss;
-  document.addEventListener('DOMContentLoaded', () => window.setTimeout(dismiss, 150), { once: true });
-  window.setTimeout(dismiss, 3000);
-})();
-</script>
-
-<!-- HEADER -->
-<header class="header" id="header">
-  <div class="header-inner">
-    <a href="/" class="logo">GRAVITY<span>.</span></a>
-    <ul class="nav-tabs">
-      <li><a href="#classes">Classes</a></li>
-      <li><a href="#membership">Membership</a></li>
-      <li><a href="#schedule">Schedule</a></li>
-      <li><a href="/trainers">Trainers</a></li>
-      <li><a href="/gallery">Gallery</a></li>
-      <li><a href="#contact">Contact</a></li>
-    </ul>
-    <div class="header-right">
-      <div class="city-pill">
-        <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
-        Neemuch, MP
+  <main id="main-content">
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div class="hero-copy"><p class="eyebrow">Neemuch · Open Monday–Saturday</p><h1>Make your next rep <em>count.</em></h1><p class="hero-lead">Compare verified monthly prices or send Gravity Fitness a visit request. The team will confirm the details with you.</p><div class="hero-actions"><button class="button" type="button" data-request-kind="trial_visit">Request a visit</button><a class="text-link" href="tel:+917999526112">Call +91 79995 26112 <span aria-hidden="true">↗</span></a></div><p class="microcopy">A request is not a confirmed booking. No online payment is taken.</p></div>
+        <div class="hero-art" aria-hidden="true"><div class="hero-word">GRAVITY</div><div class="orbit orbit--one"></div><div class="orbit orbit--two"></div><div class="hero-stamp"><strong>06—22</strong><span>MON / SAT</span></div><p>FITNESS<br>NEEMUCH</p></div>
       </div>
-      <a class="btn btn-outline account-header-link" href="/account" data-account-link aria-busy="true"><span data-account-label>Account</span></a>
-      <button class="btn btn-primary" onclick="openBooking('free')">🎟 Trial Visit</button>
-      <button class="hamburger" type="button" aria-label="Open navigation" aria-controls="mobile-nav" aria-expanded="false" onclick="toggleMobileNav()">☰</button>
-    </div>
-  </div>
-</header>
+      <div class="shell fact-rail" aria-label="Key information"><div><span>Hours</span><strong>6am—10pm</strong></div><div><span>Location</span><strong>Neemuch Chawni</strong></div><div><span>Membership</span><strong>3 monthly options</strong></div></div>
+    </section>
 
-<!-- MOBILE NAV -->
-<nav class="mobile-nav" id="mobile-nav">
-  <button type="button" aria-label="Close navigation" onclick="toggleMobileNav()" style="position:absolute;top:18px;right:20px;background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer;">✕</button>
-  <ul>
-    <li><a href="#classes" onclick="toggleMobileNav()">Classes</a></li>
-    <li><a href="#membership" onclick="toggleMobileNav()">Membership</a></li>
-    <li><a href="#schedule" onclick="toggleMobileNav()">Schedule</a></li>
-    <li><a href="/trainers">Trainers</a></li>
-    <li><a href="/gallery">Gallery</a></li>
-    <li><a href="/account" data-account-link aria-busy="true"><span data-account-label>Account</span></a></li>
-    <li><a href="#contact" onclick="toggleMobileNav()">Contact</a></li>
-  </ul>
-  <div style="margin-top:28px;display:flex;flex-direction:column;gap:10px;">
-    <button class="btn btn-primary" style="width:100%;" onclick="openBooking('free');toggleMobileNav()">🎟 Trial Visit</button>
-    <button class="btn btn-outline" style="width:100%;" onclick="document.getElementById('membership').scrollIntoView({behavior:'smooth'});toggleMobileNav()">View Plans</button>
-  </div>
-</nav>
+    <section class="section section--paper" id="training"><div class="shell"><div class="section-intro split-intro"><div><p class="eyebrow eyebrow--dark">Start with clarity</p><h2>A simple way to explore Gravity.</h2></div><p>Choose the path that matches what you need today. Staff will confirm any changing details directly.</p></div><div class="path-grid">
+      <article class="path-card"><span>01</span><h3>Visit first</h3><p>Send your preferred date and time. Gravity will follow up before anything is treated as confirmed.</p><button class="card-link" type="button" data-request-kind="trial_visit">Request a visit <span aria-hidden="true">↗</span></button></article>
+      <article class="path-card"><span>02</span><h3>Compare prices</h3><p>Review the three verified monthly membership prices currently published by Gravity Fitness.</p><a class="card-link" href="#membership">See membership <span aria-hidden="true">↓</span></a></article>
+      <article class="path-card path-card--dark"><span>03</span><h3>Ask about coaching</h3><p>Tell the team what you want help with. Current coach details are shared only after staff confirmation.</p><button class="card-link" type="button" data-request-kind="coaching">Send an enquiry <span aria-hidden="true">↗</span></button></article>
+    </div></div></section>
 
-<main id="main-content">
-<!-- HERO -->
-<section class="hero has-photo" id="home">
-  <!-- HERO PHOTO -->
-  <div class="hero-photo-wrap">
-    <img src="assets/images/hero-fighter.png" alt="Gravity Fitness — Elite Physique" loading="eager"/>
-  </div>
-  <div class="hero-bg-text">FIT</div>
-  <div class="hero-eyebrow"><span></span> Fitness & training enquiries in Neemuch</div>
-  <h1>Transform Your Body<br>With <span class="lime">Expert</span> <span class="outline">Coaching</span></h1>
+    <section class="section membership" id="membership"><div class="shell"><div class="section-intro split-intro split-intro--dark"><div><p class="eyebrow">Membership</p><h2>Three plans.<br>One month at a time.</h2></div><p>Prices below are the verified monthly membership amounts supplied by Gravity Fitness. No unverified benefits are implied.</p></div><div class="plan-grid" id="public-membership-plans" aria-live="polite" aria-busy="true"><div class="plan-skeleton"></div><div class="plan-skeleton"></div><div class="plan-skeleton"></div></div><p class="membership-note">Online checkout is currently unavailable. Send an enquiry and the team will explain the next step.</p></div></section>
 
-  <!-- Truth-safe overview -->
-  <div class="hero-social-proof" aria-label="Gravity Fitness overview">
-    <div class="hsp-stat"><div class="hsp-stat-num">Gym</div><div class="hsp-stat-label">Training enquiries</div></div>
-    <div class="hsp-divider"></div>
-    <div class="hsp-stat"><div class="hsp-stat-num">Plans</div><div class="hsp-stat-label">Server-verified pricing</div></div>
-    <div class="hsp-divider"></div>
-    <div class="hsp-stat"><div class="hsp-stat-num">Member</div><div class="hsp-stat-label">Secure account access</div></div>
-  </div>
+    <section class="section section--lime coaching-preview"><div class="shell coaching-grid"><div><p class="eyebrow eyebrow--dark">Coaching</p><h2>Tell us where you want to go.</h2></div><div><p>There are no verified public coach profiles to show yet. Send a coaching enquiry and Gravity can confirm the current options with you.</p><div class="inline-actions"><button class="button button--dark" type="button" data-request-kind="coaching">Ask about coaching</button><a class="text-link text-link--dark" href="/coaching">How enquiries work <span aria-hidden="true">→</span></a></div></div></div></section>
 
-  <!-- Value props -->
-  <div class="hero-value-props">
-    <div class="hero-vp">Ask about current strength, group-fitness and coaching options</div>
-    <div class="hero-vp">Verified membership prices appear only after staff activation</div>
-    <div class="hero-vp">Operating hours: Monday-Saturday 6:00 AM-10:00 PM; Sunday closed</div>
-    <div class="hero-vp">Trial visits and class places require gym confirmation</div>
-  </div>
+    <section class="section gallery-preview"><div class="shell gallery-grid"><div class="gallery-art" aria-hidden="true"><span>G</span><div>APPROVED<br>MEDIA<br>COMING SOON</div></div><div class="gallery-copy"><p class="eyebrow">Gallery</p><h2>See what Gravity shares now.</h2><p>No unverified stock images are presented as Gravity Fitness, its members, coaches or facilities. For current posts, visit the official Instagram profile.</p><div class="inline-actions"><a class="button" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" rel="noopener noreferrer">Open Instagram</a><a class="text-link" href="/gallery">Gallery policy <span aria-hidden="true">→</span></a></div></div></div></section>
 
-  <div class="hero-actions">
-    <button class="btn btn-primary" onclick="openBooking('free');gTrack&&gTrack('hero_cta_click',{button:'free_pass'})">🎟 Request Trial Visit</button>
-    <button class="btn btn-outline" onclick="document.getElementById('membership').scrollIntoView({behavior:'smooth'});gTrack&&gTrack('hero_cta_click',{button:'view_plans'})">View Plans & Pricing →</button>
-  </div>
+    <section class="section section--paper visit" id="visit"><div class="shell visit-grid"><div class="visit-copy"><p class="eyebrow eyebrow--dark">Visit Gravity</p><h2>Find us in Neemuch Chawni.</h2><address>Gravity Fitness<br>Bungalow No. 41, 1st Floor, Above Canara Bank<br>CRPF Road, Neemuch Chawni<br>Neemuch, Madhya Pradesh 458441</address><div class="inline-actions"><a class="button button--dark" href="https://www.google.com/maps/search/?api=1&amp;query=Gravity%20Fitness%20Bungalow%20No.%2041%20CRPF%20Road%20Neemuch%20Madhya%20Pradesh%20458441" target="_blank" rel="noopener noreferrer">Get directions</a><a class="text-link text-link--dark" href="tel:+917999526112">Call the gym <span aria-hidden="true">↗</span></a></div></div><div class="hours-card"><div><span>Monday—Saturday</span><strong>6:00am—10:00pm</strong></div><div><span>Sunday</span><strong>Closed</strong></div><div><span>Phone / WhatsApp</span><a href="tel:+917999526112">+91 79995 26112</a></div></div></div></section>
 
-</section>
+    <section class="section faq"><div class="shell faq-grid"><div><p class="eyebrow">Good to know</p><h2>Straight answers before you visit.</h2></div><div class="faq-list"><details><summary>Does a visit request confirm my booking?</summary><p>No. The website records your preference and gives you a reference. Gravity Fitness will follow up to confirm details.</p></details><details><summary>What are the current membership prices?</summary><p>Basic is ₹999 per month, Pro is ₹1,499 per month, and Elite is ₹2,499 per month.</p></details><details><summary>Can I pay online?</summary><p>Online checkout is currently unavailable. The enquiry form remains available and does not take payment.</p></details><details><summary>Does Gravity issue a GST tax invoice?</summary><p>Gravity Fitness currently operates in receipt-only mode and does not issue a GST tax invoice.</p></details><details><summary>When is Gravity open?</summary><p>Monday to Saturday, 6:00am to 10:00pm. Sunday is closed.</p></details></div></div></section>
 
-<!-- CURRENT-INFO STRIP -->
-<div class="urgency-strip"><div class="urgency-strip-inner" id="urgency-strip">
-  <span class="urgency-pill">Current timetable, coach availability and capacity can change — confirm before visiting.</span>
-</div></div>
+    <section class="final-cta"><div class="shell"><p class="eyebrow eyebrow--dark">Ready when you are</p><h2>Start with a visit request.</h2><button class="button button--dark" type="button" data-request-kind="trial_visit">Request a visit</button></div></section>
+  </main>
 
-<!-- TRAINING ENQUIRIES -->
-<section class="section" id="classes">
-  <div class="container"><div class="section-head reveal"><div>
-    <div class="section-label">Training enquiries</div><h2 class="section-title">Ask About Current Training Options</h2>
-    <p class="section-sub">Class names, coaches, times and capacity change. These categories are enquiry prompts, not a live timetable.</p>
-  </div><a class="btn btn-outline" href="#contact">Confirm with gym →</a></div>
-  <div class="features-grid">
-    <div class="feature-card"><div class="feature-icon">🏋️</div><div class="feature-title">Strength & conditioning</div><div class="feature-desc">Ask what coached or open-floor strength options are currently available.</div></div>
-    <div class="feature-card"><div class="feature-icon">🏃</div><div class="feature-title">Cardio & group fitness</div><div class="feature-desc">Ask about current group-fitness formats, levels and timings.</div></div>
-    <div class="feature-card"><div class="feature-icon">🧘</div><div class="feature-title">Mobility & mindful movement</div><div class="feature-desc">Ask whether yoga-style, mobility or recovery sessions are currently offered.</div></div>
-    <div class="feature-card"><div class="feature-icon">🥊</div><div class="feature-title">Combat-fitness enquiries</div><div class="feature-desc">Ask about current boxing or combat-fitness coaching before travelling.</div></div>
-  </div></div>
-</section>
+  <footer class="site-footer"><div class="shell footer-grid"><div><a class="brand brand--footer" href="/"><span class="brand-mark" aria-hidden="true">GF</span><span class="brand-copy"><strong>Gravity</strong><small>Fitness · Neemuch</small></span></a><p>Verified membership prices and direct enquiry support for Gravity Fitness in Neemuch.</p></div><div><h2>Explore</h2><a href="#membership">Membership</a><a href="/coaching">Coaching</a><a href="/gallery">Gallery</a><a href="/privacy">Privacy</a></div><div><h2>Contact</h2><a href="tel:+917999526112">+91 79995 26112</a><a href="https://wa.me/917999526112" target="_blank" rel="noopener noreferrer">WhatsApp</a><a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" rel="noopener noreferrer">@gravity_fitness_nmh</a></div></div><div class="shell footer-bottom"><span>© 2026 Gravity Fitness.</span><span>Neemuch, Madhya Pradesh</span></div></footer>
 
-<!-- BEFORE YOU VISIT -->
-<section class="section" style="background:var(--bg2);">
-  <div class="container"><div class="section-head reveal"><div>
-    <div class="section-label">Before you visit</div><h2 class="section-title">Confirm What Matters Today</h2>
-    <p class="section-sub">Facilities, coaches, class formats and availability can change. Gravity publishes server-verified membership prices and asks visitors to confirm operational details directly.</p>
-  </div></div>
-  <div class="features-grid">
-    <div class="feature-card"><div class="feature-icon">📋</div><div class="feature-title">Membership</div><div class="feature-desc">Only staff-activated plans are published in the pricing section.</div></div>
-    <div class="feature-card"><div class="feature-icon">🗓️</div><div class="feature-title">Classes</div><div class="feature-desc">Treat timetable content as an enquiry reference until the gym confirms the current slot.</div></div>
-    <div class="feature-card"><div class="feature-icon">👤</div><div class="feature-title">Coaching</div><div class="feature-desc">Individual coach identities, credentials and availability are published only after verification.</div></div>
-    <div class="feature-card"><div class="feature-icon">🔐</div><div class="feature-title">Payments</div><div class="feature-desc">Online payment success is accepted only after server verification in a signed-in account.</div></div>
-  </div></div>
-</section>
-
-<!-- BMI REFERENCE TOOL -->
-<section class="bmi-section" id="calculator">
-  <div class="container">
-    <div class="section-head reveal"><div>
-      <div class="section-label">Reference Tool</div>
-      <h2 class="section-title">BMI Estimate</h2>
-      <p class="section-sub">A simple height-and-weight calculation for general reference only. It is not a diagnosis, calorie prescription, or training-plan recommendation.</p>
-    </div></div>
-    <div class="bmi-card reveal">
-      <div class="bmi-grid">
-        <div class="bmi-field"><label for="bmi-weight">Weight (kg)</label><input type="number" id="bmi-weight" placeholder="e.g. 72" min="20" max="500"/></div>
-        <div class="bmi-field"><label for="bmi-height">Height (cm)</label><input type="number" id="bmi-height" placeholder="e.g. 170" min="80" max="250"/></div>
-      </div>
-      <button class="plan-book-btn" onclick="calculateBMI()">Calculate BMI Estimate →</button>
-      <div id="bmi-result" style="display:none;margin-top:20px;" aria-live="polite"></div>
-    </div>
-  </div>
-</section>
-
-<!-- MEMBERSHIP -->
-<section class="section" id="membership" style="background:var(--bg);">
-  <div class="container">
-    <div class="section-head reveal"><div><div class="section-label">Pricing</div><h2 class="section-title">Verified Membership Options</h2><p class="section-sub">Only plans activated by authorized Gravity staff are published here. Online payment remains server-verified.</p></div></div>
-    <div class="pricing-grid" id="public-membership-plans" aria-live="polite">
-      <div class="price-card reveal"><div class="price-name">Membership options</div><div class="price-duration">Loading verified active plans from Gravity…</div></div>
-    </div>
-  </div>
-</section>
-<!-- SCHEDULE ENQUIRY -->
-<section class="section" id="schedule">
-  <div class="container"><div class="section-head reveal"><div>
-    <div class="section-label">Schedule</div><h2 class="section-title">Confirm Today's Timetable</h2>
-    <p class="section-sub">The website does not publish live coach rosters, class capacity or "spots left". Call the gym to confirm today's options before travelling.</p>
-  </div><a class="btn btn-primary" href="tel:+917999526112">Call +91 79995 26112</a></div></div>
-</section>
-
-<!-- SOCIAL PROFILE -->
-<section class="section" style="background:var(--bg2);">
-  <div class="container"><div class="section-head reveal"><div>
-    <div class="section-label">Updates</div><h2 class="section-title">Gravity on Instagram</h2>
-    <p class="section-sub">For recent social updates, open Gravity's linked Instagram profile. Website images and captions are not presented as verified member results.</p>
-  </div><a class="btn btn-outline" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" rel="noopener noreferrer">Open Instagram →</a></div></div>
-</section>
-
-<!-- FAQ -->
-<section class="section" id="faq" style="background:var(--bg);">
-  <div class="container"><div class="section-head reveal"><div><div class="section-label">Questions</div><h2 class="section-title">How This Site Stays Current</h2></div></div>
-  <div class="faq-list">
-    <div class="faq-item"><button class="faq-q" aria-expanded="false" onclick="toggleFaq(this)">Where do membership prices come from?<span>+</span></button><div class="faq-a">Only active plans returned by Gravity's server-owned membership catalog are shown publicly.</div></div>
-    <div class="faq-item"><button class="faq-q" aria-expanded="false" onclick="toggleFaq(this)">Are class times and coach availability live?<span>+</span></button><div class="faq-a">No. Confirm the current timetable, coach and capacity directly with the gym before travelling.</div></div>
-    <div class="faq-item"><button class="faq-q" aria-expanded="false" onclick="toggleFaq(this)">How are online payments confirmed?<span>+</span></button><div class="faq-a">Payment success is accepted only after server-side verification in the authenticated member flow.</div></div>
-    <div class="faq-item"><button class="faq-q" aria-expanded="false" onclick="toggleFaq(this)">How can I confirm a trial visit?<span>+</span></button><div class="faq-a">Use the contact details below. A website enquiry is a request, not a guaranteed booking or free entitlement.</div></div>
-  </div></div>
-</section>
-
-<!-- CTA -->
-<div style="padding:0 24px 72px;">
-  <div class="cta-strip reveal">
-    <h2>Ready to ask about your <span class="lime">fitness options?</span><br>Contact Gravity to confirm a visit.</h2>
-    <div class="cta-actions">
-      <button class="btn btn-primary" style="font-size:1rem;padding:14px 28px;" onclick="openBooking('free')">🎟 Request Trial Visit</button>
-      <a href="https://wa.me/917999526112" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="font-size:1rem;padding:14px 28px;">💬 WhatsApp Us</a>
-    </div>
-  </div>
-</div>
-
-<!-- CONTACT -->
-<section class="section" id="contact" style="background:var(--bg);padding-top:60px;">
-  <div class="container">
-    <div class="section-head reveal"><div><div class="section-label">Find us</div><h2 class="section-title">Visit Gravity Fitness</h2></div></div>
-    <div class="contact-grid">
-      <div class="reveal-left">
-        <div class="contact-info-list">
-          <div class="contact-row"><div class="contact-icon">📍</div><div><div class="contact-row-title">Address</div><div class="contact-row-val">Bungalow No. 41, 1st Floor, Above Canara Bank,<br>CRPF Road, Neemuch Chawni, Neemuch, Madhya Pradesh 458441</div></div></div>
-          <div class="contact-row"><div class="contact-icon">📞</div><div><div class="contact-row-title">Phone / WhatsApp</div><div class="contact-row-val"><a href="tel:+917999526112" style="color:var(--white);">+91 79995 26112</a></div></div></div>
-          <div class="contact-row"><div class="contact-icon">⏰</div><div><div class="contact-row-title">Hours</div><div class="contact-row-val">Monday-Saturday: 6:00 AM - 10:00 PM<br>Sunday: Closed</div></div></div>
-        </div>
-        <div class="social-links">
-          <a class="social-btn" href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" rel="noopener noreferrer" title="Instagram">IG</a>
-          <a class="social-btn" href="#" title="Facebook">FB</a>
-          <a class="social-btn" href="#" title="YouTube">YT</a>
-          <a class="social-btn" href="https://wa.me/917999526112" target="_blank" rel="noopener noreferrer" title="WhatsApp">WA</a>
-        </div>
-      </div>
-      <div class="reveal-right">
-        <div class="map-frame" style="display:grid;place-items:center;padding:36px;text-align:center;"><div><div style="font-size:2rem;margin-bottom:12px;">📍</div><strong>Open current directions</strong><p style="color:var(--muted);margin:8px 0 18px;">Use Google Maps to resolve the current Gravity Fitness listing.</p><a class="btn btn-outline" href="https://www.google.com/maps/search/?api=1&query=GRAVITY+FITNESS+unisex+Gym+Neemuch" target="_blank" rel="noopener noreferrer">Open Google Maps</a></div></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-</main>
-<!-- FOOTER -->
-<footer>
-  <div class="footer-inner">
-    <div class="footer-grid">
-      <div class="footer-brand"><a href="/" class="logo">GRAVITY<span style="color:var(--lime)">.</span></a><p>Gravity Fitness in Neemuch. Confirm current classes, facilities, pricing and coach availability directly with the gym.</p></div>
-      <div class="footer-col"><h4>Classes</h4><ul><li><a href="#classes">HIIT</a></li><li><a href="#classes">Zumba</a></li><li><a href="#classes">Yoga</a></li><li><a href="#classes">Boxing</a></li><li><a href="#classes">Cycling</a></li></ul></div>
-      <div class="footer-col"><h4>Pages</h4><ul><li><a href="/trainers">Our Trainers</a></li><li><a href="/gallery">Gallery</a></li><li><a href="#membership">Membership</a></li><li><a href="#" onclick="openBooking('free')">Trial Visit Request</a></li></ul></div>
-      <div class="footer-col"><h4>Company</h4><ul><li><a href="#contact">Contact</a></li><li><a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" rel="noopener noreferrer">Instagram</a></li><li><a href="#">Privacy Policy</a></li><li><a href="#">Refund Policy</a></li></ul></div>
-    </div>
-    <div class="footer-bottom"><span>© 2026 Gravity Fitness, Neemuch. All rights reserved.</span><span>📲 <a href="https://www.instagram.com/gravity_fitness_nmh/" target="_blank" rel="noopener noreferrer" style="color:var(--lime);">@gravity_fitness_nmh</a></span></div>
-  </div>
-</footer>
-
-<a class="float-wa" href="https://wa.me/917999526112" target="_blank" rel="noopener noreferrer" title="WhatsApp" onclick="gTrack&&gTrack('whatsapp_click',{source:'float_btn'})">💬</a>
-
-<!-- 4-BUTTON STICKY MOBILE NAV -->
-<div class="mobile-sticky-nav">
-  <a class="msn-btn" href="tel:+917999526112">
-    <span class="msn-icon">📞</span>Call
-  </a>
-  <a class="msn-btn" href="https://www.google.com/maps/search/?api=1&query=GRAVITY+FITNESS+unisex+Gym+Neemuch" target="_blank" rel="noopener noreferrer">
-    <span class="msn-icon">📍</span>Directions
-  </a>
-  <a class="msn-btn" href="https://wa.me/917999526112" target="_blank" rel="noopener noreferrer">
-    <span class="msn-icon">💬</span>WhatsApp
-  </a>
-  <button class="msn-btn primary" onclick="openBooking('free')">
-    <span class="msn-icon">🎟</span>Trial Visit
-  </button>
-</div>
-
-<!-- CONTACT REMINDER MODAL -->
-<div id="exit-modal" role="dialog" aria-modal="true" aria-labelledby="exit-title" onclick="if(event.target===this){this.classList.remove('open');document.body.style.overflow=''}">
-  <div class="exit-modal-box">
-    <button aria-label="Close contact reminder" onclick="document.getElementById('exit-modal').classList.remove('open');document.body.style.overflow=''" style="position:absolute;top:14px;right:14px;background:var(--surface2);border:none;color:var(--muted);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:.85rem;">✕</button>
-    <div class="exit-emoji">ℹ️</div><h3 id="exit-title">Need current gym information?</h3>
-    <p>Membership prices, trial visits, classes and coach availability can change. Contact Gravity for confirmation before you visit.</p>
-    <button class="plan-book-btn" onclick="document.getElementById('exit-modal').classList.remove('open');document.body.style.overflow='';document.getElementById('contact').scrollIntoView({behavior:'smooth'})">View contact details →</button>
-    <button class="btn btn-ghost" style="width:100%;margin-top:8px;font-size:.8rem;" onclick="document.getElementById('exit-modal').classList.remove('open');document.body.style.overflow=''">Continue browsing</button>
-  </div>
-</div>
-<!-- ENQUIRY MODAL -->
-<div class="modal-overlay" id="booking-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onclick="if(event.target===this)closeModal('booking-modal')">
-  <div class="modal" tabindex="-1">
-    <button class="modal-close" aria-label="Close enquiry dialog" onclick="closeModal('booking-modal')">✕</button>
-    <div id="step-details">
-      <h3 id="modal-title" style="color:var(--white);font-weight:900;">Send an Enquiry</h3>
-      <p id="modal-subtitle" style="font-size:.82rem;color:var(--muted);margin-bottom:18px;"></p>
-      <div class="field"><label for="f-name">Full Name *</label><input type="text" id="f-name" autocomplete="name" required/></div>
-      <div class="field"><label for="f-phone">Phone / WhatsApp *</label><input type="tel" id="f-phone" autocomplete="tel" required/></div>
-      <div class="field"><label for="f-email">Email Address *</label><input type="email" id="f-email" autocomplete="email" required/></div>
-      <div id="free-day-fields" style="display:none;">
-        <div class="field"><label for="f-date">Preferred Visit Date *</label><input type="date" id="f-date"/></div>
-        <div class="field"><label for="f-slot">Preferred Time *</label><input type="text" id="f-slot" placeholder="e.g. morning or after 6 PM" maxlength="80"/></div>
-      </div>
-      <div id="plan-duration-field" style="display:none;"></div>
-      <div class="field"><label for="f-notes">Goals / Notes (optional)</label><input type="text" id="f-notes" maxlength="300" placeholder="What would you like to ask about?"/></div>
-      <button type="button" class="plan-book-btn" onclick="goToReview()">Review enquiry →</button>
-    </div>
-    <div id="step-review" style="display:none;">
-      <h3 style="color:var(--white);font-weight:900;">Review Your Enquiry</h3>
-      <p style="font-size:.8rem;color:var(--muted);">Sending this request does not guarantee a trial, class place, coach, price or booking until Gravity confirms it.</p>
-      <div class="booking-summary" id="summary-box"></div>
-      <div id="free-section" style="display:none;">
-        <button type="button" class="wa-confirm-btn" onclick="confirmFreePass()"><span>💬</span> Prepare trial-visit request in WhatsApp</button>
-      </div>
-      <div id="paid-section" style="display:none;">
-        <div id="razorpay-section" style="display:none;">
-          <button type="button" class="razorpay-btn-modal" id="rzp-pay-btn" onclick="proceedToRazorpay()">Continue to secure member checkout</button>
-          <p style="font-size:.72rem;color:var(--muted);text-align:center;">Payment status is accepted only after server verification.</p>
-        </div>
-        <button type="button" class="wa-confirm-btn" onclick="confirmWhatsApp()"><span>💬</span> Prepare membership enquiry in WhatsApp</button>
-      </div>
-      <button type="button" class="btn btn-ghost" style="width:100%;margin-top:10px;" onclick="showStep('details')">← Edit details</button>
-    </div>
-    <div id="step-wa-confirm" style="display:none;">
-      <div style="text-align:center;padding:20px 0 24px;">
-        <div style="font-size:2.8rem;margin-bottom:12px;">💬</div>
-        <h3 style="color:var(--white);font-weight:900;">Your WhatsApp Request Is Ready</h3>
-        <p style="font-size:.86rem;color:var(--muted);line-height:1.7;">Send the prepared message in WhatsApp. Gravity must still confirm the request.</p>
-        <div class="booking-summary" id="wa-summary-display" style="text-align:left;margin-top:18px;"></div>
-      </div>
-      <a id="wa-reopen-link" href="#" target="_blank" rel="noopener noreferrer" class="wa-confirm-btn" style="text-decoration:none;display:flex;justify-content:center;gap:10px;margin-bottom:10px;">💬 Open WhatsApp</a>
-      <button type="button" class="btn btn-ghost" style="width:100%;" onclick="closeModal('booking-modal')">Close</button>
-    </div>
-  </div>
-</div>
-
-<script>
-// Server-owned checkout availability. No static payment links or secrets live in this page.
-let PAYMENT_ENABLED = false;
-fetch('/api/payment/config', { credentials: 'same-origin' })
-  .then(response => response.ok ? response.json() : { enabled: false })
-  .then(config => { PAYMENT_ENABLED = config.enabled === true; })
-  .catch(() => { PAYMENT_ENABLED = false; });
-const WA_NUMBER = '917999526112';
-// ─────────────────────────────────────────────────────────────
-
-let B = {};
-
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>'"]/g, char => ({
-    '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;'
-  })[char]);
-}
-
-function openBooking(type, plan, amount, durationMonths) {
-  B = { type };
-  if (type === 'free') {
-    B.title = '🎟 Trial Visit Request'; B.subtitle = 'Staff confirmation is required before visiting';
-    B.amount = 0; B.plan = 'Trial Visit Request';
-  } else if (type === 'plan') {
-    B.plan = plan; B.baseAmount = parseInt(amount); B.amount = parseInt(amount);
-    B.duration = `${Number(durationMonths) || 1} Month${Number(durationMonths) === 1 ? '' : 's'}`; B.title = plan + ' Membership'; B.subtitle = 'Verified public plan · ₹' + parseInt(amount).toLocaleString('en-IN') + ' · ' + B.duration;
-  } else {
-    B.plan = plan; B.trainer = amount; B.time = arguments[3];
-    B.amount = 0; B.title = 'Book: ' + plan; B.subtitle = 'with ' + amount + ' · ' + arguments[3];
-  }
-  document.getElementById('modal-title').textContent = B.title;
-  document.getElementById('modal-subtitle').textContent = B.subtitle;
-  document.getElementById('free-day-fields').style.display = type === 'free' ? '' : 'none';
-  document.getElementById('plan-duration-field').style.display = 'none';
-  ['f-name','f-phone','f-email','f-date','f-notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-  document.getElementById('f-slot').value = '';
-  showStep('details');
-  openModal('booking-modal');
-}
-
-function updatePrice() {
-  // Public plan price/duration comes from the server-owned active plan catalog.
-  return B.amount;
-}
-
-function selectSlot(btn, slot) {
-  if (btn.classList.contains('full')) return;
-  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  document.getElementById('f-slot').value = slot;
-}
-
-function goToReview() {
-  const name = document.getElementById('f-name').value.trim();
-  const phone = document.getElementById('f-phone').value.trim();
-  const email = document.getElementById('f-email').value.trim();
-  if (!name || !phone || !email) { showToast('Please fill in Name, Phone, and Email.', '#FF4D4D'); return; }
-  if (B.type === 'free') {
-    const date = document.getElementById('f-date').value;
-    const slot = document.getElementById('f-slot').value;
-    if (!date) { showToast('Please select a visit date.', '#FF4D4D'); return; }
-    if (!slot) { showToast('Please select a time slot.', '#FF4D4D'); return; }
-    B.date = date; B.slot = slot;
-  }
-  if (B.type === 'plan') updatePrice();
-  B.name = name; B.phone = phone; B.email = email;
-  B.notes = document.getElementById('f-notes').value.trim();
-  B.enquiryRef = 'GFQ-' + Date.now().toString().slice(-7);
-  B.bookingDate = new Date().toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
-
-  let rows = `<div class="summary-row"><span class="summary-label">Name</span><span class="summary-val">${escapeHtml(name)}</span></div>
-    <div class="summary-row"><span class="summary-label">Phone</span><span class="summary-val">${escapeHtml(phone)}</span></div>
-    <div class="summary-row"><span class="summary-label">Plan</span><span class="summary-val">${escapeHtml(B.plan)}</span></div>`;
-  if (B.duration) rows += `<div class="summary-row"><span class="summary-label">Duration</span><span class="summary-val">${escapeHtml(B.duration)}</span></div>`;
-  if (B.date) rows += `<div class="summary-row"><span class="summary-label">Visit Date</span><span class="summary-val">${new Date(B.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span></div>`;
-  if (B.slot) rows += `<div class="summary-row"><span class="summary-label">Time Slot</span><span class="summary-val">${escapeHtml(B.slot)}</span></div>`;
-  if (B.trainer) rows += `<div class="summary-row"><span class="summary-label">Trainer</span><span class="summary-val">${escapeHtml(B.trainer)}</span></div>`;
-  const amtD = B.type === 'free'
-    ? '<span style="color:#C1FF6B;font-weight:800;">Confirm with gym</span>'
-    : B.type === 'class'
-      ? '<span style="color:#C1FF6B;font-weight:800;">Confirm with gym</span>'
-      : `<span style="color:#C1FF6B;font-weight:900;">₹${B.amount.toLocaleString('en-IN')}</span>`;
-  rows += `<div class="summary-row summary-total"><span class="summary-label">Total Amount</span><span class="summary-val">${amtD}</span></div>`;
-  document.getElementById('summary-box').innerHTML = rows;
-  document.getElementById('free-section').style.display = B.type === 'free' ? '' : 'none';
-  document.getElementById('paid-section').style.display = B.type === 'free' ? 'none' : '';
-  // Paid checkout is available only when the server reports Razorpay configured.
-  const hasRzpLink = PAYMENT_ENABLED && B.type === 'plan';
-  document.getElementById('razorpay-section').style.display = hasRzpLink ? '' : 'none';
-  showStep('review');
-}
-
-function proceedToRazorpay() {
-  closeModal('booking-modal');
-  window.location.href = '/account?checkout=1';
-}
-
-// WhatsApp booking — sends message to gym, NO invoice shown, redirects to WA
-function confirmWhatsApp() {
-  const isFree = B.type === 'free';
-  const msg = `🏋️ *New Enquiry — Gravity Fitness*\n\n` +
-    `👤 Name: ${B.name}\n📱 Phone: ${B.phone}\n📧 Email: ${B.email}\n` +
-    `📋 Plan: ${B.plan}${B.duration ? ' · ' + B.duration : ''}` +
-    `${B.trainer ? '\n🏃 Class: ' + B.plan + ' with ' + B.trainer : ''}` +
-    `${B.date ? '\n📅 Date: ' + new Date(B.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}) : ''}` +
-    `${B.slot ? '\n⏰ Slot: ' + B.slot : ''}` +
-    `\nℹ️ ${isFree ? 'Trial visit: staff confirmation required' : 'Published plan amount: ₹' + B.amount.toLocaleString('en-IN') + ' — payment is not assumed by this enquiry'}` +
-    `\n🧾 Enquiry ref: #${B.enquiryRef}` +
-    `${B.notes ? '\n📝 Notes: ' + B.notes : ''}`;
-  window.open('https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(msg), '_blank');
-  // Show a simple confirmation screen — NOT the invoice
-  showStep('wa-confirm');
-}
-
-// Trial visit enquiry — no payment or free entitlement is asserted in the browser.
-function confirmFreePass() {
-  // Also send WA notification to gym
-  const msg = `🎟️ *Trial Visit Request — Gravity Fitness*\n\n` +
-    `👤 Name: ${B.name}\n📱 Phone: ${B.phone}\n📧 Email: ${B.email}\n` +
-    `📅 Date: ${B.date ? new Date(B.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}) : 'Not specified'}\n` +
-    `⏰ Preferred slot: ${B.slot || 'Not specified'}\nℹ️ Visit requires staff confirmation\n🧾 Enquiry ref: #${B.enquiryRef}` +
-    `${B.notes ? '\n📝 Notes: ' + B.notes : ''}`;
-  window.open('https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(msg), '_blank');
-  showStep('wa-confirm');
-}
-
-function showStep(s) {
-  ['details','review','wa-confirm'].forEach(n => {
-    const el = document.getElementById('step-'+n);
-    if (el) el.style.display = s===n ? '' : 'none';
-  });
-  // Populate WA confirm summary
-  if (s === 'wa-confirm') {
-    const d = B, isFree = d.type === 'free';
-    let lines = `📋 <b>${escapeHtml(d.plan)}</b>${d.duration ? ' · ' + escapeHtml(d.duration) : ''}<br>`;
-    if (d.trainer) lines += `🏃 ${escapeHtml(d.trainer)}<br>`;
-    if (d.date) lines += `📅 ${new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})}<br>`;
-    if (d.slot) lines += `⏰ ${escapeHtml(d.slot)}<br>`;
-    lines += `ℹ️ ${isFree ? 'Trial visit requires confirmation' : 'Published plan amount: ₹' + d.amount.toLocaleString('en-IN')}<br>`;
-    lines += `🧾 Enquiry ref #${escapeHtml(d.enquiryRef)}`;
-    document.getElementById('wa-summary-display').innerHTML = lines;
-    // Set the reopen link
-    const msg = `🏋️ *New Enquiry — Gravity Fitness*\n\n👤 ${d.name}\n📱 ${d.phone}\n📋 ${d.plan}${d.duration?' · '+d.duration:''}${d.date?'\n📅 '+new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}):''}${d.slot?'\n⏰ '+d.slot:''}\nℹ️ ${isFree?'Trial visit requires confirmation':'Published plan amount: ₹'+d.amount.toLocaleString('en-IN')}\n🧾 Enquiry ref: #${d.enquiryRef}`;
-    document.getElementById('wa-reopen-link').href = 'https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(msg);
-  }
-  const m = document.querySelector('#booking-modal .modal'); if(m) m.scrollTop = 0;
-}
-let lastFocusedElement = null;
-function openModal(id) {
-  lastFocusedElement = document.activeElement;
-  const overlay = document.getElementById(id);
-  overlay.classList.add('open');
-  document.body.style.overflow='hidden';
-  setTimeout(() => overlay.querySelector('input,button,[tabindex]')?.focus(), 0);
-}
-function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
-  document.body.style.overflow='';
-  lastFocusedElement?.focus?.();
-}
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && document.getElementById('booking-modal').classList.contains('open')) {
-    closeModal('booking-modal');
-  }
-});
-function showToast(msg, color) {
-  const t = document.createElement('div');
-  t.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${color||'var(--lime)'};color:${color?'#fff':'#0a0f00'};padding:11px 22px;border-radius:99px;font-weight:800;font-size:.83rem;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.3);white-space:nowrap;`;
-  t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3200);
-}
-function toggleMobileNav() {
-  const n = document.getElementById('mobile-nav'); n.classList.toggle('open');
-  const open = n.classList.contains('open');
-  document.querySelector('.hamburger')?.setAttribute('aria-expanded', String(open));
-  document.body.style.overflow = open ? 'hidden' : '';
-}
-function toggleFaq(btn) {
-  const item = btn.closest('.faq-item'), wasOpen = item.classList.contains('open');
-  document.querySelectorAll('.faq-item').forEach(i => { i.classList.remove('open'); i.querySelector('.faq-q')?.setAttribute('aria-expanded','false'); });
-  if(!wasOpen) { item.classList.add('open'); btn.setAttribute('aria-expanded','true'); }
-}
-function filterClasses(cat, btn) {
-  document.querySelectorAll('.pass-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active');
-  document.querySelectorAll('.workout-card').forEach(c => { c.style.display = (cat==='all'||c.dataset.cat===cat) ? '' : 'none'; });
-}
-
-// ── Counter animation ──
-function animateCounters() {
-  document.querySelectorAll('[data-target]').forEach(el => {
-    if (el.dataset.animated) return; // prevent re-run if observer fires twice
-    el.dataset.animated = '1';
-    const target = +el.dataset.target; let cur = 0;
-    const t = setInterval(() => { cur += target/90; if(cur>=target){cur=target;clearInterval(t);} el.textContent=Math.floor(cur).toLocaleString()+'+'; },16);
-  });
-}
-const counterObs = new IntersectionObserver(function(e) {
-  if(e[0].isIntersecting){ animateCounters(); counterObs.disconnect(); }
-}, {threshold:.1});
-const heroStats = document.querySelector('.hero-stats');
-if (heroStats) counterObs.observe(heroStats);
-
-// ── Scroll reveal ──
-const revealObs = new IntersectionObserver(entries => {
-  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
-},{threshold:.12});
-document.querySelectorAll('.reveal,.reveal-left,.reveal-right').forEach(el => revealObs.observe(el));
-
-// ── Sticky header ──
-window.addEventListener('scroll', () => {
-  document.getElementById('header').classList.toggle('scrolled', window.scrollY > 20);
-}, {passive:true});
-
-// ── Parallax banner ──
-const parallaxBg = document.getElementById('parallax-bg');
-const parallaxBanner = document.getElementById('parallax-banner');
-if (parallaxBg && parallaxBanner) {
-  window.addEventListener('scroll', () => {
-    const rect = parallaxBanner.getBoundingClientRect();
-    if (rect.bottom > 0 && rect.top < window.innerHeight) {
-      const progress = (window.innerHeight - rect.top) / (window.innerHeight + rect.height);
-      parallaxBg.style.transform = `translateY(${progress * 60 - 10}px)`;
-    }
-  }, {passive: true});
-}
-
-// (mosaic section removed — no lightbox needed on homepage)
-
-// ── Photo feature hover tilt ──
-document.querySelectorAll('.photo-feature__img img').forEach(img => {
-  const wrap = img.closest('.photo-feature__img');
-  wrap.addEventListener('mousemove', e => {
-    const r = wrap.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width  - 0.5;
-    const y = (e.clientY - r.top)  / r.height - 0.5;
-    img.style.transform = `scale(1.04) translate(${x*8}px, ${y*6}px)`;
-  });
-  wrap.addEventListener('mouseleave', () => { img.style.transform = ''; });
-});
-
-// ── Loader ──
-window.addEventListener('load', () => { window.GravityDismissLoader?.(); }, { once: true });
-</script>
-
-<!-- Optional analytics adapter; no provider loads without verified configuration. -->
-<script src="js/analytics.js" defer></script>
-<script src="js/public-membership.js" defer></script>
-<script src="js/account-shell.js?v=phase2" defer></script>
-
-<!-- ══ INTERACTIVE ATHLETE ANIMATION ════════════════════════════
-     Lazy-loads GSAP, renders SVG athlete in bottom-right corner.
-     Performs barbell curl on every click / CTA press / section scroll.
-     Zero impact on existing functionality.
-════════════════════════════════════════════════════════════════ -->
-<script src="js/athlete-loader.js?v=phase8" defer></script>
-
-<!-- Hook analytics into booking functions -->
-<script>
-// Wrap openBooking to fire analytics
-const _origOpenBooking = openBooking;
-window.openBooking = function(type, plan, amount) {
-  if(typeof gTrack === 'function') {
-    gTrack('booking_modal_open', {booking_type:type, plan:plan||'free', value:parseInt(amount)||0, currency:'INR'});
-    trackBookingOpen && trackBookingOpen(type, plan);
-  }
-  _origOpenBooking.apply(this, arguments);
-};
-
-// Wrap goToReview to track step 2
-const _origGoToReview = goToReview;
-window.goToReview = function() {
-  _origGoToReview.apply(this, arguments);
-  if(typeof gTrack === 'function') gTrack('booking_step_review', {plan:B.plan, value:B.amount, currency:'INR'});
-};
-
-// Wrap confirmWhatsApp
-const _origConfirmWhatsApp = confirmWhatsApp;
-window.confirmWhatsApp = function() {
-  if(typeof trackBookingComplete === 'function') trackBookingComplete('whatsapp', B.plan, B.amount);
-  if(typeof trackTrialVisitRequest === 'function' && B.type==='free') trackTrialVisitRequest(B.name, B.phone);
-  _origConfirmWhatsApp.apply(this, arguments);
-};
-
-// Wrap confirmFreePass
-const _origConfirmFreePass = confirmFreePass;
-window.confirmFreePass = function() {
-  if(typeof trackBookingComplete === 'function') trackBookingComplete('free', 'Trial Visit Request', 0);
-  if(typeof trackTrialVisitRequest === 'function') trackTrialVisitRequest(B.name, B.phone);
-  if(typeof trackGoogleAdsConversion === 'function') trackGoogleAdsConversion('free', 0);
-  if(typeof trackMetaLead === 'function') trackMetaLead('Trial Visit Request', 0);
-  _origConfirmFreePass.apply(this, arguments);
-};
-
-// Wrap proceedToRazorpay
-const _origProceedToRazorpay = proceedToRazorpay;
-window.proceedToRazorpay = function() {
-  if(typeof gTrack === 'function') gTrack('online_payment_unavailable', {plan:B.plan});
-  _origProceedToRazorpay.apply(this, arguments);
-};
-
-// Track section views with Intersection Observer
-const sectionNames = {
-  'home':'Hero', 'classes':'Classes', 'membership':'Membership',
-  'schedule':'Schedule', 'contact':'Contact', 'calculator':'BMI Reference'
-};
-Object.keys(sectionNames).forEach(id => {
-  const el = document.getElementById(id);
-  if(!el) return;
-  new IntersectionObserver(([e]) => {
-    if(e.isIntersecting && typeof trackSectionView === 'function') {
-      trackSectionView(sectionNames[id]);
-    }
-  }, {threshold:.3}).observe(el);
-});
-</script>
+  <dialog class="request-dialog" id="request-dialog" aria-labelledby="request-title"><button class="dialog-close" id="request-close" type="button" aria-label="Close request form">Close</button><div class="request-layout"><aside><span class="brand-mark" aria-hidden="true">GF</span><p class="eyebrow">Gravity Fitness</p><h2 id="request-title">Send a request.</h2><p>Share the essentials. Gravity will confirm changing details with you directly.</p><small>No payment is taken. A request is not a confirmed booking.</small></aside><div class="request-panel">
+    <form id="enquiry-form" novalidate><div class="form-alert" id="enquiry-alert" role="alert" tabindex="-1" hidden></div><label>What can we help with?<select id="enquiry-type" name="type" required><option value="trial_visit">Request a visit</option><option value="membership">Membership</option><option value="coaching">Coaching</option><option value="general">General question</option></select><span class="field-error" data-error-for="type"></span></label><div class="form-row"><label>Your name<input id="enquiry-name" name="name" autocomplete="name" maxlength="80" required><span class="field-error" data-error-for="name"></span></label><label>Mobile number<input id="enquiry-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="10-digit Indian mobile" required><span class="field-error" data-error-for="phone"></span></label></div><label>Email <small>Optional</small><input id="enquiry-email" name="email" type="email" autocomplete="email" maxlength="254"><span class="field-error" data-error-for="email"></span></label><label id="enquiry-plan-wrap" hidden>Membership plan<select id="enquiry-plan" name="planId"><option value="">Choose a plan</option></select><span class="field-error" data-error-for="planId"></span></label><div class="form-row" id="visit-preferences"><label>Preferred date<input id="enquiry-date" name="preferredDate" type="date"><span class="field-error" data-error-for="preferredDate"></span></label><label>Time preference<select id="enquiry-time" name="preferredTime"><option value="">Choose a time</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option><option value="flexible">Flexible</option></select><span class="field-error" data-error-for="preferredTime"></span></label></div><label>Message <small>Optional unless this is a general question</small><textarea id="enquiry-message" name="message" maxlength="1000" rows="4"></textarea><span class="field-error" data-error-for="message"></span></label><label class="honeypot" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label><button class="button button--dark form-submit" type="submit">Send request</button><p class="privacy-note">By sending this request, you ask Gravity Fitness to contact you about it. See the <a href="/privacy">privacy notice</a>.</p></form>
+    <div class="success-state" id="enquiry-success" hidden tabindex="-1"><span class="success-mark" aria-hidden="true">✓</span><p class="eyebrow eyebrow--dark">Request received</p><h2>Gravity has your request.</h2><p>Your reference is <strong id="enquiry-reference"></strong>. Keep it handy when you follow up.</p><div class="success-actions"><a class="button button--dark" id="enquiry-whatsapp" href="https://wa.me/917999526112" target="_blank" rel="noopener noreferrer">Follow up on WhatsApp</a><button class="text-button" id="enquiry-done" type="button">Done</button></div></div>
+  </div></div></dialog>
+  <script src="/js/public-page.js?v=gravity2-rc2" defer></script><script src="/js/public-membership.js?v=gravity2-rc2" defer></script><script src="/js/enquiry-form.js?v=gravity2-rc2" defer></script>
 </body>
 </html>

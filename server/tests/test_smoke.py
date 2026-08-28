@@ -35,11 +35,13 @@ def running_server(*, active_plan: bool):
             port=0,
         )
         server = create_server(settings)
-        if active_plan:
-            with server.database.session() as connection:
+        with server.database.session() as connection:
+            if active_plan:
                 connection.execute(
-                    "UPDATE membership_plans SET status='active' WHERE id='plan-basic-monthly'"
+                    "UPDATE membership_plans SET status='active' WHERE code IN ('basic-monthly','pro-monthly','elite-monthly')"
                 )
+            else:
+                connection.execute("UPDATE membership_plans SET status='inactive'")
         actual_base = f"http://127.0.0.1:{server.server_port}"
         server.settings = replace(server.settings, app_base_url=actual_base)
         thread = Thread(target=server.serve_forever, daemon=True)

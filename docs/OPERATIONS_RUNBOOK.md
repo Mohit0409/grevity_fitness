@@ -1,6 +1,6 @@
 # Gravity Fitness Operations Runbook
 
-Last updated: 2026-08-27
+Last updated: 2026-08-28
 
 This runbook covers safe backup, verification, recovery, rollback, and portable Windows/Linux/Termux operation. It does not change Gravity's localhost-first security boundary.
 
@@ -22,6 +22,25 @@ Default local runtime paths are under `.gravity/`:
 - Backups: `.gravity/backups/gravity-*.zip`
 
 All of these paths are gitignored.
+
+## Public enquiry PII retention
+
+Public visit, membership, coaching, and general enquiries are assigned a 180-day `retention_expires_at` value. Gravity automatically deletes expired enquiry rows at server startup; foreign-key cascade removes their notes and events. Expired hashed rate-limit buckets are also removed. This process does not change membership, payment, receipt, customer-account, admin-audit, or coaching records.
+
+An operator may run the same bounded purge explicitly:
+
+```powershell
+.\.venv\Scripts\python.exe -m server.gravity --purge-expired-enquiries
+```
+
+Linux / Termux:
+
+```sh
+.venv/bin/python -m server.gravity --purge-expired-enquiries
+```
+
+The command reports only the number of expired enquiries removed. Create a verified backup before changing the retention policy. Do not manually delete live SQLite rows or change the applied migration.
+
 ## Create and verify a backup
 
 Backups use SQLite's online backup API, so a consistent snapshot can be created while the site is running.

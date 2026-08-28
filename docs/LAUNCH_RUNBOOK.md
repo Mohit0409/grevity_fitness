@@ -158,8 +158,12 @@ Go live only when all of the following are true:
 - Required Firebase/Razorpay canaries have been completed with real verified configuration.
 - Public HTTPS resolves to the intended host and the launch smoke suite exits `0` against that exact URL.
 - No secrets, database files, logs, or backup archives are tracked by Git.
+- `npm run test:e2e` is green on the deployed commit, including all eight responsive widths, isolated enquiry submission, serious/critical automated accessibility checks, and account/provider fail-closed behavior.
+- The privacy notice no longer carries `REQUIRES_OPERATOR_LEGAL_REVIEW` because the operator and appropriate legal reviewer have approved the final text.
 
 Any failed item is a no-go. Keep the previous known-good deployment available until the cutover is proven healthy.
+
+An ngrok warning/interstitial URL may be used as a named staging endpoint, but it is always `BLOCKED_EXTERNAL_DOMAIN` for production. A successful staging smoke or browser pass must not be reported as a production launch.
 
 ## 11. Rollback
 

@@ -1,9 +1,30 @@
 {
   "name": "Gravity Fitness Neemuch",
   "short_name": "Gravity Fitness",
+  "description": "Gravity Fitness membership and visit enquiries in Neemuch.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#13151b",
-  "theme_color": "#13151b"
+  "background_color": "#11130f",
+  "theme_color": "#11130f",
+  "icons": [
+    {
+      "src": "/assets/icons/gravity-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/gravity-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/gravity-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }

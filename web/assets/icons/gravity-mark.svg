@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Gravity Fitness GF mark</title>
+  <rect width="512" height="512" rx="72" fill="#11130f"/>
+  <rect x="44" y="44" width="424" height="424" rx="38" fill="#b8ff2c"/>
+  <path d="M104 158h142v54h-80v90h60v-28h-31v-48h91v130H104V158Zm208 0h112v54h-50v36h44v53h-44v55h-62V158Z" fill="#11130f"/>
+</svg>

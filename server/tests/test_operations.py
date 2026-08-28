@@ -54,7 +54,7 @@ class OperationsTests(unittest.TestCase):
         self.assertEqual(archive.parent, self.settings.backup_dir)
         verified = self.manager.verify_backup(archive)
         self.assertTrue(verified["valid"])
-        self.assertEqual(verified["migrations"], 7)
+        self.assertEqual(verified["migrations"], 8)
         drill = self.manager.recovery_drill(archive)
         self.assertTrue(drill["drillPassed"])
         self.assertEqual(drill["customerRows"], 1)
