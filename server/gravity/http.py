@@ -922,13 +922,13 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             "default-src 'self'; "
             "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
             "script-src 'self' 'sha256-JzzOEVfQFE3m1nzmouGyDTsVkd/OZr7ITj2TNykRv4g=' "
-            "https://www.gstatic.com https://www.google.com https://recaptcha.net https://www.recaptcha.net https://checkout.razorpay.com; "
+            "https://apis.google.com https://www.gstatic.com https://www.google.com https://recaptcha.net https://www.recaptcha.net https://checkout.razorpay.com; "
             "style-src 'self'; "
             "font-src 'self'; "
             "img-src 'self' data: https:; "
             "connect-src 'self' "
-            "https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.razorpay.com https://checkout.razorpay.com; "
-            "frame-src https://www.google.com https://recaptcha.net https://www.recaptcha.net https://*.firebaseapp.com https://api.razorpay.com https://checkout.razorpay.com; "
+            "https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://api.razorpay.com https://checkout.razorpay.com; "
+            "frame-src https://accounts.google.com https://www.google.com https://recaptcha.net https://www.recaptcha.net https://*.firebaseapp.com https://api.razorpay.com https://checkout.razorpay.com; "
             "form-action 'self'; upgrade-insecure-requests",
         )
         if self.server.settings.production and self.server.settings.app_base_url.startswith("https://"):
