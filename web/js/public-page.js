@@ -4,7 +4,9 @@
   const menu = document.getElementById('mobile-menu');
   const open = document.getElementById('menu-open');
   const close = document.getElementById('menu-close');
-  const setScrolled = () => header?.classList.toggle('is-scrolled', window.scrollY > 12);
+  const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  const menuFocusables = () => Array.from(menu?.querySelectorAll(focusableSelector) || [])
+    .filter((node) => node.getClientRects().length > 0);  const setScrolled = () => header?.classList.toggle('is-scrolled', window.scrollY > 12);
   function closeMenu() {
     if (!menu?.open) return;
     menu.close();
@@ -25,6 +27,23 @@
   menu?.addEventListener('cancel', (event) => {
     event.preventDefault();
     closeMenu();
+  });
+  menu?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Tab' || !menu.open) return;
+    const focusable = menuFocusables();
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!menu.contains(document.activeElement)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
   menu?.addEventListener('close', () => {
     document.body.classList.remove('modal-open');

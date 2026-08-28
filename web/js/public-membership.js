@@ -2,6 +2,8 @@
   'use strict';
   const container = document.getElementById('public-membership-plans');
   if (!container) return;
+  container.setAttribute('aria-busy', 'true');
+  container.classList.add('is-loading');
   const verified = new Map([
     ['basic-monthly', { name: 'Basic', pricePaise: 99900, order: 1 }],
     ['pro-monthly', { name: 'Pro', pricePaise: 149900, order: 2 }],
@@ -57,7 +59,7 @@
       container.replaceChildren(...plans.map(renderCard));
       window.dispatchEvent(new CustomEvent('gravity:plans-ready', { detail: { plans } }));
     } catch (_) { renderUnavailable(); }
-    finally { container.setAttribute('aria-busy', 'false'); }
+    finally { container.classList.remove('is-loading'); container.setAttribute('aria-busy', 'false'); }
   }
   load();
 })();
