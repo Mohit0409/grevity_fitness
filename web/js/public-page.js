@@ -22,6 +22,10 @@
     menu.querySelector('a')?.focus();
   });
   close?.addEventListener('click', closeMenu);
+  menu?.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeMenu();
+  });
   menu?.addEventListener('close', () => {
     document.body.classList.remove('modal-open');
     document.documentElement.classList.remove('modal-open');

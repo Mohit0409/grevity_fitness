@@ -13,6 +13,7 @@
   <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" sizes="180x180">
   <link rel="manifest" href="/site.webmanifest">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_IN">
   <meta property="og:site_name" content="Gravity Fitness">
   <meta property="og:title" content="Gravity Fitness Neemuch">
   <meta property="og:description" content="Verified monthly membership prices and a direct way to request a visit.">
@@ -21,7 +22,9 @@
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="stylesheet" href="/css/style.css?v=gravity2-rc2">
+  <meta name="twitter:title" content="Gravity Fitness Neemuch">
+  <meta name="twitter:description" content="Verified monthly membership prices and a direct way to request a visit.">
+  <link rel="stylesheet" href="/css/style.css?v=gravity2-public-ui1">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"HealthClub","name":"Gravity Fitness","telephone":"+91 79995 26112","address":{"@type":"PostalAddress","streetAddress":"Bungalow No. 41, 1st Floor, Above Canara Bank, CRPF Road, Neemuch Chawni","addressLocality":"Neemuch","addressRegion":"Madhya Pradesh","postalCode":"458441","addressCountry":"IN"},"openingHours":["Mo-Sa 06:00-22:00"],"sameAs":["https://www.instagram.com/gravity_fitness_nmh/"]}</script>
 </head>
 <body>
@@ -69,6 +72,6 @@
     <form id="enquiry-form" novalidate><div class="form-alert" id="enquiry-alert" role="alert" tabindex="-1" hidden></div><label>What can we help with?<select id="enquiry-type" name="type" required><option value="trial_visit">Request a visit</option><option value="membership">Membership</option><option value="coaching">Coaching</option><option value="general">General question</option></select><span class="field-error" data-error-for="type"></span></label><div class="form-row"><label>Your name<input id="enquiry-name" name="name" autocomplete="name" maxlength="80" required><span class="field-error" data-error-for="name"></span></label><label>Mobile number<input id="enquiry-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="10-digit Indian mobile" required><span class="field-error" data-error-for="phone"></span></label></div><label>Email <small>Optional</small><input id="enquiry-email" name="email" type="email" autocomplete="email" maxlength="254"><span class="field-error" data-error-for="email"></span></label><label id="enquiry-plan-wrap" hidden>Membership plan<select id="enquiry-plan" name="planId"><option value="">Choose a plan</option></select><span class="field-error" data-error-for="planId"></span></label><div class="form-row" id="visit-preferences"><label>Preferred date<input id="enquiry-date" name="preferredDate" type="date"><span class="field-error" data-error-for="preferredDate"></span></label><label>Time preference<select id="enquiry-time" name="preferredTime"><option value="">Choose a time</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option><option value="flexible">Flexible</option></select><span class="field-error" data-error-for="preferredTime"></span></label></div><label>Message <small>Optional unless this is a general question</small><textarea id="enquiry-message" name="message" maxlength="1000" rows="4"></textarea><span class="field-error" data-error-for="message"></span></label><label class="honeypot" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label><button class="button button--dark form-submit" type="submit">Send request</button><p class="privacy-note">By sending this request, you ask Gravity Fitness to contact you about it. See the <a href="/privacy">privacy notice</a>.</p></form>
     <div class="success-state" id="enquiry-success" hidden tabindex="-1"><span class="success-mark" aria-hidden="true">✓</span><p class="eyebrow eyebrow--dark">Request received</p><h2>Gravity has your request.</h2><p>Your reference is <strong id="enquiry-reference"></strong>. Keep it handy when you follow up.</p><div class="success-actions"><a class="button button--dark" id="enquiry-whatsapp" href="https://wa.me/917999526112" target="_blank" rel="noopener noreferrer">Follow up on WhatsApp</a><button class="text-button" id="enquiry-done" type="button">Done</button></div></div>
   </div></div></dialog>
-  <script src="/js/public-page.js?v=gravity2-rc2" defer></script><script src="/js/public-membership.js?v=gravity2-rc2" defer></script><script src="/js/enquiry-form.js?v=gravity2-rc2" defer></script>
+  <script src="/js/public-page.js?v=gravity2-public-ui1" defer></script><script src="/js/public-membership.js?v=gravity2-public-ui1" defer></script><script src="/js/enquiry-form.js?v=gravity2-public-ui1" defer></script>
 </body>
 </html>
