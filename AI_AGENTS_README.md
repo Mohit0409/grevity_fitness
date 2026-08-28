@@ -12,7 +12,7 @@ Primary integration repo: `C:\movieXsuggestion\MyProject\grevity_fitness`
 | --- | --- | --- | --- |
 | **Chat 1** | **Firebase/Auth + integration lead** | **Active** | `main` / `C:\movieXsuggestion\MyProject\grevity_fitness` |
 | **Chat 2** | **Public website UI/UX** | **Active** | `agent/gravity-public-ui` / `C:\movieXsuggestion\MyProject\grevity_fitness-public-ui` |
-| **Chat 3** | **Hosting, reliability, backups and future Android/Termux deployment** | **Integrated / complete** | `agent/gravity-ops-mobile` / `C:\Users\91896\AppData\Local\Temp\gravity-ops-mobile` |
+| **Chat 3** | **Hosting, reliability, backups, notification scheduler and future Android/Termux deployment** | **Active** | `agent/gravity-notification-ops` / `C:\Users\91896\AppData\Local\Temp\gravity-notification-ops` |
 
 ## Chat 1 â€” Firebase/Auth + Integration Lead
 
@@ -43,26 +43,28 @@ Current Chat 1 state:
 - SMTP is the only bundled production delivery provider. StyleDash has no SMS/WhatsApp vendor implementation, so Gravity exposes tested provider boundaries and keeps those channels fail-closed until an external provider is selected/configured.
 - Chat 1 may integrate approved Chat 2 / Chat 3 commits into `main` only after reviewing conflicts and running the full release gates.
 
-## Chat 2 â€” Public UI/UX
+## Chat 2 ? Public UI/UX + Notification UX
 
-Chat 2 owns homepage/public layout, trainers/coaching public pages, gallery, membership presentation, mobile navigation, responsive behavior, visual consistency, public accessibility, public performance and public SEO/metadata where auth code is not involved.
+Chat 2 owns homepage/public layout, trainers/coaching public pages, gallery, membership presentation, mobile navigation, responsive behavior, visual consistency, public accessibility, public performance, public SEO/metadata where auth code is not involved, and customer/admin notification UX.
 
-Chat 2 must not modify Chat 1 auth-owned files. If a UI task requires `account.html`, `account-page.js` or `http.py`, stop and coordinate with Chat 1.
+Chat 2 must not modify Chat 1 auth/backend-owned files. `web/pages/account.html` and `web/js/account-page.js` remain Chat 1-owned unless explicitly coordinated.
 
 Current Chat 2 state:
 
 - Branch: `agent/gravity-public-ui`
 - Worktree: `C:\movieXsuggestion\MyProject\grevity_fitness-public-ui`
-- Responsive UI commit: `bcc18a1` (`Polish Gravity public responsive UI`).
-- Coordination-file commit: `3ca6845`.
-- Phase 2 performance/accessibility commit: `54cd4a7` (`Harden Gravity public performance and accessibility`).
 - Phase 3 resilience commit: `324252d` (`Harden Gravity public UI resilience`).
-- Notification UX commit: `555d474` (`Polish membership expiry notification UX`).
-- Full Chat 2 browser gate: 26/26 Playwright tests passed on isolated port `8821`; backend regression gate: 102/102 Python tests passed.
-- Notification UI covers customer reminder history plus admin customer/owner Email, SMS and WhatsApp status, 7/3/1/0-day windows, blocked/missing/retrying/failed/suppressed states, filters, mobile responsiveness and keyboard/accessibility checks.
-- Notification UI expects Chat 1's current backend contract: delivery `recipientRole` values `customer` / `owner` and `triggerDays: 0` support. Chat 2 did not modify notification/auth backend files.
-- Integration note: `web/pages/account.html` remains Chat 1-owned and untouched; Chat 1 may bump the `account.css` / `account-notifications.js` asset versions during integration for immediate production cache invalidation.
-- Chat 2 is ready for Chat 1 integration alongside the matching notification backend changes. Chat 2 must not merge into `main`.
+- Initial notification UX commit: `555d474` (`Polish membership expiry notification UX`).
+- Latest notification refinement commit: `569af4f` (`Refine membership expiry notification UX`).
+- Notification UX now matches backend commit `aadfc6f`: 7/3/1/0-day windows, customer/owner fan-out, and per-delivery `recipientRole` + channel status semantics.
+- Customer reminder history uses clear copy: ?Membership expires in 7 days?, ?Membership expires in 3 days?, ?Membership expires tomorrow?, and ?Membership expired today?; it shows plan, membership number when available, expiry, reminder timing, and only high-level customer-safe reminder status.
+- Customer UI does not expose owner delivery rows, provider internals, retry timing, raw error codes, recipient refs, internal IDs or provider message data.
+- Admin UI separates CUSTOMER and OWNER delivery state for Email, SMS and WhatsApp and renders each delivery independently as Sent, Queued, Retrying, Configuration required, Missing recipient, Failed, Suppressed after renewal, or Status unavailable.
+- Admin filters include 7-day, 3-day, tomorrow, expiry-day, failed, configuration-required, missing-recipient and renewed/suppressed priorities.
+- Accessibility/reliability validation includes 320/360/375/390/430/768/1024/1440 widths, 44px controls, keyboard focus, semantic status text, reduced motion, 200% text resizing and no horizontal overflow.
+- Targeted notification Playwright: 4/4 passed on dedicated port `8822`; full Chat 2 Playwright regression: 26/26 passed; Python regression: 102/102 passed.
+- Screenshots captured by the passing suite include customer and admin reminder views at 390px.
+- Chat 2 is ready for Chat 1 integration alongside backend commit `aadfc6f` and must not merge into `main`.
 
 ## Chat 3 â€” Hosting / Reliability / Mobile Deployment
 
@@ -78,6 +80,10 @@ Current Chat 3 state:
 - Integrated into `main` as `1968fba`; ownership review found no Chat 1 auth or Chat 2 public-UI files changed.
 - Integrated validation: 111/111 Python tests, Windows lifecycle drill, 8/8 browser E2E, launch gate, and Firebase provider canary all passed.
 - Live laptop process was migrated from the legacy PID file to the new managed runtime lease and is healthy under the deterministic lifecycle scripts.
+- Termux installer/runbook safeguards were integrated as `a76d748` after the `agent/gravity-ops-followup` review.
+- Deterministic SYSTEM-task ngrok recovery handoff `1cee6b1` was integrated into `main` as `bcb3034`.
+- Notification scheduler handoff `39c517e` from `agent/gravity-notification-ops` is under Chat 1 integration review. It adds safe Windows/Termux scheduling, retry/locking, monitoring, provider-readiness reporting and notification operations runbooks without changing notification business logic or delivery adapters.
+- Chat 1 backend `aadfc6f` already supports the required expiry-day CLI invocation `--scan-notifications 0`.
 - Remaining deployment-only items: elevated Task Scheduler registration on Windows, and later Android/Termux + Cloudflare Tunnel provisioning/burn-in on the actual phone.
 
 ## Coordination Rules
