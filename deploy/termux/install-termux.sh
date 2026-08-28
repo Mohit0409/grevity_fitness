@@ -83,6 +83,7 @@ install_service() {
 install_service gravity "$REPO/deploy/termux/services/gravity"
 install_service gravity-health "$REPO/deploy/termux/services/gravity-health"
 install_service gravity-tunnel "$REPO/deploy/termux/services/gravity-tunnel"
+install_service gravity-notifications "$REPO/deploy/termux/services/gravity-notifications"
 install_boot_script() {
   source="$REPO/deploy/termux/termux-boot-gravity.sh"
   target="$HOME/.termux/boot/gravity-fitness"
@@ -100,6 +101,7 @@ install_boot_script
 source "$PREFIX/etc/profile.d/start-services.sh"
 sv-enable gravity
 sv-enable gravity-health
+sv-enable gravity-notifications
 if $ENABLE_TUNNEL; then
   command -v cloudflared >/dev/null 2>&1 || { echo 'cloudflared is required for --enable-tunnel.' >&2; exit 1; }
   cloudflared_version="$(cloudflared --version 2>&1 | sed -n 's/^cloudflared version \([0-9][0-9.]*\).*/\1/p')"
@@ -115,6 +117,6 @@ else
 fi
 
 echo 'Termux services installed. Complete gravity.env, then run:'
-echo '  sv up gravity gravity-health'
+echo '  sv up gravity gravity-health gravity-notifications'
 echo '  deploy/termux/network-audit.sh'
 echo 'Enable the tunnel only after loopback health and the Cloudflare ingress are verified.'

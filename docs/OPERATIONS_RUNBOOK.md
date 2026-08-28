@@ -54,6 +54,7 @@ This registers:
 
 - `GravityFitness-Watchdog`: starts at reboot and checks every minute; it restarts only a process proven to belong to this checkout.
 - `GravityFitness-DailyBackup`: at 02:00 creates, verifies, recovery-drills, and optionally copies a backup off-host.
+- `GravityFitness-Notifications`: starts at reboot and then every 60 minutes. It scans the 7, 3, 1, and 0-day membership-expiry windows and processes the server-owned due-delivery outbox.
 
 Add `-EnsureNgrok` only while the temporary ngrok deployment is intentionally in use. A stable production tunnel is preferred. Review Task Scheduler history and `.gravity/operations.log` after installation. Remove only these tasks with `uninstall-gravity-tasks.ps1`.
 
@@ -62,6 +63,32 @@ Before installing tasks after a code or Python-runtime change, run the isolated 
 ```powershell
 .\scripts\test-ops-lifecycle.ps1
 ```
+
+## Membership expiry notification automation
+
+The scheduler never implements reminder or delivery business rules. It only invokes the backend CLI in this order: `--scan-notifications 7`, `3`, `1`, `0`, then `--deliver-notifications`. The backend owns idempotent reminder creation, renewal suppression, outbox state, provider retries, and delivery de-duplication.
+
+`GravityFitness-Notifications` uses Task Scheduler's `IgnoreNew` policy and the runner keeps an exclusive `notification-runner.lock` in the protected runtime directory. A dead process leaves a stale PID lock that is safely reclaimed by the next cycle; a live worker is never replaced. Each cycle has a 20-minute task timeout and a non-zero result is retried only on the next hourly schedule.
+
+Run the same protected-config command manually when validating a provider or investigating a failure:
+
+```powershell
+.\scripts\run-notifications.ps1 -ConfigPath C:\ProgramData\GravityFitness\gravity.env
+.\scripts\status-notifications.ps1 -ConfigPath C:\ProgramData\GravityFitness\gravity.env
+```
+
+The safe status report and `notifications.log` record only aggregate fields: scan window, `created`, `deduped`, `suppressed_renewed`, delivery attempted/sent/failed/skipped totals, provider readiness, last successful scan, last successful delivery, and consecutive failure count. They never include recipient addresses/numbers, SMTP passwords, SMS keys, WhatsApp tokens, Firebase JSON, or raw provider output.
+
+Provider readiness is evaluated from the protected configuration each run:
+
+- email requires `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `EMAIL_FROM`;
+- SMS requires `SMS_PROVIDER` and `SMS_API_KEY`;
+- WhatsApp requires `WHATSAPP_PROVIDER`, `WHATSAPP_ACCESS_TOKEN`, and `WHATSAPP_PHONE_NUMBER_ID`;
+- owner routing is reported separately from `OWNER_EMAIL`, `OWNER_PHONE`, and `OWNER_WHATSAPP` without revealing values.
+
+Do not put any of these values on a scheduled-task command line or in Git. A blocked provider is reported safely; a configured provider that fails delivery makes the cycle fail so the outbox can retry on the next run.
+
+Integration prerequisite: this scheduler deliberately invokes the expiry-day command `--scan-notifications 0`. Install it only after Chat 1's final notification-core change that accepts day `0` has been integrated; it fails safe rather than silently omitting expiry-day reminders when that contract is absent.
 
 ## Public enquiry PII retention
 

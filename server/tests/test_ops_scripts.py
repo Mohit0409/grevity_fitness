@@ -83,6 +83,33 @@ class OperationsScriptTests(unittest.TestCase):
         self.assertNotIn(".scriptsstatus-gravity.ps1", runbook)
         self.assertNotIn(".scriptsexport-gravity-migration.ps1", runbook)
 
+    def test_notification_scheduler_is_isolated_from_lifecycle_tasks(self) -> None:
+        installer = (ROOT / "scripts" / "install-gravity-tasks.ps1").read_text(
+            encoding="utf-8"
+        )
+        termux_installer = (ROOT / "deploy" / "termux" / "install-termux.sh").read_text(
+            encoding="utf-8"
+        )
+        boot = (ROOT / "deploy" / "termux" / "termux-boot-gravity.sh").read_text(
+            encoding="utf-8"
+        )
+        service = (
+            ROOT / "deploy" / "termux" / "services" / "gravity-notifications" / "run"
+        ).read_text(encoding="utf-8")
+        self.assertIn("GravityFitness-Notifications", installer)
+        self.assertIn("GravityFitness-Watchdog", installer)
+        self.assertIn("GravityFitness-DailyBackup", installer)
+        self.assertIn("New-ScheduledTaskTrigger -AtStartup", installer)
+        self.assertIn("-MultipleInstances IgnoreNew", installer)
+        self.assertIn("run-notifications.ps1", installer)
+        self.assertNotIn("SMTP_PASSWORD", installer)
+        self.assertNotIn("SMS_API_KEY", installer)
+        self.assertNotIn("WHATSAPP_ACCESS_TOKEN", installer)
+        self.assertIn("gravity-notifications", termux_installer)
+        self.assertIn("gravity-notifications", boot)
+        self.assertIn("INTERVAL_SECONDS=3600", service)
+        self.assertIn("run-notifications.sh", service)
+
 
 if __name__ == "__main__":
     unittest.main()

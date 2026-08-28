@@ -12,7 +12,7 @@ Primary integration repo: `C:\movieXsuggestion\MyProject\grevity_fitness`
 | --- | --- | --- | --- |
 | **Chat 1** | **Firebase/Auth + integration lead** | **Active** | `main` / `C:\movieXsuggestion\MyProject\grevity_fitness` |
 | **Chat 2** | **Public website UI/UX** | **Active** | `agent/gravity-public-ui` / `C:\movieXsuggestion\MyProject\grevity_fitness-public-ui` |
-| **Chat 3** | **Hosting, reliability, backups and future Android/Termux deployment** | **Integrated / complete** | `agent/gravity-ops-mobile` / `C:\Users\91896\AppData\Local\Temp\gravity-ops-mobile` |
+| **Chat 3** | **Hosting, reliability, backups, notification scheduler and future Android/Termux deployment** | **Active** | `agent/gravity-notification-ops` / `C:\Users\91896\AppData\Local\Temp\gravity-notification-ops` |
 
 ## Chat 1 â€” Firebase/Auth + Integration Lead
 
@@ -73,6 +73,8 @@ Current Chat 3 state:
 - Integrated into `main` as `1968fba`; ownership review found no Chat 1 auth or Chat 2 public-UI files changed.
 - Integrated validation: 111/111 Python tests, Windows lifecycle drill, 8/8 browser E2E, launch gate, and Firebase provider canary all passed.
 - Live laptop process was migrated from the legacy PID file to the new managed runtime lease and is healthy under the deterministic lifecycle scripts.
+- Notification scheduler work is active on `agent/gravity-notification-ops`. It owns safe Windows/Termux scheduling, retry/locking, monitoring, provider-readiness reporting, and notification operations runbooks; it does not change notification business logic or delivery adapters.
+- Notification scheduler integration depends on Chat 1's final core contract accepting the required expiry-day CLI invocation `--scan-notifications 0`; Chat 3 does not modify notification business logic or delivery adapters.
 - Remaining deployment-only items: elevated Task Scheduler registration on Windows, and later Android/Termux + Cloudflare Tunnel provisioning/burn-in on the actual phone.
 
 ## Coordination Rules
