@@ -122,7 +122,7 @@ class ReadinessServiceTests(unittest.TestCase):
             "GRAVITY_ENV": "production", "APP_BASE_URL": "https://gravity.example",
             "SECRET_KEY": "x" * 40, "FIREBASE_PROJECT_ID": "gravity-authe",
             "FIREBASE_WEB_API_KEY": "api-key", "FIREBASE_AUTH_DOMAIN": "gravity.example",
-            "FIREBASE_APP_ID": "app-id", "FIREBASE_SERVICE_ACCOUNT_PATH": r"C:\fake\service.json",
+            "FIREBASE_APP_ID": "app-id", "FIREBASE_SERVICE_ACCOUNT_PATH": str((ROOT / "fake" / "service.json").resolve()),
             "RAZORPAY_KEY_ID": "rzp-key", "RAZORPAY_KEY_SECRET": "rzp-secret",
             "RAZORPAY_WEBHOOK_SECRET": "webhook-secret",
             "OWNER_PHONE": "+917999526112", "BUSINESS_NAME": "Gravity Fitness",

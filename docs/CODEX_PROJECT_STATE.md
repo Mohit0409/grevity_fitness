@@ -121,6 +121,7 @@ Last updated: 2026-08-27
 - Full repository release gate: 77/77 `unittest` tests passed on 2026-08-27 in 66.449s after Python `compileall`; all 15 `web/js/*.js` files passed `node --check`; all PowerShell scripts passed parser validation; all shell scripts passed Git-for-Windows `sh.exe -n`; `git diff --check` passed.
 - Live online proof while Gravity remained running as PID 14196: `gravity-phase10-final-20260827T181657012522Z.zip` was created, verified `valid=True`, reported 7 migrations and `schemaStage=progress_coaching`, and passed the non-destructive recovery drill. `/api/health` remained `{"status":"ok","service":"Gravity Fitness","database":"ok"}` before and after the drill.
 - No destructive live restore was performed on the production laptop database; unit coverage plus the non-destructive recovery drill are the release evidence for restore behavior.
+- Cross-platform release hardening on 2026-08-28 removed the UTF-8 BOM from `pyproject.toml`, added CI unittest failure annotations, and made the synthetic Firebase service-account fixture use a platform-native absolute path; final local validation after the Linux fixture correction passed readiness 4/4 and the full 77/77 suite in 40.349s.
 
 ## Known issues / production blockers
 
