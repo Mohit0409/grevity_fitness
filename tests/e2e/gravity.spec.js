@@ -500,3 +500,276 @@ test('public controls remain distinguishable in forced-colors mode', async ({ pa
   expect(styles.borderStyle).not.toBe('none');
   expect(styles.borderWidth).toBeGreaterThanOrEqual(1);
 });
+
+
+async function mockSignedInNotificationAccount(page, responder) {
+  const user = {
+    id: 'customer-notification-test', status: 'active', displayName: 'Gravity Member',
+    email: 'member@example.com', emailVerified: true, phone: '+919876543210', phoneVerified: true,
+    photoUrl: null, providers: ['password', 'phone'], profileComplete: true, profile: {},
+  };
+  await page.route('**/api/auth/config', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({
+      enabled: true,
+      firebase: { apiKey: 'public-test-key', authDomain: 'gravity-authe.firebaseapp.com', projectId: 'gravity-authe', appId: '1:123:web:test' },
+    }),
+  }));
+  await page.route('**/api/auth/session', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true, user }),
+  }));
+  await page.route('**/api/me/membership', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ membership: { current: null, upcoming: null, history: [] } }),
+  }));
+  await page.route('**/api/payment/config', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: false, paymentMode: 'disabled' }),
+  }));
+  await page.route('**/api/membership/plans', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ plans: [] }),
+  }));
+  await page.route('**/api/me/payments?limit=25', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ payments: [] }),
+  }));
+  await page.route('**/api/me/invoices?limit=25', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ invoices: [] }),
+  }));
+  await page.route('**/api/me/coaching', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ coaching: { latestMeasurements: [], goals: [], currentDiet: null } }),
+  }));
+  await page.route('**/api/me/notifications', async (route) => {
+    const response = typeof responder === 'function' ? responder() : responder;
+    await route.fulfill({ contentType: 'application/json', ...response });
+  });
+}
+
+async function mockNotificationAdmin(page, responder, onScan = null) {
+  const admin = { id: 'admin-notification-test', username: 'owner', role: 'owner', permissions: ['notifications.manage'] };
+  await page.route('**/api/admin/session', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ configured: true, bootstrapRequired: false, authenticated: true, admin }),
+  }));
+  await page.route('**/api/admin/dashboard', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ customers: { total: 0, active: 0, disabled: 0 }, admins: { active: 1 }, recentAudit: [] }),
+  }));
+  await page.route('**/api/admin/notifications?limit=100', async (route) => {
+    const response = typeof responder === 'function' ? responder() : responder;
+    await route.fulfill({ contentType: 'application/json', ...response });
+  });
+  await page.route('**/api/admin/notifications/scan', async (route) => {
+    if (onScan) onScan(route.request().postDataJSON());
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ scan: { created: 0, deduped: 0, suppressedRenewed: 0 } }) });
+  });
+}
+
+function notificationFixture() {
+  const now = Math.floor(Date.now() / 1000);
+  return [
+    {
+      id: 'reminder-internal-7', eventType: 'membership_expiry', customerId: 'customer-internal-1', membershipId: 'membership-internal-1',
+      triggerDays: 7, state: 'pending', customer: { displayName: 'Asha Member' },
+      payload: { planName: 'Pro', membershipNumber: 'GF-M-1001', endsAt: now + 7 * 86400 },
+      deliveries: [
+        { id: 'delivery-internal-1', recipientRole: 'customer', channel: 'email', status: 'sent', lastErrorCode: null },
+        { id: 'delivery-internal-2', recipientRole: 'customer', channel: 'sms', status: 'queued' },
+        { id: 'delivery-internal-3', recipientRole: 'customer', channel: 'whatsapp', status: 'blocked_external_config' },
+        { id: 'delivery-internal-4', recipientRole: 'owner', channel: 'email', status: 'sent' },
+        { id: 'delivery-internal-5', recipientRole: 'owner', channel: 'sms', status: 'failed', nextAttemptAt: now + 3600, lastErrorCode: 'sms_delivery_failed' },
+        { id: 'delivery-internal-6', recipientRole: 'owner', channel: 'whatsapp', status: 'missing_recipient' },
+      ],
+    },
+    {
+      id: 'reminder-internal-0', eventType: 'membership_expiry', customerId: 'customer-internal-2', membershipId: 'membership-internal-2',
+      triggerDays: 0, state: 'pending', customer: { displayName: 'Ravi Member' },
+      payload: { planName: 'Basic', membershipNumber: 'GF-M-1002', endsAt: now - 1800 },
+      deliveries: [
+        { recipientRole: 'customer', channel: 'email', status: 'failed', nextAttemptAt: null, lastErrorCode: 'smtp_delivery_failed' },
+        { recipientRole: 'customer', channel: 'sms', status: 'missing_recipient' },
+        { recipientRole: 'customer', channel: 'whatsapp', status: 'queued' },
+        { recipientRole: 'owner', channel: 'email', status: 'blocked_external_config' },
+        { recipientRole: 'owner', channel: 'sms', status: 'sent' },
+      ],
+    },
+    {
+      id: 'reminder-internal-suppressed', eventType: 'membership_expiry', customerId: 'customer-internal-3', membershipId: 'membership-internal-3',
+      triggerDays: 3, state: 'suppressed', customer: { displayName: 'Renewed Member' },
+      payload: { planName: 'Elite', membershipNumber: 'GF-M-1003', endsAt: now + 3 * 86400 },
+      deliveries: [
+        { recipientRole: 'customer', channel: 'email', status: 'sent' },
+        { recipientRole: 'customer', channel: 'sms', status: 'queued' },
+        { recipientRole: 'customer', channel: 'whatsapp', status: 'blocked_external_config' },
+        { recipientRole: 'owner', channel: 'email', status: 'queued' },
+        { recipientRole: 'owner', channel: 'sms', status: 'queued' },
+        { recipientRole: 'owner', channel: 'whatsapp', status: 'queued' },
+      ],
+    },
+  ];
+}
+
+test('customer membership expiry reminder history is clear and privacy-safe', async ({ page }, testInfo) => {
+  const runtimeProblems = watchRuntime(page);
+  const now = Math.floor(Date.now() / 1000);
+  const reminders = [7, 3, 1, 0].map((triggerDays, index) => ({
+    id: `customer-reminder-${index}`, eventType: 'membership_expiry', triggerDays,
+    state: 'pending', payload: { planName: index === 0 ? 'Pro' : 'Basic', membershipNumber: `GF-M-${index}`, endsAt: now + triggerDays * 86400 },
+    deliveries: [{ id: `private-delivery-${index}`, recipientRole: 'customer', channel: 'email', status: index ? 'queued' : 'sent', lastErrorCode: 'private_provider_error' }],
+  }));
+  reminders.push({
+    id: 'customer-reminder-suppressed', eventType: 'membership_expiry', triggerDays: 3, state: 'suppressed',
+    payload: { planName: 'Elite', membershipNumber: 'GF-M-RENEW', endsAt: now + 3 * 86400 },
+    deliveries: [{ id: 'private-delivery-suppressed', recipientRole: 'customer', channel: 'whatsapp', status: 'blocked_external_config' }],
+  });
+  await mockSignedInNotificationAccount(page, { status: 200, body: JSON.stringify({ notifications: reminders }) });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/account');
+  const card = page.locator('#notification-history-card');
+  await expect(card).toBeVisible();
+  await expect(card.getByText('Membership expiry', { exact: true })).toHaveCount(5);
+  await expect(card).toContainText('7 days');
+  await expect(card).toContainText('3 days');
+  await expect(card).toContainText('1 day');
+  await expect(card).toContainText('Expired today');
+  await expect(card).toContainText('Renewal confirmed. This reminder was stopped.');
+  await expect(card).toContainText('Pro');
+  const factValues = await card.locator('.notification-reminder-facts dd').allTextContents();
+  expect(factValues).not.toContain('Not available');
+  const privateText = await card.innerText();
+  for (const forbidden of ['SMS', 'WhatsApp', 'blocked_external_config', 'private_provider_error', 'private-delivery', 'recipientRole', 'attemptCount']) {
+    expect(privateText).not.toContain(forbidden);
+  }
+  await expectNoSeriousA11yFailures(page);
+  await page.screenshot({ path: testInfo.outputPath('customer-reminders-390.png'), fullPage: true });
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: width <= 430 ? 844 : 900 });
+    await expectNoOverflow(page);
+  }
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('customer reminder history handles empty and unavailable states', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  let mode = 'empty';
+  await mockSignedInNotificationAccount(page, () => mode === 'empty'
+    ? { status: 200, body: JSON.stringify({ notifications: [] }) }
+    : { status: 503, body: JSON.stringify({ error: 'provider_raw_error_should_not_render' }) });
+  await page.goto('/account');
+  await expect(page.locator('#notification-history-list')).toHaveText('No membership reminders yet.');
+  expect(runtimeProblems).toEqual([]);
+  mode = 'error';
+  await page.reload();
+  await expect(page.locator('#notification-history-list')).toContainText('Reminder history is temporarily unavailable. Try again later.');
+  await expect(page.locator('#notification-history-card')).not.toContainText('provider_raw_error_should_not_render');
+  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
+});
+
+test('admin expiry notifications separate customer and owner delivery truthfully', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  const runtimeProblems = watchRuntime(page);
+  const notifications = notificationFixture();
+  let scanBody = null;
+  const response = {
+    status: 200,
+    body: JSON.stringify({
+      notifications,
+      providerBlockers: { email: 'READY', sms: 'BLOCKED_ADAPTER_MISSING', whatsapp: 'BLOCKED_EXTERNAL_CONFIG' },
+    }),
+  };
+  await mockNotificationAdmin(page, response, (body) => { scanBody = body; });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/admin');
+  await expect(page.locator('#app')).toBeVisible();
+  await page.locator('#notificationsNav').click();
+  await expect(page.locator('#notificationsList')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('.notification-admin-card')).toHaveCount(3);
+
+  const asha = page.locator('.notification-admin-card').filter({ hasText: 'Asha Member' });
+  const ashaCustomer = asha.locator('.notification-audience').filter({ hasText: 'Customer notifications' });
+  const ashaOwner = asha.locator('.notification-audience').filter({ hasText: 'Owner notifications' });
+  await expect(ashaCustomer.getByLabel('Email: Sent')).toBeVisible();
+  await expect(ashaCustomer.getByLabel('SMS: Queued')).toBeVisible();
+  await expect(ashaCustomer.getByLabel('WhatsApp: Blocked by configuration')).toBeVisible();
+  await expect(ashaOwner.getByLabel('Email: Sent')).toBeVisible();
+  await expect(ashaOwner.getByLabel('SMS: Retrying')).toBeVisible();
+  await expect(ashaOwner.getByLabel('WhatsApp: Missing recipient')).toBeVisible();
+
+  const ravi = page.locator('.notification-admin-card').filter({ hasText: 'Ravi Member' });
+  await expect(ravi).toContainText('Expired today');
+  await expect(ravi.locator('.notification-audience').filter({ hasText: 'Customer notifications' }).getByLabel('Email: Failed')).toBeVisible();
+  await expect(ravi.locator('.notification-audience').filter({ hasText: 'Customer notifications' }).getByLabel('SMS: Missing recipient')).toBeVisible();
+  await expect(ravi.locator('.notification-audience').filter({ hasText: 'Owner notifications' }).getByLabel('Email: Blocked by configuration')).toBeVisible();
+  await expect(ravi.locator('.notification-audience').filter({ hasText: 'Owner notifications' }).getByLabel('WhatsApp: Status unavailable')).toBeVisible();
+
+  const renewed = page.locator('.notification-admin-card').filter({ hasText: 'Renewed Member' });
+  await expect(renewed).toContainText('Suppressed after renewal');
+  await expect(renewed.locator('.notification-audience').filter({ hasText: 'Customer notifications' }).getByLabel('Email: Sent')).toBeVisible();
+  await expect(renewed.locator('.notification-audience').filter({ hasText: 'Customer notifications' }).getByLabel('SMS: Suppressed after renewal')).toBeVisible();
+  await expect(renewed.locator('.notification-audience').filter({ hasText: 'Owner notifications' }).getByLabel('WhatsApp: Suppressed after renewal')).toBeVisible();
+
+  await expect(page.getByLabel('Email provider: Ready')).toBeVisible();
+  await expect(page.getByLabel('SMS provider: Blocked by configuration')).toBeVisible();
+  await expect(page.getByLabel('WhatsApp provider: Blocked by configuration')).toBeVisible();
+  const workspaceText = await page.locator('#notificationsView').innerText();
+  for (const forbidden of ['delivery-internal', 'customer-internal', 'membership-internal', 'sms_delivery_failed', 'smtp_delivery_failed', 'BLOCKED_ADAPTER_MISSING', 'BLOCKED_EXTERNAL_CONFIG']) {
+    expect(workspaceText).not.toContain(forbidden);
+  }
+
+  const filter = page.locator('#notificationFilter');
+  await filter.selectOption('expiring');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 3 reminders shown');
+  await filter.selectOption('expired');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 3 reminders shown');
+  await filter.selectOption('failed');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('2 of 3 reminders shown');
+  await filter.selectOption('blocked');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('3 of 3 reminders shown');
+  await filter.selectOption('suppressed');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 3 reminders shown');
+  await filter.focus();
+  await expect(filter).toBeFocused();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('End');
+  await page.keyboard.press('Tab');
+  await expect(filter).toHaveValue('suppressed');
+
+  await page.locator('#notificationDays').selectOption('0');
+  await page.locator('#scanNotifications').click();
+  await expect.poll(() => scanBody).toEqual({ daysBefore: 0 });
+  await expectNoSeriousA11yFailures(page);
+  await page.screenshot({ path: testInfo.outputPath('admin-reminders-390.png'), fullPage: true });
+
+  await filter.selectOption('all');
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: width <= 430 ? 844 : 900 });
+    await expectNoOverflow(page);
+    if (width <= 430) {
+      for (const control of ['#notificationDays', '#scanNotifications', '#notificationFilter']) {
+        const box = await page.locator(control).boundingBox();
+        expect(box.height, `${control} touch target at ${width}`).toBeGreaterThanOrEqual(44);
+      }
+    }
+  }
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('admin notifications handle all providers blocked, empty data and API failure', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  let mode = 'empty';
+  await mockNotificationAdmin(page, () => mode === 'empty'
+    ? {
+      status: 200,
+      body: JSON.stringify({
+        notifications: [],
+        providerBlockers: { email: 'BLOCKED_EXTERNAL_CONFIG', sms: 'BLOCKED_ADAPTER_MISSING', whatsapp: 'BLOCKED_EXTERNAL_CONFIG' },
+      }),
+    }
+    : { status: 503, body: JSON.stringify({ error: 'raw_backend_error_should_not_render' }) });
+  await page.goto('/admin');
+  await page.locator('#notificationsNav').click();
+  await expect(page.locator('.notification-provider--blocked')).toHaveCount(3);
+  await expect(page.locator('#notificationsList')).toHaveText('No membership expiry reminders yet.');
+  await expect(page.locator('#notificationsView')).not.toContainText('BLOCKED_EXTERNAL_CONFIG');
+  await expect(page.locator('#notificationsView')).not.toContainText('BLOCKED_ADAPTER_MISSING');
+  expect(runtimeProblems).toEqual([]);
+  mode = 'error';
+  await page.evaluate(() => window.GravityNotificationAdmin.renderWorkspace());
+  await expect(page.locator('#notificationsList')).toContainText('Notification data is temporarily unavailable. Try again later.');
+  await expect(page.locator('#notificationsView')).not.toContainText('raw_backend_error_should_not_render');
+  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
+});
