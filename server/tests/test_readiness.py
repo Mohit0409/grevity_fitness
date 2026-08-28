@@ -83,6 +83,10 @@ class ReadinessServiceTests(unittest.TestCase):
             "RAZORPAY_KEY_SECRET": "rzp-secret-value-123456789",
         }
         settings = Settings.load(root_dir=ROOT, environ={
+            "GRAVITY_ENV": "development",
+            "APP_BASE_URL": "http://127.0.0.1:8787",
+            "GRAVITY_TRUST_PROXY": "false",
+            "GRAVITY_TRUSTED_PROXY_CIDRS": "",
             "SECRET_KEY": TEST_SECRET,
             "WHATSAPP_PROVIDER": "meta",
             "WHATSAPP_PHONE_NUMBER_ID": "phone-id",
@@ -125,9 +129,17 @@ class ReadinessServiceTests(unittest.TestCase):
         }
         disabled = Settings.load(root_dir=ROOT, environ={**base, "BUSINESS_GSTIN": "23ABCDE1234F1Z5"})
         self.assertFalse(disabled.tax_invoice_identity_configured)
+        disabled_report = ReadinessService(disabled).report()
+        self.assertEqual(disabled_report["business"]["documentMode"], "receipt_only")
+        self.assertTrue(disabled_report["business"]["taxDocumentReady"])
+        self.assertNotIn("tax_invoice_identity", disabled_report["blockers"])
         malformed = Settings.load(root_dir=ROOT, environ={**base, "BUSINESS_GSTIN": "not-a-gstin", "TAX_INVOICE_ENABLED": "true"})
         self.assertFalse(malformed.gstin_format_valid)
         self.assertFalse(malformed.tax_invoice_identity_configured)
+        malformed_report = ReadinessService(malformed).report()
+        self.assertEqual(malformed_report["business"]["documentMode"], "tax_invoice")
+        self.assertFalse(malformed_report["business"]["taxDocumentReady"])
+        self.assertIn("tax_invoice_identity", malformed_report["blockers"])
         enabled = Settings.load(root_dir=ROOT, environ={**base, "BUSINESS_GSTIN": "23ABCDE1234F1Z5", "TAX_INVOICE_ENABLED": "true"})
         self.assertTrue(enabled.gstin_format_valid)
         self.assertTrue(enabled.tax_invoice_identity_configured)

@@ -57,6 +57,18 @@ def fetch(base: str, path: str, *, method: str = "GET", data: bytes | None = Non
 
 
 class DatabaseTests(unittest.TestCase):
+
+    def test_explicit_environment_does_not_inherit_dotenv(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".env").write_text(
+                "GRAVITY_ENV=production\nAPP_BASE_URL=https://prod.example\n",
+                encoding="utf-8",
+            )
+            settings = Settings.load(root_dir=root, environ={"SECRET_KEY": "test-secret"})
+            self.assertEqual(settings.environment, "development")
+            self.assertEqual(settings.app_base_url, "http://127.0.0.1:8787")
+
     def test_migrations_are_idempotent_and_database_is_healthy(self):
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "gravity.sqlite3"

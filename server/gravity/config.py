@@ -111,8 +111,14 @@ class Settings:
         environ: Mapping[str, str] | None = None,
     ) -> "Settings":
         root = (root_dir or Path(__file__).resolve().parents[2]).resolve()
-        values = dict(os.environ if environ is None else environ)
-        _load_dotenv(root / ".env", values)
+        if environ is None:
+            values = dict(os.environ)
+            _load_dotenv(root / ".env", values)
+        else:
+            # An explicitly supplied environment mapping is a complete configuration
+            # source. Do not back-fill it from the workstation's real .env; callers
+            # such as tests and offline verification must remain deterministic.
+            values = dict(environ)
 
         data_dir = _resolved_path(root, values.get("GRAVITY_DATA_DIR", ""), ".gravity/data")
         log_dir = _resolved_path(root, values.get("GRAVITY_LOG_DIR", ""), ".gravity/logs")

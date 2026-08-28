@@ -54,7 +54,7 @@ Linux / Termux:
 ./scripts/launch-check.sh
 ```
 
-Exit code `0` is the only go signal. The JSON report must show `launchReady: true` and an empty blocker list. The gate checks production/HTTPS mode, strong secret, loopback binding, trusted proxy boundary, Firebase client/backend configuration and service-account file presence, Razorpay live checkout/webhook configuration, verified business/tax identity, SQLite health/current migrations, an active owner, at least one active membership plan, and a verified recovery-tested backup no older than 24 hours.
+Exit code `0` is the only go signal. The JSON report must show `launchReady: true` and an empty blocker list. The gate checks production/HTTPS mode, strong secret, loopback binding, trusted proxy boundary, Firebase client/backend configuration and service-account file presence, Razorpay live checkout/webhook configuration, verified business identity plus either receipt-only mode or valid enabled GST tax-invoice identity, SQLite health/current migrations, an active owner, at least one active membership plan, and a verified recovery-tested backup no older than 24 hours.
 
 Do not bypass or manually edit the result. Fix the named blocker and rerun the gate.
 

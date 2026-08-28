@@ -65,12 +65,15 @@ class ReadinessService:
             "sms": self._state(s.sms_credentials_configured, adapter_ready=False),
             "whatsapp": self._state(s.whatsapp_credentials_configured, adapter_ready=False),
         }
+        tax_document_ready = (not s.tax_invoice_enabled) or s.tax_invoice_identity_configured
         business = {
             "identityConfigured": s.business_identity_configured,
             "gstinConfigured": bool(s.business_gstin),
             "gstinFormatValid": s.gstin_format_valid,
             "taxInvoiceEnabled": s.tax_invoice_enabled,
             "taxInvoiceIdentityConfigured": s.tax_invoice_identity_configured,
+            "documentMode": "tax_invoice" if s.tax_invoice_enabled else "receipt_only",
+            "taxDocumentReady": tax_document_ready,
         }
         analytics = {
             "googleConfigured": s.google_analytics_configured,
@@ -91,7 +94,7 @@ class ReadinessService:
             ("razorpay_checkout", s.razorpay_checkout_configured),
             ("razorpay_webhook", s.razorpay_webhook_configured),
             ("business_identity", s.business_identity_configured),
-            ("tax_invoice_identity", s.tax_invoice_identity_configured),
+            ("tax_invoice_identity", tax_document_ready),
         ):
             if not ready:
                 blockers.append(code)
