@@ -1,6 +1,8 @@
 param(
   [string]$ConfigPath,
   [string]$Domain,
+  [string]$NgrokConfigPath,
+  [string]$NgrokExecutablePath,
   [switch]$UpdateConfig
 )
 
@@ -12,9 +14,22 @@ $stateFile = Join-Path $context.RuntimeDir 'ngrok.state.json'
 $urlFile = Join-Path $context.RuntimeDir 'ngrok.public-url'
 $stdoutLog = Join-Path $context.RuntimeDir 'ngrok.stdout.log'
 $stderrLog = Join-Path $context.RuntimeDir 'ngrok.stderr.log'
-$ngrokConfig = Join-Path $env:LOCALAPPDATA 'ngrok\ngrok.yml'
+$ngrokConfig = if ($NgrokConfigPath) {
+  if (-not (Test-Path -LiteralPath $NgrokConfigPath -PathType Leaf)) {
+    throw "ngrok configuration was not found: $NgrokConfigPath"
+  }
+  (Resolve-Path -LiteralPath $NgrokConfigPath).Path
+} else {
+  Join-Path $env:LOCALAPPDATA 'ngrok\ngrok.yml'
+}
 
-function Resolve-Ngrok {
+function Resolve-Ngrok([string]$ExplicitPath) {
+  if ($ExplicitPath) {
+    if (-not (Test-Path -LiteralPath $ExplicitPath -PathType Leaf)) {
+      throw "ngrok executable was not found: $ExplicitPath"
+    }
+    return (Resolve-Path -LiteralPath $ExplicitPath).Path
+  }
   $command = Get-Command ngrok -ErrorAction SilentlyContinue
   if ($command) { return $command.Source }
   $root = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
@@ -72,7 +87,7 @@ if (Test-Path -LiteralPath $pidFile) {
 }
 
 if (-not $process) {
-  $ngrokExe = Resolve-Ngrok
+  $ngrokExe = Resolve-Ngrok -ExplicitPath $NgrokExecutablePath
   Rotate-GravityLog -Path $stdoutLog
   Rotate-GravityLog -Path $stderrLog
   $arguments = @('http', "http://127.0.0.1:$($context.Port)", '--log=stdout', '--log-format=json', '--config', $ngrokConfig)

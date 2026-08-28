@@ -1,6 +1,8 @@
 param(
   [Parameter(Mandatory = $true)][string]$ConfigPath,
   [switch]$EnsureNgrok,
+  [string]$NgrokConfigPath,
+  [string]$NgrokExecutablePath,
   [string]$OffsiteBackupDirectory
 )
 
@@ -21,7 +23,20 @@ function Quote-TaskArgument([string]$Value) {
 }
 
 $watchArguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ' + (Quote-TaskArgument $watchScript) + ' -ConfigPath ' + (Quote-TaskArgument $ConfigPath)
-if ($EnsureNgrok) { $watchArguments += ' -EnsureNgrok' }
+if ($EnsureNgrok) {
+  if (-not $NgrokConfigPath -or -not $NgrokExecutablePath) {
+    throw 'NgrokConfigPath and NgrokExecutablePath are required with -EnsureNgrok because the task runs as SYSTEM.'
+  }
+  if (-not (Test-Path -LiteralPath $NgrokConfigPath -PathType Leaf)) {
+    throw "ngrok configuration was not found: $NgrokConfigPath"
+  }
+  if (-not (Test-Path -LiteralPath $NgrokExecutablePath -PathType Leaf)) {
+    throw "ngrok executable was not found: $NgrokExecutablePath"
+  }
+  $NgrokConfigPath = (Resolve-Path -LiteralPath $NgrokConfigPath).Path
+  $NgrokExecutablePath = (Resolve-Path -LiteralPath $NgrokExecutablePath).Path
+  $watchArguments += ' -EnsureNgrok -NgrokConfigPath ' + (Quote-TaskArgument $NgrokConfigPath) + ' -NgrokExecutablePath ' + (Quote-TaskArgument $NgrokExecutablePath)
+}
 $watchAction = New-ScheduledTaskAction -Execute $powerShell -Argument $watchArguments -WorkingDirectory $projectRoot
 $startupTrigger = New-ScheduledTaskTrigger -AtStartup
 $minuteTrigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) -RepetitionInterval (New-TimeSpan -Minutes 1)

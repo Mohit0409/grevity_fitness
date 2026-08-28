@@ -1,6 +1,8 @@
 param(
   [string]$ConfigPath,
-  [switch]$EnsureNgrok
+  [switch]$EnsureNgrok,
+  [string]$NgrokConfigPath,
+  [string]$NgrokExecutablePath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,7 +31,10 @@ try {
     Write-GravityOpsLog -Context $context -Message 'watchdog_recovered_server'
   }
   if ($EnsureNgrok) {
-    & (Join-Path $PSScriptRoot 'start-ngrok.ps1') -ConfigPath $ConfigPath -UpdateConfig
+    if (-not $NgrokConfigPath -or -not $NgrokExecutablePath) {
+      throw 'NgrokConfigPath and NgrokExecutablePath are required with -EnsureNgrok for SYSTEM task recovery.'
+    }
+    & (Join-Path $PSScriptRoot 'start-ngrok.ps1') -ConfigPath $ConfigPath -NgrokConfigPath $NgrokConfigPath -NgrokExecutablePath $NgrokExecutablePath -UpdateConfig
   }
 } catch {
   Write-GravityOpsLog -Context $context -Message "watchdog_failed error=$($_.Exception.Message)"

@@ -73,6 +73,8 @@ Current Chat 3 state:
 - Integrated into `main` as `1968fba`; ownership review found no Chat 1 auth or Chat 2 public-UI files changed.
 - Integrated validation: 111/111 Python tests, Windows lifecycle drill, 8/8 browser E2E, launch gate, and Firebase provider canary all passed.
 - Live laptop process was migrated from the legacy PID file to the new managed runtime lease and is healthy under the deterministic lifecycle scripts.
+- Termux installer/runbook safeguards were integrated as `a76d748` after the `agent/gravity-ops-followup` review.
+- Current follow-up branch: `agent/gravity-ops-followup` / `C:\Users\91896\AppData\Local\Temp\gravity-ops-followup`; it hardens SYSTEM-task ngrok recovery and is pending integration.
 - Remaining deployment-only items: elevated Task Scheduler registration on Windows, and later Android/Termux + Cloudflare Tunnel provisioning/burn-in on the actual phone.
 
 ## Coordination Rules

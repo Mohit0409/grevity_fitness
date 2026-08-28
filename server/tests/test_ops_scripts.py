@@ -83,6 +83,30 @@ class OperationsScriptTests(unittest.TestCase):
         self.assertNotIn(".scriptsstatus-gravity.ps1", runbook)
         self.assertNotIn(".scriptsexport-gravity-migration.ps1", runbook)
 
+    def test_system_watchdog_requires_explicit_ngrok_paths(self) -> None:
+        installer = (ROOT / "scripts" / "install-gravity-tasks.ps1").read_text(
+            encoding="utf-8"
+        )
+        watchdog = (ROOT / "scripts" / "watch-gravity.ps1").read_text(
+            encoding="utf-8"
+        )
+        tunnel = (ROOT / "scripts" / "start-ngrok.ps1").read_text(
+            encoding="utf-8"
+        )
+        runbook = (ROOT / "docs" / "OPERATIONS_RUNBOOK.md").read_text(
+            encoding="utf-8"
+        )
+        for text in (installer, watchdog, tunnel):
+            self.assertIn("NgrokConfigPath", text)
+            self.assertIn("NgrokExecutablePath", text)
+        self.assertIn("task runs as SYSTEM", installer)
+        self.assertIn("ngrok configuration was not found", installer)
+        self.assertIn("ngrok executable was not found", installer)
+        self.assertIn("SYSTEM task recovery", watchdog)
+        self.assertIn("-ExplicitPath $NgrokExecutablePath", tunnel)
+        self.assertIn("-NgrokConfigPath C:\\ProgramData\\GravityFitness\\ngrok.yml", runbook)
+        self.assertIn("-NgrokExecutablePath 'C:\\Program Files\\ngrok\\ngrok.exe'", runbook)
+
 
 if __name__ == "__main__":
     unittest.main()

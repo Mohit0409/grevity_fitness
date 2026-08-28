@@ -55,7 +55,18 @@ This registers:
 - `GravityFitness-Watchdog`: starts at reboot and checks every minute; it restarts only a process proven to belong to this checkout.
 - `GravityFitness-DailyBackup`: at 02:00 creates, verifies, recovery-drills, and optionally copies a backup off-host.
 
-Add `-EnsureNgrok` only while the temporary ngrok deployment is intentionally in use. A stable production tunnel is preferred. Review Task Scheduler history and `.gravity/operations.log` after installation. Remove only these tasks with `uninstall-gravity-tasks.ps1`.
+Add `-EnsureNgrok` only while the temporary ngrok deployment is intentionally in use. Because the watchdog runs as `SYSTEM`, that option requires explicit absolute paths to the protected ngrok configuration and executable; a normal per-user ngrok installation cannot recover after reboot:
+
+```powershell
+.\scripts\install-gravity-tasks.ps1 `
+  -ConfigPath C:\ProgramData\GravityFitness\gravity.env `
+  -EnsureNgrok `
+  -NgrokConfigPath C:\ProgramData\GravityFitness\ngrok.yml `
+  -NgrokExecutablePath 'C:\Program Files\ngrok\ngrok.exe' `
+  -OffsiteBackupDirectory E:\GravityBackups
+```
+
+`ngrok.yml` contains the ngrok token. Keep it outside Git in a directory restricted to deployment administrators and `SYSTEM`; never put the token on the task command line. A stable production tunnel is preferred. Review Task Scheduler history and `.gravity/operations.log` after installation. Remove only these tasks with `uninstall-gravity-tasks.ps1`.
 
 Before installing tasks after a code or Python-runtime change, run the isolated lifecycle drill. It uses a temporary port/database, tests start/status/backup/recovery/crash-watchdog/stop, and deletes only its verified temporary directory after success:
 
