@@ -196,3 +196,98 @@ test('public pages have no serious or critical automated accessibility violation
     await expectNoSeriousA11yFailures(page);
   }
 });
+
+const publicRoutes = ['/', '/coaching', '/gallery', '/privacy'];
+
+async function expectTouchTargets(page) {
+  const failures = await page.locator('a, button, summary, input, select, textarea').evaluateAll((nodes) => nodes.flatMap((node) => {
+    if (node.classList.contains('skip-link')) return [];
+    const style = getComputedStyle(node);
+    const rect = node.getBoundingClientRect();
+    if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0 || rect.height === 0) return [];
+    if (rect.width >= 44 && rect.height >= 44) return [];
+    return [{
+      element: node.tagName.toLowerCase(),
+      copy: (node.textContent || node.getAttribute('aria-label') || '').trim().slice(0, 50),
+      width: Math.round(rect.width * 10) / 10,
+      height: Math.round(rect.height * 10) / 10,
+    }];
+  }));
+  expect(failures, JSON.stringify(failures, null, 2)).toEqual([]);
+}
+
+test('all public routes pass the complete responsive width matrix', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  for (const route of publicRoutes) {
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: width <= 430 ? 844 : 900 });
+      await page.goto(route);
+      if (route === '/') await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
+      await expectNoOverflow(page);
+      if (width <= 980) {
+        await expect(page.locator('#menu-open')).toBeVisible();
+        await expect(page.locator('.desktop-nav')).toBeHidden();
+      } else {
+        await expect(page.locator('#menu-open')).toBeHidden();
+        await expect(page.locator('.desktop-nav')).toBeVisible();
+      }
+      if (width <= 768) await expectTouchTargets(page);
+    }
+  }
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('mobile public layouts stay compact without sacrificing tap targets', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto('/');
+  await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
+  const compact = await page.evaluate(() => ({
+    heroHeading: parseFloat(getComputedStyle(document.querySelector('.hero h1')).fontSize),
+    heroArt: document.querySelector('.hero-art').getBoundingClientRect().height,
+    sectionPadding: parseFloat(getComputedStyle(document.querySelector('#training')).paddingTop),
+    pathMinHeight: getComputedStyle(document.querySelector('.path-card')).minHeight,
+    blur: getComputedStyle(document.querySelector('.site-header')).backdropFilter,
+  }));
+  expect(compact.heroHeading).toBeLessThanOrEqual(60);
+  expect(compact.heroArt).toBeLessThanOrEqual(302);
+  expect(compact.sectionPadding).toBe(60);
+  expect(compact.pathMinHeight).toBe('0px');
+  expect(compact.blur).toBe('none');
+  await expectTouchTargets(page);
+});
+test('public metadata is complete and consistent on every indexable route', async ({ page }) => {
+  for (const route of publicRoutes) {
+    await page.goto(route);
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /.{20,}/);
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
+    await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', 'en_IN');
+    await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', 'Gravity Fitness');
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /Gravity Fitness/);
+    await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', /.{20,}/);
+    await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', new RegExp(`${route === '/' ? '/$' : `${route}$`}`));
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/assets\/og-gravity\.png$/);
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
+    await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', /Gravity Fitness/);
+    await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute('content', /.{20,}/);
+    await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute('href', /gravity2-public-ui1/);
+  }
+});
+
+test('mobile navigation labels current page and Escape restores the trigger', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto('/coaching');
+  await page.locator('#menu-open').click();
+  await expect(page.locator('#mobile-menu')).toBeVisible();
+  await expect(page.locator('#mobile-menu nav')).toHaveAttribute('aria-label', 'Mobile navigation');
+  await expect(page.locator('#mobile-menu a[aria-current="page"]')).toHaveText(/Coaching/);
+  const menuMetrics = await page.locator('#mobile-menu').evaluate((node) => ({
+    clientHeight: node.clientHeight,
+    scrollHeight: node.scrollHeight,
+  }));
+  expect(menuMetrics.scrollHeight).toBeLessThanOrEqual(menuMetrics.clientHeight + 80);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#mobile-menu')).not.toBeVisible();
+  await expect(page.locator('#menu-open')).toBeFocused();
+  await expect(page.locator('#menu-open')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('html')).not.toHaveClass(/modal-open/);
+});
