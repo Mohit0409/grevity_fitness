@@ -136,13 +136,23 @@ Last updated: 2026-08-28
 - Live prelaunch evidence remains intentionally blocked rather than fabricated: the laptop database is healthy with 7/7 migrations; the Phase 10 archive is fresh, checksum-valid, migration-current, and recovery-drill valid, but it predates the first owner/active-plan state. Current local launch blockers therefore correctly include external production configuration, first owner, active plan, and backup copies containing those final launch-state records.
 - The live localhost smoke currently passes home, health, account/admin surfaces, security headers, customer/admin private boundaries, and source/`.env` denial; it intentionally fails the active-membership-catalog check because no imported draft has been business-verified and activated.
 
+### Phase 12 - Read-only provider canaries and combined cutover verification
+
+- Added `FirebaseAdminVerifier.probe()` as a read-only Firebase Admin connectivity/permission check using a one-user list request; user records are never returned or persisted by the canary.
+- Added `server/gravity/canary.py` with fail-closed Firebase and Razorpay production probes. The Razorpay probe requires production/live mode plus checkout/webhook configuration and performs only `GET /v1/orders?count=1`; it creates no order/payment state and returns only safe status/error codes.
+- Added `server/gravity/cutover.py` and `--cutover-check`. Public/provider network checks are not run until the local Phase 11 launch gate is already green; after that, cutover readiness requires both provider probes and the exact-URL HTTPS smoke suite.
+- Added Windows/Linux wrappers `provider-canaries.ps1|sh` and `cutover-check.ps1|sh`, and updated the launch runbook to distinguish read-only API connectivity probes from mandatory real end-to-end customer-login and controlled live-payment/webhook canaries.
+- Focused Phase 12 coverage currently passes 8/8 tests for blocked configuration, read-only Firebase behavior, Razorpay GET-only behavior, secret-safe provider failures, all-gates-pass cutover, local-gate short-circuiting, and provider-failure smoke suppression.
+- Phase 12 local release gate on 2026-08-28: 92/92 `unittest` tests passed in 99.780s after `compileall`; all 15 browser JavaScript files passed `node --check`; all 12 PowerShell scripts parsed; all 12 POSIX shell scripts passed `sh -n`; `git diff --check` passed.
+- Live laptop fail-closed proof: `provider-canaries` exits 2 with both providers blocked at `production_mode`; `cutover-check` exits 2 and reports provider/public smoke as `notRun` because the local launch gate is blocked, proving no external canary/smoke network activity is attempted prematurely. `/api/health` remains `status=ok`, `service=Gravity Fitness`, `database=ok`.
+
 ## Known issues / production blockers
 
 - `BLOCKED_EXTERNAL_CONFIG`: Firebase project `gravity-authe` client configuration and an authorized service-account file are still required for real customer authentication; a real Firebase login canary remains mandatory after configuration.
 - `BLOCKED_EXTERNAL_CONFIG`: Razorpay live keys/webhook secret, the final HTTPS domain/TLS boundary, verified business contact/address/GST identity required by the current launch policy, and any chosen SMTP/analytics configuration are not yet supplied.
 - `BLOCKED_OPERATOR_ACTION`: the first production owner has not been bootstrapped and no imported membership-plan draft has been business-verified/activated. The current recovery-tested Phase 10 backup consequently also predates those launch-state records; create a new final backup after owner/plan setup.
 - SMS and WhatsApp provider adapters remain intentionally unavailable even if credentials are later configured; they are optional future integrations and are not represented as working.
-- Real external-provider canaries and the public production cutover cannot be completed without verified user-supplied credentials/domain/business facts. No code path bypasses these blockers.
+- Read-only Firebase/Razorpay connectivity canaries are now implemented, but the required real end-to-end Firebase login and controlled live Razorpay payment/webhook canaries plus the public production cutover still require verified operator-supplied credentials/domain/business facts. No code path bypasses these blockers.
 
 ## Test status
 - Phase 1 automated test evidence: 11/11 `unittest` tests passed on 2026-08-26 using Python 3.12.13.
@@ -180,14 +190,16 @@ Last updated: 2026-08-28
 
 - Phase 10 focused operations evidence: 9/9 tests pass. Full current regression: 77/77 tests pass in 66.449s, with Python compile, 15 JavaScript syntax checks, PowerShell parser checks, POSIX shell syntax checks, and `git diff --check` all green. Live backup verification and recovery drill pass while the application remains healthy.
 - Phase 11 focused launch/readiness/smoke coverage adds broad-proxy rejection, service-account file presence, Razorpay live-mode readiness, incomplete/complete/stale launch-state behavior, production HTTPS smoke enforcement, active-plan smoke enforcement, and recovery-backup owner/plan proof. Full current regression is 84/84 in 43.106s with 15 JS, 10 PowerShell, 10 shell, compile, and diff gates green.
+- Phase 12 focused provider/cutover coverage is 8/8. Full current regression is 92/92 in 99.780s with 15 JS, 12 PowerShell, 12 shell, Python compile, and diff gates green.
 
 ## Deployment status
 
 - Firebase public site remains the historical deployment; no new Firebase deployment is planned.
 - Laptop deployment through `scripts/start-gravity.ps1` remains healthy at `http://127.0.0.1:8787` with 7/7 migrations. The Phase 11 launch gate is installed and intentionally returns no-go until verified production configuration, first-owner bootstrap, active-plan approval, and a new recovery-tested backup containing that launch state exist.
 - The localhost Phase 11 smoke passes all current route/security checks except the intentionally empty active membership catalog.
-- Termux/Linux now has matching start/status/backup/recovery/launch-check/smoke wrappers plus a documented TLS reverse-proxy template. Actual public production cutover remains an operator action requiring the verified final domain and credentials.
+- Phase 12 provider/cutover commands are installed on the laptop and fail closed without contacting providers/public production endpoints while the local launch gate is blocked.
+- Termux/Linux now has matching start/status/backup/recovery/launch-check/provider-canary/smoke/cutover wrappers plus a documented TLS reverse-proxy template. Actual public production cutover remains an operator action requiring the verified final domain and credentials.
 
 ## Next implementation milestone
 
-Code-side Phase 11 launch preparation is complete. The next milestone is the real production cutover after verified external values are supplied: configure the final `.env`, bootstrap the owner, verify/activate plans, create a fresh prelaunch backup, complete approved Firebase/Razorpay canaries, establish public HTTPS through the trusted proxy, run `launch-check`, run smoke against the exact public URL, and go live only if every gate is green. Optional post-launch work includes richer customer dashboards and real SMS/WhatsApp adapters.
+Code-side Phase 12 cutover verification is complete. The next milestone is the real production cutover after verified external values are supplied: configure the final `.env`, bootstrap the owner, verify/activate plans, create a fresh prelaunch backup, run the read-only provider canaries, complete the approved real Firebase login and controlled Razorpay payment/webhook canaries, establish public HTTPS through the trusted proxy, and require `cutover-check` to be green against the exact public URL. Optional post-launch work includes richer customer dashboards and real SMS/WhatsApp adapters.

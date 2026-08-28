@@ -14,11 +14,12 @@ Phase 11 final launch preparation is implemented. Gravity now has a fail-closed 
 .\scripts\status-gravity.ps1
 ```
 
-For production preparation, run the fail-closed launch gate and smoke suite:
+For production preparation, run the fail-closed launch gate, read-only provider canaries, and combined cutover verifier:
 
 ```powershell
 .\scripts\launch-check.ps1
-.\scripts\smoke-gravity.ps1
+.\scripts\provider-canaries.ps1
+.\scripts\cutover-check.ps1 -BaseUrl https://<verified-domain>
 ```
 
 See [`docs/LAUNCH_RUNBOOK.md`](docs/LAUNCH_RUNBOOK.md) before any public cutover.

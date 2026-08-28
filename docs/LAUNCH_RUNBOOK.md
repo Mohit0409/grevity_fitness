@@ -87,12 +87,23 @@ Linux / Termux uses the equivalent `.sh` wrappers. Keep a verified copy off-host
 
 ## 7. Perform external-provider canaries
 
-External canaries are deliberately not faked or auto-run without real credentials. Before accepting production traffic:
+Gravity now includes read-only connectivity canaries for the two required launch providers. They do not create customers, orders, payments, memberships, or other provider-side state.
 
-- Firebase: complete one real approved customer sign-in and confirm Gravity creates/resolves the first-party session without exposing the Firebase token.
-- Razorpay: use a business-approved controlled live canary only when the owner intends a real provider transaction; verify server-side order/signature/webhook handling and membership/payment persistence.
-- SMTP, if enabled: send only through the configured adapter to an approved recipient and confirm retry/success state.
-- SMS and WhatsApp remain blocked until real adapters are implemented; configured credentials alone do not count as success.
+Windows:
+
+```powershell
+.\scripts\provider-canaries.ps1
+```
+
+Linux / Termux:
+
+```sh
+./scripts/provider-canaries.sh
+```
+
+The Firebase probe validates the configured Admin SDK credential/project and performs a one-user list permission/connectivity request without returning user data. The Razorpay probe performs only `GET /v1/orders?count=1` using the configured live credentials and returns no order details. Exit code `0` requires both probes to pass.
+
+These read-only probes do not replace end-to-end business canaries. Before accepting production traffic, complete one approved real Firebase customer sign-in and verify the Gravity first-party session. For Razorpay, perform a business-approved controlled live transaction only when the owner intends a real charge, and verify server-side order/signature/webhook handling plus persisted payment/membership state. SMTP is optional; SMS and WhatsApp remain blocked until real adapters exist.
 ## 8. Start and run the launch smoke suite
 
 Start Gravity with the normal platform launcher, then run:
@@ -120,11 +131,26 @@ You may explicitly target a verified URL during cutover:
 ```
 
 Use the actual verified production domain, not the illustrative hostname above.
-## 9. Go / no-go decision
+## 9. Run the combined cutover verifier
+
+After the local launch gate is green and the public HTTPS endpoint is running, use the combined verifier. It refuses to run provider/public network checks while the local launch gate is blocked.
+
+```powershell
+.\scripts\cutover-check.ps1 -BaseUrl https://<verified-domain>
+```
+
+```sh
+./scripts/cutover-check.sh https://<verified-domain>
+```
+
+Exit code `0` and `cutoverReady: true` mean the local launch gate, both read-only provider canaries, and exact-URL HTTPS smoke all passed in one run.
+
+## 10. Go / no-go decision
 
 Go live only when all of the following are true:
 
-- `launch-check` exits `0` with no blockers.
+- `cutover-check` exits `0` with no blockers.
+- `launch-check` independently exits `0` with no blockers.
 - GitHub Actions is green on the exact deployed commit for Ubuntu and Windows.
 - The final backup is verified, recovery-drilled, and copied to protected off-host storage.
 - First owner TOTP/recovery material is secured.
@@ -135,7 +161,7 @@ Go live only when all of the following are true:
 
 Any failed item is a no-go. Keep the previous known-good deployment available until the cutover is proven healthy.
 
-## 10. Rollback
+## 11. Rollback
 
 If the application code fails after cutover, revert/deploy a known-good Git commit without manually downgrading migrations. If data recovery is required, follow `docs/OPERATIONS_RUNBOOK.md`: stop Gravity, verify the chosen archive again, perform the guarded restore, restart, then repeat launch smoke checks.
 

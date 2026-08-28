@@ -133,6 +133,19 @@ class FirebaseAdminVerifier:
                 raise FirebaseUnavailable("Firebase Admin initialization failed") from error
             return self._app
 
+    def probe(self) -> None:
+        """Perform a read-only Firebase Admin connectivity/permission check."""
+        try:
+            from firebase_admin import auth
+        except ImportError as error:
+            raise FirebaseUnavailable("Firebase Admin SDK is not installed") from error
+        try:
+            auth.list_users(max_results=1, app=self._get_app())
+        except FirebaseUnavailable:
+            raise
+        except Exception as error:
+            raise FirebaseUnavailable("Firebase Admin connectivity check failed") from error
+
     def verify(self, id_token: str) -> VerifiedFirebaseIdentity:
         if not isinstance(id_token, str) or not 20 <= len(id_token) <= 16_384:
             raise InvalidFirebaseToken("Invalid Firebase token")

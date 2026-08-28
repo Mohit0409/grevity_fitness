@@ -22,6 +22,8 @@ from .notification import NotificationService
 from .operations import BackupManager, OperationsError
 from .http import create_server
 from .logging_config import configure_logging
+from .canary import run_provider_canaries
+from .cutover import CutoverVerifier
 from .launch import LaunchGate
 from .smoke import run_smoke
 
@@ -41,8 +43,10 @@ def _parser() -> argparse.ArgumentParser:
     operations.add_argument("--recovery-drill", type=Path, metavar="ARCHIVE", help="Restore a backup into a temporary drill database and validate it")
     operations.add_argument("--restore-backup", type=Path, metavar="ARCHIVE", help="Restore the live database from a verified backup")
     operations.add_argument("--launch-check", action="store_true", help="Run the fail-closed production launch gate")
+    operations.add_argument("--provider-canaries", action="store_true", help="Run read-only Firebase and Razorpay production canaries")
     operations.add_argument("--smoke", action="store_true", help="Run the public/private launch smoke suite")
-    parser.add_argument("--smoke-base-url", help="Override APP_BASE_URL only for the smoke suite")
+    operations.add_argument("--cutover-check", action="store_true", help="Run launch gate, provider canaries, and public HTTPS smoke")
+    parser.add_argument("--smoke-base-url", help="Override APP_BASE_URL for smoke/cutover verification")
     parser.add_argument("--backup-label", default="manual", help="Label used when creating a backup")
     parser.add_argument("--confirm-live-restore", action="store_true", help="Required confirmation for replacing the live database")
     return parser
@@ -90,10 +94,20 @@ def main() -> int:
         print(json.dumps(report, sort_keys=True))
         return 0 if report["launchReady"] else 2
 
+    if args.provider_canaries:
+        report = run_provider_canaries(settings)
+        print(json.dumps(report, sort_keys=True))
+        return 0 if report["ok"] else 2
+
     if args.smoke:
         report = run_smoke(args.smoke_base_url or settings.app_base_url, require_https=settings.production)
         print(json.dumps(report, sort_keys=True))
         return 0 if report["ok"] else 2
+
+    if args.cutover_check:
+        report = CutoverVerifier(settings).report(args.smoke_base_url)
+        print(json.dumps(report, sort_keys=True))
+        return 0 if report["cutoverReady"] else 2
 
     settings.ensure_directories()
     configure_logging(settings)
