@@ -358,3 +358,20 @@ html { -webkit-text-size-adjust: 100%; }
 @media (max-width: 760px) {
   .hours-card a { justify-content: flex-start; }
 }
+
+/* Phase 2: bound decorative paint work and improve non-pointer accessibility. */
+.hero-art, .gallery-art, .empty-state__mark {
+  contain: layout paint;
+}
+.section--lime :focus-visible, .final-cta :focus-visible {
+  outline-color: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-skeleton::after {
+    animation: none !important;
+    transform: none !important;
+  }
+  .button:hover, .btn:hover {
+    transform: none;
+  }
+}

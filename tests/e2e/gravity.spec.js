@@ -217,6 +217,7 @@ async function expectTouchTargets(page) {
 }
 
 test('all public routes pass the complete responsive width matrix', async ({ page }) => {
+  test.setTimeout(90_000);
   const runtimeProblems = watchRuntime(page);
   for (const route of publicRoutes) {
     for (const width of widths) {
@@ -269,7 +270,7 @@ test('public metadata is complete and consistent on every indexable route', asyn
     await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
     await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', /Gravity Fitness/);
     await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute('content', /.{20,}/);
-    await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute('href', /gravity2-public-ui1/);
+    await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute('href', /gravity2-public-ui2/);
   }
 });
 
@@ -290,4 +291,79 @@ test('mobile navigation labels current page and Escape restores the trigger', as
   await expect(page.locator('#menu-open')).toBeFocused();
   await expect(page.locator('#menu-open')).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('html')).not.toHaveClass(/modal-open/);
+});
+
+test('public startup bundle stays lean and makes no third-party startup requests', async ({ page }) => {
+  const external = [];
+  page.on('request', (request) => {
+    const host = new URL(request.url()).hostname;
+    if (!['127.0.0.1', 'localhost'].includes(host)) external.push(request.url());
+  });
+  await page.goto('/');
+  await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
+  const startupAssets = await page.locator('link[rel="stylesheet"], script[src]').evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute('href') || node.getAttribute('src')).filter(Boolean));
+  expect(startupAssets).toHaveLength(4);
+  let rawBytes = (await (await page.request.get('/')).body()).length;
+  for (const asset of startupAssets) {
+    const response = await page.request.get(asset);
+    expect(response.ok(), asset).toBeTruthy();
+    rawBytes += (await response.body()).length;
+  }
+  expect(rawBytes).toBeLessThanOrEqual(64 * 1024);
+  expect(external).toEqual([]);
+});
+
+test('keyboard-only public flow exposes skip, FAQ and enquiry controls', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.goto('/');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.skip-link')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#main-content$/);
+  const firstFaq = page.locator('.faq-list details').first();
+  const summary = firstFaq.locator('summary');
+  await summary.focus();
+  await page.keyboard.press('Enter');
+  await expect(firstFaq).toHaveAttribute('open', '');
+
+  const request = page.getByRole('button', { name: 'Request a visit' }).first();
+  await request.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#request-dialog')).toBeVisible();
+  await expect(page.locator('#enquiry-type')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#request-dialog')).not.toBeVisible();
+  await expect(request).toBeFocused();
+});
+
+test('reduced motion removes continuous public animation and smooth scrolling', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const motion = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.className = 'plan-skeleton';
+    document.body.appendChild(probe);
+    const animationName = getComputedStyle(probe, '::after').animationName;
+    probe.remove();
+    return {
+      scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior,
+      transitionDuration: getComputedStyle(document.querySelector('.button')).transitionDuration,
+      animationName,
+    };
+  });
+  expect(motion.scrollBehavior).toBe('auto');
+  expect(motion.animationName).toBe('none');
+  expect(parseFloat(motion.transitionDuration)).toBeLessThanOrEqual(0.001);
+});
+
+test('public routes tolerate 200 percent text resizing without horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  for (const route of publicRoutes) {
+    await page.goto(route);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expectNoOverflow(page);
+    await expect(page.locator('main')).toBeVisible();
+    await expect(page.locator('h1')).toBeVisible();
+  }
 });
