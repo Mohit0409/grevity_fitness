@@ -927,8 +927,8 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             "font-src 'self'; "
             "img-src 'self' data: https:; "
             "connect-src 'self' "
-            "https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://api.razorpay.com https://checkout.razorpay.com; "
-            "frame-src https://accounts.google.com https://www.google.com https://recaptcha.net https://www.recaptcha.net https://*.firebaseapp.com https://api.razorpay.com https://checkout.razorpay.com; "
+            "https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://www.google.com https://www.recaptcha.net https://api.razorpay.com https://checkout.razorpay.com; "
+            "frame-src https://accounts.google.com https://www.google.com https://recaptcha.google.com https://recaptcha.net https://www.recaptcha.net https://*.firebaseapp.com https://api.razorpay.com https://checkout.razorpay.com; "
             "form-action 'self'; upgrade-insecure-requests",
         )
         if self.server.settings.production and self.server.settings.app_base_url.startswith("https://"):
