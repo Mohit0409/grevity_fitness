@@ -84,8 +84,16 @@ function friendlyError(error) {
   if (error && error.code === 'auth/popup-closed-by-user') return 'Google sign-in was closed before it finished.';
   if (error && error.code === 'auth/network-request-failed') return 'Firebase could not be reached. Check your connection and try again.';
   if (error && error.code === 'auth/too-many-requests') return 'Firebase temporarily blocked repeated attempts. Wait a little and try again.';
+  if (error && (error.code === 'auth/captcha-check-failed' || error.code === 'auth/missing-app-credential' || error.code === 'auth/invalid-app-credential')) {
+    return 'Firebase could not verify the anti-bot check. Reload the page and try again.';
+  }
+  if (error && error.code === 'auth/quota-exceeded') return 'Firebase SMS quota is currently exhausted. Please try again later.';
+  if (error && error.code === 'auth/invalid-verification-code') return 'That verification code is incorrect. Check the SMS and try again.';
+  if (error && (error.code === 'auth/code-expired' || error.code === 'auth/session-expired')) return 'That verification code expired. Request a new code and try again.';
+  if (error && error.code === 'auth/app-not-authorized') return 'This Gravity web app is not authorized to use Firebase Authentication.';
+  if (error && error.code === 'auth/internal-error') return 'Firebase returned an internal authentication error. Please retry once; if it continues, report this screen.';
   if (error && error.code && error.code.startsWith('auth/')) {
-    return 'Firebase could not complete sign-in. Please try again.';
+    return `Firebase sign-in failed (${error.code}). Please try again.`;
   }
   return 'Something went wrong. Your changes were not assumed successful; please try again.';
 }
@@ -426,6 +434,11 @@ document.getElementById('confirm-phone-code').addEventListener('click', async (e
   try {
     const credential = await phoneConfirmation.confirm(code.value);
     const result = await exchangeFirebaseUser(credential.user);
+    phoneConfirmation = null;
+    if (recaptchaVerifier) {
+      recaptchaVerifier.clear();
+      recaptchaVerifier = null;
+    }
     renderUser(result.user);
   } catch (error) {
     setStatus(signedOutStatus, friendlyError(error), 'error');

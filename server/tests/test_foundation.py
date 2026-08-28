@@ -225,6 +225,9 @@ class HttpFoundationTests(unittest.TestCase):
             self.assertIn(b"/api/auth/link", script)
             self.assertIn(b"linkFirebaseUser", script)
             self.assertIn(b"normalizePhoneNumber", script)
+            self.assertIn(b"auth/captcha-check-failed", script)
+            self.assertIn(b"recaptchaVerifier.clear()", script)
+            self.assertIn(b"normalizePhoneNumber", script)
             self.assertIn(b"`+91${compact}`", script)
             self.assertIn(b"auth/unauthorized-domain", script)
 
