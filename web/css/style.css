@@ -375,3 +375,29 @@ html { -webkit-text-size-adjust: 100%; }
     transform: none;
   }
 }
+
+
+/* Phase 3: resilient public fallbacks and system accessibility modes. */
+.noscript-banner {
+  margin-top: 78px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  color: #d6dacd;
+  background: var(--ink-3);
+  font-size: .8rem;
+  line-height: 1.55;
+}
+.noscript-banner a { color: var(--lime); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.membership-noscript { padding: 18px; border: 1px solid var(--line); background: var(--ink-2); }
+
+@media (max-width: 760px) {
+  .noscript-banner { margin-top: 68px; }
+}
+
+@media (forced-colors: active) {
+  :focus-visible { outline: 3px solid Highlight; }
+  .button, .btn, .menu-button, .icon-button, .dialog-close, .text-button, .card-link { forced-color-adjust: auto; border: 1px solid ButtonText; }
+  .hero-art, .gallery-art, .empty-state__mark { background: Canvas; }
+}
+.plan-skeleton { display: none; }
+.plan-grid.is-loading .plan-skeleton { display: block; }

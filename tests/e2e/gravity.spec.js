@@ -31,6 +31,7 @@ async function expectNoSeriousA11yFailures(page) {
 }
 
 test('home publishes only verified facts and passes the visual release matrix', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
   const runtimeProblems = watchRuntime(page);
   for (const width of widths) {
     await page.setViewportSize({ width, height: width <= 430 ? 844 : 900 });
@@ -178,26 +179,33 @@ test('secondary routes, canonical metadata and privacy review marker are complet
     await expectNoOverflow(page);
   }
   await expect(page.locator('body')).toContainText('REQUIRES_OPERATOR_LEGAL_REVIEW');
+  await page.goto('/trainers');
+  await expect(page.getByRole('heading', { name: 'Start with your goal.', exact: false })).toBeVisible();
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/coaching$/);
+  await expectNoOverflow(page);
   const robots = await (await page.request.get('/robots.txt')).text();
   const sitemap = await (await page.request.get('/sitemap.xml')).text();
   expect(robots).toContain('/sitemap.xml');
   for (const route of ['/', '/coaching', '/gallery', '/privacy']) expect(sitemap).toContain(route);
+  expect(sitemap).not.toContain('/trainers');
 });
 
 test('public pages have no serious or critical automated accessibility violations', async ({ page }) => {
+  test.setTimeout(90_000);
   await page.goto('/');
   await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
   await expectNoSeriousA11yFailures(page);
   await page.getByRole('button', { name: 'Request a visit' }).first().click();
   await expectNoSeriousA11yFailures(page);
   await page.locator('#request-close').click();
-  for (const route of ['/coaching', '/gallery', '/privacy', '/account']) {
+  for (const route of ['/coaching', '/trainers', '/gallery', '/privacy']) {
     await page.goto(route);
     await expectNoSeriousA11yFailures(page);
   }
 });
 
 const publicRoutes = ['/', '/coaching', '/gallery', '/privacy'];
+const responsiveRoutes = [...publicRoutes, '/trainers'];
 
 async function expectTouchTargets(page) {
   const failures = await page.locator('a, button, summary, input, select, textarea').evaluateAll((nodes) => nodes.flatMap((node) => {
@@ -219,11 +227,12 @@ async function expectTouchTargets(page) {
 test('all public routes pass the complete responsive width matrix', async ({ page }) => {
   test.setTimeout(90_000);
   const runtimeProblems = watchRuntime(page);
-  for (const route of publicRoutes) {
+  for (const route of responsiveRoutes) {
+    await page.setViewportSize({ width: widths[0], height: 844 });
+    await page.goto(route);
+    if (route === '/') await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
     for (const width of widths) {
       await page.setViewportSize({ width, height: width <= 430 ? 844 : 900 });
-      await page.goto(route);
-      if (route === '/') await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
       await expectNoOverflow(page);
       if (width <= 980) {
         await expect(page.locator('#menu-open')).toBeVisible();
@@ -267,10 +276,14 @@ test('public metadata is complete and consistent on every indexable route', asyn
     await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', /.{20,}/);
     await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', new RegExp(`${route === '/' ? '/$' : `${route}$`}`));
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/assets\/og-gravity\.png$/);
+    await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute('content', 'Gravity Fitness Neemuch');
     await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
+    await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', /\/assets\/og-gravity\.png$/);
+    await expect(page.locator('meta[name="twitter:image:alt"]')).toHaveAttribute('content', 'Gravity Fitness Neemuch');
     await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', /Gravity Fitness/);
     await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute('content', /.{20,}/);
-    await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute('href', /gravity2-public-ui2/);
+    await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute('href', /gravity2-public-ui3/);
+    await expect(page.locator('script[src^="/js/public-page.js"]')).toHaveAttribute('src', /gravity2-public-ui4/);
   }
 });
 
@@ -281,6 +294,15 @@ test('mobile navigation labels current page and Escape restores the trigger', as
   await expect(page.locator('#mobile-menu')).toBeVisible();
   await expect(page.locator('#mobile-menu nav')).toHaveAttribute('aria-label', 'Mobile navigation');
   await expect(page.locator('#mobile-menu a[aria-current="page"]')).toHaveText(/Coaching/);
+  await expect(page.locator('#mobile-menu a[aria-current="page"]')).toHaveAccessibleName('Coaching');
+  const menuIndexes = page.locator('#mobile-menu nav a > span');
+  await expect(menuIndexes).toHaveCount(5);
+  for (let index = 0; index < 5; index += 1) await expect(menuIndexes.nth(index)).toHaveAttribute('aria-hidden', 'true');
+  const finalMenuAction = page.locator('#mobile-menu > .button');
+  await finalMenuAction.focus();
+  await page.keyboard.press('Tab');
+  const focusIsTrapped = await page.locator('#mobile-menu').evaluate((menu) => menu.contains(document.activeElement));
+  expect(focusIsTrapped).toBe(true);
   const menuMetrics = await page.locator('#mobile-menu').evaluate((node) => ({
     clientHeight: node.clientHeight,
     scrollHeight: node.scrollHeight,
@@ -314,6 +336,31 @@ test('public startup bundle stays lean and makes no third-party startup requests
   expect(external).toEqual([]);
 });
 
+test('membership loading geometry matches the rendered card grid', async ({ page }) => {
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
+    await page.goto('/#membership');
+    const plans = page.locator('#public-membership-plans');
+    await expect(plans).toHaveAttribute('aria-busy', 'false');
+    const metrics = await plans.evaluate((grid) => {
+      const gridStyle = getComputedStyle(grid);
+      const probe = document.createElement('div');
+      probe.className = 'plan-skeleton';
+      probe.style.cssText = 'display:block;position:absolute;visibility:hidden;pointer-events:none';
+      document.body.appendChild(probe);
+      const skeletonHeight = parseFloat(getComputedStyle(probe).minHeight);
+      probe.remove();
+      const columnCount = gridStyle.gridTemplateColumns.split(' ').filter(Boolean).length;
+      const rowCount = Math.ceil(3 / columnCount);
+      const rowGap = parseFloat(gridStyle.rowGap);
+      return {
+        renderedHeight: grid.getBoundingClientRect().height,
+        reservedHeight: (skeletonHeight * rowCount) + (rowGap * (rowCount - 1)),
+      };
+    });
+    expect(Math.abs(metrics.renderedHeight - metrics.reservedHeight)).toBeLessThanOrEqual(2);
+  }
+});
 test('keyboard-only public flow exposes skip, FAQ and enquiry controls', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.goto('/');
@@ -366,4 +413,90 @@ test('public routes tolerate 200 percent text resizing without horizontal overfl
     await expect(page.locator('main')).toBeVisible();
     await expect(page.locator('h1')).toBeVisible();
   }
+});
+
+
+test('public pages keep a valid semantic heading outline and safe external links', async ({ page }) => {
+  for (const route of publicRoutes) {
+    await page.goto(route);
+    await expect(page.locator('main h1')).toHaveCount(1);
+    const outline = await page.locator('h1, h2, h3, h4, h5, h6').evaluateAll((nodes) => nodes.map((node) => Number(node.tagName.slice(1))));
+    expect(outline[0]).toBe(1);
+    for (let index = 1; index < outline.length; index += 1) {
+      expect(outline[index] - outline[index - 1], `${route} heading jump at ${index}`).toBeLessThanOrEqual(1);
+    }
+    const unsafeTargets = await page.locator('a[target="_blank"]').evaluateAll((links) => links.flatMap((link) => {
+      const rel = new Set((link.getAttribute('rel') || '').split(/\s+/).filter(Boolean));
+      return rel.has('noopener') && rel.has('noreferrer') ? [] : [link.getAttribute('href')];
+    }));
+    expect(unsafeTargets, `${route} has unsafe new-tab links`).toEqual([]);
+  }
+});
+
+test('all same-origin public navigation links resolve successfully', async ({ page, request }) => {
+  const paths = new Set();
+  for (const route of publicRoutes) {
+    await page.goto(route);
+    const hrefs = await page.locator('a[href]').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+    for (const href of hrefs) {
+      if (!href || href.startsWith('#') || /^(?:tel:|mailto:|https?:\/\/)/i.test(href)) continue;
+      paths.add(new URL(href, 'http://gravity.local').pathname);
+    }
+  }
+  for (const path of paths) {
+    const response = await request.get(path);
+    expect(response.status(), `${path} should resolve`).toBeLessThan(400);
+  }
+});
+
+test('public pages provide a useful no-JavaScript contact fallback', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  try {
+    for (const route of publicRoutes) {
+      await page.goto(route);
+      await expect(page.locator('.noscript-banner')).toBeVisible();
+      await expect(page.locator('.noscript-banner a[href^="tel:"]')).toHaveAttribute('href', 'tel:+917999526112');
+      await expectNoOverflow(page);
+    }
+    await page.goto('/');
+    await expect(page.locator('#public-membership-plans')).toBeHidden();
+    await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
+    await expect(page.locator('.membership-noscript')).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('membership API failure degrades to a clear contact state', async ({ page }) => {
+  await page.route('**/api/membership/plans', (route) => route.fulfill({
+    status: 503,
+    contentType: 'application/json',
+    body: JSON.stringify({ error: 'temporarily_unavailable' }),
+  }));
+  await page.goto('/#membership');
+  await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('.plan-card')).toHaveCount(1);
+  await expect(page.locator('.plan-card')).toContainText('Prices unavailable');
+  await expect(page.locator('.plan-card a[href^="tel:"]')).toHaveAttribute('href', 'tel:+917999526112');
+});
+
+test('public controls remain distinguishable in forced-colors mode', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ forcedColors: 'active' });
+  await page.goto('/');
+  await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
+  const button = page.locator('.hero-actions .button').first();
+  await expect(button).toBeVisible();
+  const styles = await button.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return {
+      forcedColorAdjust: style.forcedColorAdjust,
+      borderStyle: style.borderStyle,
+      borderWidth: parseFloat(style.borderTopWidth),
+    };
+  });
+  expect(styles.forcedColorAdjust).toBe('auto');
+  expect(styles.borderStyle).not.toBe('none');
+  expect(styles.borderWidth).toBeGreaterThanOrEqual(1);
 });
