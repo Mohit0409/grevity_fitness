@@ -20,6 +20,7 @@ from .delivery import NotificationDispatcher
 from .membership import MembershipService
 from .notification import NotificationService
 from .operations import BackupManager, OperationsError
+from .runtime import RuntimeLease, RuntimeLeaseError
 from .http import create_server
 from .enquiry import EnquiryService
 from .logging_config import configure_logging
@@ -141,7 +142,7 @@ def main() -> int:
         except OperationsError as error:
             print(f"Gravity operation failed: {error}")
             return 2
-        print(result)
+        print(json.dumps(result, sort_keys=True))
         return 0
 
     if args.purge_expired_enquiries:
@@ -178,7 +179,12 @@ def main() -> int:
     logger.info("server_started", extra={"event_data": {"host": host, "port": port}})
     print(f"Gravity Fitness listening on http://{host}:{port}")
     try:
-        server.serve_forever(poll_interval=0.25)
+        with RuntimeLease(settings):
+            server.serve_forever(poll_interval=0.25)
+    except RuntimeLeaseError as error:
+        logger.error("runtime_lease_failed", extra={"event_data": {"error": str(error)}})
+        print(f"Gravity startup failed: {error}")
+        return 2
     finally:
         server.server_close()
         logger.info("server_stopped")

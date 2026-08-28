@@ -1,0 +1,2 @@
+*.sh text eol=lf
+deploy/termux/services/**/run text eol=lf

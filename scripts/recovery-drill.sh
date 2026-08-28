@@ -1,15 +1,7 @@
 #!/usr/bin/env sh
 set -eu
-
-if [ "$#" -ne 1 ]; then
-  printf 'Usage: %s BACKUP.zip\n' "$0" >&2
-  exit 2
-fi
-PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-PYTHON_BIN=${GRAVITY_PYTHON:-"$PROJECT_ROOT/.venv/bin/python"}
-if [ ! -x "$PYTHON_BIN" ]; then
-  printf '%s\n' 'Gravity Python environment is missing.' >&2
-  exit 1
-fi
-cd "$PROJECT_ROOT"
-exec "$PYTHON_BIN" -m server.gravity --recovery-drill "$1"
+[ "$#" -eq 1 ] || { printf 'Usage: %s BACKUP.zip\n' "$0" >&2; exit 2; }
+. "$(dirname -- "$0")/gravity-common.sh"
+gravity_init
+cd "$GRAVITY_PROJECT_ROOT"
+gravity_run "$GRAVITY_PYTHON_BIN" -m server.gravity --recovery-drill "$1"

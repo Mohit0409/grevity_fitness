@@ -1,16 +1,16 @@
 #!/usr/bin/env sh
 set -eu
-
-if [ "$#" -ne 2 ] || [ "$2" != "--confirm" ]; then
+if [ "$#" -ne 2 ] || [ "$2" != '--confirm' ]; then
   printf 'Usage: %s BACKUP.zip --confirm\n' "$0" >&2
   printf '%s\n' 'Stop Gravity Fitness before restoring the live database.' >&2
   exit 2
 fi
-PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-PYTHON_BIN=${GRAVITY_PYTHON:-"$PROJECT_ROOT/.venv/bin/python"}
-if [ ! -x "$PYTHON_BIN" ]; then
-  printf '%s\n' 'Gravity Python environment is missing.' >&2
+. "$(dirname -- "$0")/gravity-common.sh"
+gravity_init
+pid=$(gravity_pid 2>/dev/null || true)
+if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+  printf 'Refusing live restore while Gravity PID %s is running.\n' "$pid" >&2
   exit 1
 fi
-cd "$PROJECT_ROOT"
-exec "$PYTHON_BIN" -m server.gravity --restore-backup "$1" --confirm-live-restore
+cd "$GRAVITY_PROJECT_ROOT"
+gravity_run "$GRAVITY_PYTHON_BIN" -m server.gravity --restore-backup "$1" --confirm-live-restore

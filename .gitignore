@@ -27,3 +27,10 @@ __pycache__/
 Thumbs.db
 *.log
 *.egg-info/
+
+# Private deployment credentials (examples remain trackable)
+deploy/private/
+*-service-account.json
+*-credentials.json
+*-tunnel-token
+*.token

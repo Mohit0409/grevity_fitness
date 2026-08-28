@@ -1,0 +1,17 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -euo pipefail
+umask 077
+
+CONFIG="${GRAVITY_ENV_FILE:-$HOME/.config/gravity/gravity.env}"
+REPO="$(cat "$HOME/.config/gravity/repository")"
+[ -r "$CONFIG" ] || { echo "Gravity config is missing" >&2; exit 1; }
+
+if [ "${GRAVITY_ENV_LOADED:-}" != 1 ]; then
+  exec python3 "$REPO/scripts/gravity-env.py" --config "$CONFIG" -- \
+    env GRAVITY_ENV_LOADED=1 "$0"
+fi
+
+TOKEN_FILE="${CLOUDFLARED_TOKEN_FILE:-$HOME/.config/gravity/cloudflared-token}"
+[ -s "$TOKEN_FILE" ] || { echo "Cloudflare Tunnel token file is missing" >&2; exit 1; }
+[ "$(stat -c '%a' "$TOKEN_FILE")" = 600 ] || { echo "Cloudflare Tunnel token must have mode 600" >&2; exit 1; }
+exec cloudflared tunnel --no-autoupdate run --protocol http2 --token-file "$TOKEN_FILE"

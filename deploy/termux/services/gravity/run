@@ -1,0 +1,26 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -euo pipefail
+umask 077
+
+CONFIG="${GRAVITY_ENV_FILE:-$HOME/.config/gravity/gravity.env}"
+REPO_FILE="$HOME/.config/gravity/repository"
+[ -r "$CONFIG" ] || { echo "Gravity config is missing: $CONFIG" >&2; exit 1; }
+[ -r "$REPO_FILE" ] || { echo "Gravity repository marker is missing: $REPO_FILE" >&2; exit 1; }
+REPO="$(cat "$REPO_FILE")"
+[ -d "$REPO/.git" ] || [ -f "$REPO/.git" ] || { echo "Gravity checkout is missing: $REPO" >&2; exit 1; }
+
+value() {
+  python3 "$REPO/scripts/gravity-env.py" --config "$CONFIG" --print "$1"
+}
+HOST="$(value GRAVITY_HOST)"
+HOST="${HOST:-127.0.0.1}"
+[ "$HOST" = '127.0.0.1' ] || { echo "Refusing non-loopback GRAVITY_HOST=$HOST" >&2; exit 1; }
+PORT="$(value GRAVITY_PORT)"
+PORT="${PORT:-8787}"
+PYTHON="$(value GRAVITY_PYTHON)"
+PYTHON="${PYTHON:-$REPO/.venv/bin/python}"
+[ -x "$PYTHON" ] || { echo "Gravity Python is missing: $PYTHON" >&2; exit 1; }
+
+cd "$REPO"
+exec python3 "$REPO/scripts/gravity-env.py" --config "$CONFIG" -- \
+  "$PYTHON" -m server.gravity --host 127.0.0.1 --port "$PORT"

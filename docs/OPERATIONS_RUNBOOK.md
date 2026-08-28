@@ -23,6 +23,46 @@ Default local runtime paths are under `.gravity/`:
 
 All of these paths are gitignored.
 
+Production operators should instead keep configuration and mutable state outside the checkout. Pass the private config explicitly:
+
+```powershell
+.\scripts\start-gravity.ps1 -ConfigPath C:\ProgramData\GravityFitness\gravity.env
+```
+
+Set `GRAVITY_RUNTIME_DIR`, `GRAVITY_DATA_DIR`, `GRAVITY_LOG_DIR`, and `GRAVITY_BACKUP_DIR` to protected absolute paths in that file. The managed launcher refuses any `GRAVITY_HOST` other than `127.0.0.1`.
+
+## Windows lifecycle and automatic recovery
+
+The server process owns `gravity.pid` and `gravity.state.json`. Start/stop/status verify the PID, checkout root, Python executable, command line, and loopback health contract before acting. A stale or ambiguous PID is never killed automatically.
+
+```powershell
+.\scripts\start-gravity.ps1 -ConfigPath C:\ProgramData\GravityFitness\gravity.env
+.\scripts\status-gravity.ps1 -ConfigPath C:\ProgramData\GravityFitness\gravity.env
+.\scripts\restart-gravity.ps1 -ConfigPath C:\ProgramData\GravityFitness\gravity.env
+.\scripts\stop-gravity.ps1 -ConfigPath C:\ProgramData\GravityFitness\gravity.env
+```
+
+Install reboot/crash recovery from an elevated PowerShell window only after those commands pass manually:
+
+```powershell
+.\scripts\install-gravity-tasks.ps1 `
+  -ConfigPath C:\ProgramData\GravityFitness\gravity.env `
+  -OffsiteBackupDirectory E:\GravityBackups
+```
+
+This registers:
+
+- `GravityFitness-Watchdog`: starts at reboot and checks every minute; it restarts only a process proven to belong to this checkout.
+- `GravityFitness-DailyBackup`: at 02:00 creates, verifies, recovery-drills, and optionally copies a backup off-host.
+
+Add `-EnsureNgrok` only while the temporary ngrok deployment is intentionally in use. A stable production tunnel is preferred. Review Task Scheduler history and `.gravity/operations.log` after installation. Remove only these tasks with `uninstall-gravity-tasks.ps1`.
+
+Before installing tasks after a code or Python-runtime change, run the isolated lifecycle drill. It uses a temporary port/database, tests start/status/backup/recovery/crash-watchdog/stop, and deletes only its verified temporary directory after success:
+
+```powershell
+.\scripts\test-ops-lifecycle.ps1
+```
+
 ## Public enquiry PII retention
 
 Public visit, membership, coaching, and general enquiries are assigned a 180-day `retention_expires_at` value. Gravity automatically deletes expired enquiry rows at server startup; foreign-key cascade removes their notes and events. Expired hashed rate-limit buckets are also removed. This process does not change membership, payment, receipt, customer-account, admin-audit, or coaching records.
@@ -59,7 +99,13 @@ Linux / Termux:
 ./scripts/verify-backup.sh .gravity/backups/gravity-daily-<timestamp>.zip
 ```
 
-A valid archive contains only `gravity.sqlite3` and `manifest.json`. Verification checks SHA-256, file size, SQLite `quick_check`, foreign keys, migration inventory, and schema stage.
+A valid archive contains only `gravity.sqlite3` and `manifest.json`. Creation now reopens and verifies the completed ZIP. The backup wrapper then performs a temporary recovery drill by default. Verification checks SHA-256, file size, SQLite `quick_check`, foreign keys, migration inventory, and schema stage.
+
+To verify the copied bytes on separate storage:
+
+```powershell
+.\scripts\backup-gravity.ps1 -Label daily -OffsiteDirectory E:\GravityBackups
+```
 
 Recommended minimum: create a daily backup, keep multiple generations, and copy at least one verified recent archive off the host device. Do not delete the newest verified backup until a newer backup has passed verification.
 ## Recovery drill
@@ -136,7 +182,7 @@ cp .env.example .env
 
 The shell launcher resolves the same `.env` `APP_BASE_URL` as the Python server and waits for the real health contract before reporting startup success.
 
-For Android/Termux, place the project and `.gravity` data on storage that remains available to Termux. If using Termux:Boot, invoke `scripts/start-gravity.sh`; do not copy credentials into the boot script. Keep the host on `127.0.0.1` and use an approved private overlay/TLS gateway for remote access rather than opening the raw application port.
+For a manual Linux host, the portable shell launchers remain appropriate. For Android/Termux production, use the `runit` services, boot recovery, off-device backup, migration importer, network audit, burn-in, and rollback procedure in `docs/TERMUX_MIGRATION_RUNBOOK.md`. Do not run the manual background launcher and the `runit` service at the same time.
 
 ## Application rollback
 

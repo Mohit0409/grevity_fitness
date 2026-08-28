@@ -1,0 +1,48 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -u
+umask 077
+
+CONFIG="${GRAVITY_ENV_FILE:-$HOME/.config/gravity/gravity.env}"
+REPO="$(cat "$HOME/.config/gravity/repository")"
+PORT="$(python3 "$REPO/scripts/gravity-env.py" --config "$CONFIG" --print GRAVITY_PORT)"
+PORT="${PORT:-8787}"
+HEALTH="http://127.0.0.1:$PORT/api/health"
+STATE="$HOME/.local/state/gravity"
+LOG="$STATE/logs/health.log"
+LAST_BACKUP="$STATE/last-backup-date"
+LAST_ATTEMPT="$STATE/last-backup-attempt"
+mkdir -p "$STATE/logs"
+chmod 700 "$STATE" "$STATE/logs"
+
+failures=0
+while true; do
+  if curl -fsS --max-time 5 "$HEALTH" | grep -Fq '"service":"Gravity Fitness"'; then
+    failures=0
+  else
+    failures=$((failures + 1))
+    printf '%s local health failure %s/3\n' "$(date -Iseconds)" "$failures" >> "$LOG"
+    if [ "$failures" -ge 3 ]; then
+      sv restart gravity >> "$LOG" 2>&1 || true
+      failures=0
+    fi
+  fi
+
+  today="$(date -u +%F)"
+  previous="$(cat "$LAST_BACKUP" 2>/dev/null || true)"
+  now="$(date +%s)"
+  attempted="$(cat "$LAST_ATTEMPT" 2>/dev/null || printf '0')"
+  case "$attempted" in *[!0-9]*|'') attempted=0 ;; esac
+  if [ "$previous" != "$today" ] && [ $((now - attempted)) -ge 3600 ]; then
+    printf '%s\n' "$now" > "$LAST_ATTEMPT"
+    if "$REPO/deploy/termux/backup-offdevice.sh" >> "$LOG" 2>&1; then
+      printf '%s\n' "$today" > "$LAST_BACKUP"
+    else
+      printf '%s daily verified backup failed; retry after cooldown\n' "$(date -Iseconds)" >> "$LOG"
+    fi
+  fi
+
+  if [ -f "$LOG" ] && [ "$(wc -l < "$LOG")" -gt 2000 ]; then
+    tail -n 1500 "$LOG" > "$LOG.trim" && mv "$LOG.trim" "$LOG"
+  fi
+  sleep 60
+done

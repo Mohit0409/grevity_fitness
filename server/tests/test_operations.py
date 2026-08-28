@@ -52,6 +52,7 @@ class OperationsTests(unittest.TestCase):
         archive = Path(backup["path"])
         self.assertTrue(archive.is_file())
         self.assertEqual(archive.parent, self.settings.backup_dir)
+        self.assertTrue(backup["verified"])
         verified = self.manager.verify_backup(archive)
         self.assertTrue(verified["valid"])
         self.assertEqual(verified["migrations"], 8)

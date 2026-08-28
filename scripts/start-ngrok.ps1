@@ -1,104 +1,123 @@
 param(
-  [int]$Port = 8787
+  [string]$ConfigPath,
+  [string]$Domain,
+  [switch]$UpdateConfig
 )
 
 $ErrorActionPreference = 'Stop'
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$RuntimeDir = Join-Path $ProjectRoot '.gravity'
-$PidFile = Join-Path $RuntimeDir 'ngrok.pid'
-$StdoutLog = Join-Path $RuntimeDir 'ngrok.stdout.log'
-$StderrLog = Join-Path $RuntimeDir 'ngrok.stderr.log'
-$DotEnv = Join-Path $ProjectRoot '.env'
-$NgrokConfig = Join-Path $env:LOCALAPPDATA 'ngrok\ngrok.yml'
+. (Join-Path $PSScriptRoot 'gravity-common.ps1')
+$context = Get-GravityContext -ConfigPath $ConfigPath
+$pidFile = Join-Path $context.RuntimeDir 'ngrok.pid'
+$stateFile = Join-Path $context.RuntimeDir 'ngrok.state.json'
+$urlFile = Join-Path $context.RuntimeDir 'ngrok.public-url'
+$stdoutLog = Join-Path $context.RuntimeDir 'ngrok.stdout.log'
+$stderrLog = Join-Path $context.RuntimeDir 'ngrok.stderr.log'
+$ngrokConfig = Join-Path $env:LOCALAPPDATA 'ngrok\ngrok.yml'
 
 function Resolve-Ngrok {
   $command = Get-Command ngrok -ErrorAction SilentlyContinue
   if ($command) { return $command.Source }
   $root = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
-  if (Test-Path $root) {
-    $item = Get-ChildItem $root -Recurse -Filter ngrok.exe -ErrorAction SilentlyContinue |
+  if (Test-Path -LiteralPath $root) {
+    $item = Get-ChildItem -LiteralPath $root -Recurse -Filter ngrok.exe -ErrorAction SilentlyContinue |
       Where-Object { $_.FullName -match 'Ngrok\.Ngrok' } | Select-Object -First 1
     if ($item) { return $item.FullName }
   }
   throw 'ngrok is not installed. Install with: winget install --id Ngrok.Ngrok'
 }
 
-function Set-DotEnvValue([string]$Name, [string]$Value) {
-  $lines = if (Test-Path $DotEnv) { @(Get-Content -LiteralPath $DotEnv) } else { @() }
-  $pattern = '^\s*' + [regex]::Escape($Name) + '\s*='
-  $replaced = $false
-  $updated = foreach ($line in $lines) {
-    if ($line -match $pattern) {
-      $replaced = $true
-      "$Name=$Value"
-    } else { $line }
-  }
-  if (-not $replaced) { $updated += "$Name=$Value" }
-  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-  [System.IO.File]::WriteAllLines($DotEnv, [string[]]$updated, $utf8NoBom)
-}
-
-$NgrokExe = Resolve-Ngrok
-if (-not (Test-Path -LiteralPath $NgrokConfig)) {
-  throw "ngrok authentication is not configured. Run: & '$NgrokExe' config add-authtoken <YOUR_NGROK_TOKEN>"
-}
-$configText = Get-Content -LiteralPath $NgrokConfig -Raw
-if ($configText -notmatch '(?m)^\s*authtoken\s*:') {
-  throw "ngrok authtoken is missing. Run: & '$NgrokExe' config add-authtoken <YOUR_NGROK_TOKEN>"
-}
-
-New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
-if (Test-Path -LiteralPath $PidFile) {
-  $existingId = [int](Get-Content -LiteralPath $PidFile -Raw)
-  if (Get-Process -Id $existingId -ErrorAction SilentlyContinue) {
-    throw "ngrok is already running with PID $existingId."
-  }
-  Remove-Item -LiteralPath $PidFile -Force
-}
-try {
-  $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/health" -TimeoutSec 2
-  if ($health.status -ne 'ok' -or $health.service -ne 'Gravity Fitness') { throw 'invalid health response' }
-} catch {
-  & (Join-Path $PSScriptRoot 'start-gravity.ps1')
-}
-
-$process = Start-Process -FilePath $NgrokExe `
-  -ArgumentList @('http', "http://127.0.0.1:$Port", '--log=stdout', '--log-format=json') `
-  -WorkingDirectory $ProjectRoot -WindowStyle Hidden `
-  -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog -PassThru
-Set-Content -LiteralPath $PidFile -Value $process.Id -Encoding ascii
-
-$PublicUrl = $null
-for ($attempt = 0; $attempt -lt 40; $attempt++) {
-  if (-not (Get-Process -Id $process.Id -ErrorAction SilentlyContinue)) {
-    Remove-Item -LiteralPath $PidFile -Force -ErrorAction SilentlyContinue
-    throw "ngrok exited during startup. Check $StderrLog"
-  }
+function Test-ManagedNgrok([int]$ProcessId) {
+  $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+  if (-not $process -or -not (Test-Path -LiteralPath $stateFile -PathType Leaf)) { return $false }
   try {
-    $tunnels = Invoke-RestMethod -Uri 'http://127.0.0.1:4040/api/tunnels' -TimeoutSec 1
+    $state = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
+    if ([int]$state.pid -ne $ProcessId -or [int]$state.formatVersion -ne 1) { return $false }
+    if ([string]$state.target -ne "http://127.0.0.1:$($context.Port)") { return $false }
+    if (-not [string]::Equals([IO.Path]::GetFullPath([string]$state.executable), $process.Path, [StringComparison]::OrdinalIgnoreCase)) { return $false }
+    $delta = ([DateTimeOffset]::Parse([string]$state.startedAt).UtcDateTime - $process.StartTime.ToUniversalTime()).TotalSeconds
+    return $delta -ge 0 -and $delta -le 120
+  } catch { return $false }
+}
+
+function Get-NgrokPublicUrl {
+  try {
+    $tunnels = Invoke-RestMethod -Uri 'http://127.0.0.1:4040/api/tunnels' -TimeoutSec 2
     $match = @($tunnels.tunnels | Where-Object { $_.public_url -like 'https://*' }) | Select-Object -First 1
-    if ($match) { $PublicUrl = $match.public_url.TrimEnd('/'); break }
+    if ($match) { return $match.public_url.TrimEnd('/') }
   } catch { }
-  Start-Sleep -Milliseconds 250
+  return $null
 }
-if (-not $PublicUrl) {
-  Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
-  Remove-Item -LiteralPath $PidFile -Force -ErrorAction SilentlyContinue
-  throw 'ngrok did not publish an HTTPS tunnel.'
+
+if (-not (Test-Path -LiteralPath $ngrokConfig -PathType Leaf)) {
+  throw "ngrok authentication is not configured. Expected $ngrokConfig"
 }
-Set-DotEnvValue 'GRAVITY_ENV' 'production'
-Set-DotEnvValue 'APP_BASE_URL' $PublicUrl
-Set-DotEnvValue 'GRAVITY_TRUST_PROXY' 'true'
-Set-DotEnvValue 'GRAVITY_TRUSTED_PROXY_CIDRS' '127.0.0.1/32'
+if ((Get-Content -LiteralPath $ngrokConfig -Raw) -notmatch '(?m)^\s*authtoken\s*:') {
+  throw 'ngrok authtoken is missing from the private ngrok config.'
+}
+if (-not (Test-GravityHealth -Context $context)) {
+  & (Join-Path $PSScriptRoot 'start-gravity.ps1') -ConfigPath $ConfigPath
+}
 
-& (Join-Path $PSScriptRoot 'stop-gravity.ps1')
-& (Join-Path $PSScriptRoot 'start-gravity.ps1')
+New-Item -ItemType Directory -Force -Path $context.RuntimeDir | Out-Null
+$process = $null
+if (Test-Path -LiteralPath $pidFile) {
+  $savedPid = [int](Get-Content -LiteralPath $pidFile -Raw)
+  if (Test-ManagedNgrok $savedPid) {
+    $process = Get-Process -Id $savedPid
+  } elseif (Get-Process -Id $savedPid -ErrorAction SilentlyContinue) {
+    throw "Refusing to replace live PID $savedPid because it is not the managed loopback ngrok process."
+  } else {
+    Remove-Item -LiteralPath $pidFile, $stateFile, $urlFile -Force -ErrorAction SilentlyContinue
+  }
+}
 
-$publicHealth = Invoke-RestMethod -Uri "$PublicUrl/api/health" -Headers @{ 'ngrok-skip-browser-warning' = 'true' } -TimeoutSec 8
+if (-not $process) {
+  $ngrokExe = Resolve-Ngrok
+  Rotate-GravityLog -Path $stdoutLog
+  Rotate-GravityLog -Path $stderrLog
+  $arguments = @('http', "http://127.0.0.1:$($context.Port)", '--log=stdout', '--log-format=json', '--config', $ngrokConfig)
+  if ($Domain) { $arguments += "--domain=$Domain" }
+  $process = Start-Process -FilePath $ngrokExe -ArgumentList $arguments `
+    -WorkingDirectory $context.ProjectRoot -WindowStyle Hidden `
+    -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -PassThru
+  Set-Content -LiteralPath $pidFile -Value $process.Id -Encoding ascii
+  [ordered]@{
+    formatVersion = 1
+    pid = $process.Id
+    executable = [IO.Path]::GetFullPath($ngrokExe)
+    target = "http://127.0.0.1:$($context.Port)"
+    startedAt = $process.StartTime.ToUniversalTime().ToString('o')
+  } | ConvertTo-Json | Set-Content -LiteralPath $stateFile -Encoding utf8
+}
+
+$publicUrl = $null
+for ($attempt = 0; $attempt -lt 60; $attempt++) {
+  if (-not (Test-ManagedNgrok $process.Id)) {
+    Remove-Item -LiteralPath $pidFile, $stateFile, $urlFile -Force -ErrorAction SilentlyContinue
+    throw "ngrok exited during startup. Check $stderrLog"
+  }
+  $publicUrl = Get-NgrokPublicUrl
+  if ($publicUrl) { break }
+  Start-Sleep -Milliseconds 500
+}
+if (-not $publicUrl) { throw 'ngrok did not publish an HTTPS tunnel within 30 seconds.' }
+Set-Content -LiteralPath $urlFile -Value $publicUrl -Encoding ascii
+
+if ($UpdateConfig -and ($env:APP_BASE_URL -ne $publicUrl -or $env:GRAVITY_ENV -ne 'production' -or $env:GRAVITY_TRUST_PROXY -ne 'true' -or $env:GRAVITY_TRUSTED_PROXY_CIDRS -ne '127.0.0.1/32')) {
+  if (-not $context.ConfigPath) { throw '-UpdateConfig requires an explicit config file.' }
+  Set-GravityEnvironmentValue -Path $context.ConfigPath -Name 'GRAVITY_ENV' -Value 'production'
+  Set-GravityEnvironmentValue -Path $context.ConfigPath -Name 'APP_BASE_URL' -Value $publicUrl
+  Set-GravityEnvironmentValue -Path $context.ConfigPath -Name 'GRAVITY_TRUST_PROXY' -Value 'true'
+  Set-GravityEnvironmentValue -Path $context.ConfigPath -Name 'GRAVITY_TRUSTED_PROXY_CIDRS' -Value '127.0.0.1/32'
+  & (Join-Path $PSScriptRoot 'restart-gravity.ps1') -ConfigPath $context.ConfigPath
+} elseif (-not $UpdateConfig -and $env:APP_BASE_URL -ne $publicUrl) {
+  throw "Tunnel is online at $publicUrl but APP_BASE_URL does not match. Re-run with -UpdateConfig or configure a reserved ngrok domain."
+}
+
+$publicHealth = Invoke-RestMethod -Uri "$publicUrl/api/health" -Headers @{ 'ngrok-skip-browser-warning' = 'true' } -TimeoutSec 10
 if ($publicHealth.status -ne 'ok' -or $publicHealth.service -ne 'Gravity Fitness') {
   throw 'Public ngrok health check did not return the Gravity contract.'
 }
-
-Write-Host "ngrok HTTPS tunnel started with PID $($process.Id)." -ForegroundColor Green
-Write-Host "Public URL: $PublicUrl" -ForegroundColor Green
-Write-Host "Gravity APP_BASE_URL was updated and the server restarted in production mode."
+Write-GravityOpsLog -Context $context -Message "ngrok_healthy pid=$($process.Id) publicUrl=$publicUrl"
+Write-Host "ngrok HTTPS tunnel is healthy (PID $($process.Id))." -ForegroundColor Green
+Write-Host "Public URL: $publicUrl"

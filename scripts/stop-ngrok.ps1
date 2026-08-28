@@ -1,42 +1,42 @@
+param(
+  [string]$ConfigPath,
+  [switch]$ReturnToDevelopment
+)
+
 $ErrorActionPreference = 'Stop'
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$RuntimeDir = Join-Path $ProjectRoot '.gravity'
-$PidFile = Join-Path $RuntimeDir 'ngrok.pid'
-$DotEnv = Join-Path $ProjectRoot '.env'
-
-function Set-DotEnvValue([string]$Name, [string]$Value) {
-  $lines = if (Test-Path $DotEnv) { @(Get-Content -LiteralPath $DotEnv) } else { @() }
-  $pattern = '^\s*' + [regex]::Escape($Name) + '\s*='
-  $replaced = $false
-  $updated = foreach ($line in $lines) {
-    if ($line -match $pattern) {
-      $replaced = $true
-      "$Name=$Value"
-    } else { $line }
-  }
-  if (-not $replaced) { $updated += "$Name=$Value" }
-  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-  [System.IO.File]::WriteAllLines($DotEnv, [string[]]$updated, $utf8NoBom)
-}
-
-if (Test-Path -LiteralPath $PidFile) {
-  $processId = [int](Get-Content -LiteralPath $PidFile -Raw)
+. (Join-Path $PSScriptRoot 'gravity-common.ps1')
+$context = Get-GravityContext -ConfigPath $ConfigPath
+$pidFile = Join-Path $context.RuntimeDir 'ngrok.pid'
+$stateFile = Join-Path $context.RuntimeDir 'ngrok.state.json'
+$urlFile = Join-Path $context.RuntimeDir 'ngrok.public-url'
+if (Test-Path -LiteralPath $pidFile) {
+  $processId = [int](Get-Content -LiteralPath $pidFile -Raw)
   $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
   if ($process) {
-    if ($process.Path -notlike '*ngrok.exe') {
-      throw "Refusing to stop PID $processId because it is not ngrok."
+    if (-not (Test-Path -LiteralPath $stateFile -PathType Leaf)) {
+      throw "Refusing to stop PID $processId because it is not the managed loopback ngrok process."
+    }
+    $state = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
+    $delta = ([DateTimeOffset]::Parse([string]$state.startedAt).UtcDateTime - $process.StartTime.ToUniversalTime()).TotalSeconds
+    if ([int]$state.pid -ne $processId -or [string]$state.target -ne "http://127.0.0.1:$($context.Port)" -or
+        -not [string]::Equals([IO.Path]::GetFullPath([string]$state.executable), $process.Path, [StringComparison]::OrdinalIgnoreCase) -or
+        $delta -lt 0 -or $delta -gt 120) {
+      throw "Refusing to stop PID $processId because it is not the managed loopback ngrok process."
     }
     Stop-Process -Id $processId
-    Wait-Process -Id $processId -Timeout 10 -ErrorAction SilentlyContinue
+    try { Wait-Process -Id $processId -Timeout 15 -ErrorAction Stop } catch { }
+    if (Get-Process -Id $processId -ErrorAction SilentlyContinue) { throw "ngrok PID $processId did not stop." }
   }
-  Remove-Item -LiteralPath $PidFile -Force -ErrorAction SilentlyContinue
 }
+Remove-Item -LiteralPath $pidFile, $stateFile, $urlFile -Force -ErrorAction SilentlyContinue
 
-Set-DotEnvValue 'GRAVITY_ENV' 'development'
-Set-DotEnvValue 'APP_BASE_URL' 'http://127.0.0.1:8787'
-Set-DotEnvValue 'GRAVITY_TRUST_PROXY' 'false'
-Set-DotEnvValue 'GRAVITY_TRUSTED_PROXY_CIDRS' ''
-
-& (Join-Path $PSScriptRoot 'stop-gravity.ps1')
-& (Join-Path $PSScriptRoot 'start-gravity.ps1')
-Write-Host 'ngrok stopped. Gravity returned to local development URL.' -ForegroundColor Green
+if ($ReturnToDevelopment) {
+  if (-not $context.ConfigPath) { throw '-ReturnToDevelopment requires an explicit config file.' }
+  Set-GravityEnvironmentValue -Path $context.ConfigPath -Name 'GRAVITY_ENV' -Value 'development'
+  Set-GravityEnvironmentValue -Path $context.ConfigPath -Name 'APP_BASE_URL' -Value "http://127.0.0.1:$($context.Port)"
+  Set-GravityEnvironmentValue -Path $context.ConfigPath -Name 'GRAVITY_TRUST_PROXY' -Value 'false'
+  Set-GravityEnvironmentValue -Path $context.ConfigPath -Name 'GRAVITY_TRUSTED_PROXY_CIDRS' -Value ''
+  & (Join-Path $PSScriptRoot 'restart-gravity.ps1') -ConfigPath $context.ConfigPath
+}
+Write-GravityOpsLog -Context $context -Message 'ngrok_stopped'
+Write-Host 'ngrok stopped. Gravity remains loopback-only.' -ForegroundColor Green

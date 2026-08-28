@@ -1,37 +1,29 @@
+param([string]$ConfigPath, [switch]$Json)
+
 $ErrorActionPreference = 'Stop'
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$PidFile = Join-Path $ProjectRoot '.gravity\gravity.pid'
-$DotEnv = Join-Path $ProjectRoot '.env'
-$DotEnvPort = $null
-$DotEnvBaseUrl = $null
-if (Test-Path -LiteralPath $DotEnv) {
-  foreach ($line in Get-Content -LiteralPath $DotEnv) {
-    if ($line -match '^\s*GRAVITY_PORT\s*=\s*([0-9]+)\s*$') { $DotEnvPort = [int]$Matches[1] }
-    if ($line -match '^\s*APP_BASE_URL\s*=\s*(.+?)\s*$') { $DotEnvBaseUrl = $Matches[1].Trim('"', "'").TrimEnd('/') }
-  }
+. (Join-Path $PSScriptRoot 'gravity-common.ps1')
+$context = Get-GravityContext -ConfigPath $ConfigPath
+$processId = Get-GravityPid -Context $context
+$running = $false
+$managed = $false
+if ($processId) {
+  $running = [bool](Get-Process -Id $processId -ErrorAction SilentlyContinue)
+  if ($running) { $managed = Test-GravityManagedProcess -Context $context -ProcessId $processId }
 }
-$Port = if ($env:GRAVITY_PORT) { [int]$env:GRAVITY_PORT } elseif ($DotEnvPort) { $DotEnvPort } else { 8787 }
-$BaseUrl = if ($env:APP_BASE_URL) { $env:APP_BASE_URL.TrimEnd('/') } elseif ($DotEnvBaseUrl) { $DotEnvBaseUrl } else { "http://127.0.0.1:$Port" }
-$HealthUrl = "http://127.0.0.1:$Port"
-
-if (-not (Test-Path -LiteralPath $PidFile)) {
-  Write-Host 'Gravity Fitness is stopped (no PID file).'
-  exit 1
+$healthy = $managed -and (Test-GravityHealth -Context $context)
+$status = [pscustomobject]@{
+  running = $running
+  managed = $managed
+  healthy = $healthy
+  pid = $processId
+  healthUrl = $context.HealthUrl
+  runtimeDir = $context.RuntimeDir
 }
-
-$processId = [int](Get-Content -LiteralPath $PidFile -Raw)
-$process = Get-Process -Id $processId -ErrorAction SilentlyContinue
-if (-not $process) {
-  Write-Host "Gravity Fitness is stopped (stale PID $processId)."
-  exit 1
-}
-
-try {
-  $health = Invoke-RestMethod -Uri "$HealthUrl/api/health" -TimeoutSec 3
-  Write-Host "Gravity Fitness is running (PID $processId)." -ForegroundColor Green
-  $health | ConvertTo-Json -Compress
-  if ($health.status -ne 'ok' -or $health.database -ne 'ok') { exit 2 }
-} catch {
-  Write-Host "Process $processId is running, but the health endpoint is unavailable." -ForegroundColor Yellow
-  exit 2
-}
+if ($Json) { $status | ConvertTo-Json -Compress }
+elseif ($healthy) { Write-Host "Gravity Fitness is healthy (PID $processId) at $($context.HealthUrl)." -ForegroundColor Green }
+elseif ($running -and -not $managed) { Write-Host "PID $processId is live but is not provably owned by this Gravity checkout." -ForegroundColor Red }
+elseif ($running) { Write-Host "Gravity Fitness PID $processId is running but unhealthy." -ForegroundColor Yellow }
+else { Write-Host 'Gravity Fitness is stopped.' }
+if ($healthy) { exit 0 }
+if ($running) { exit 2 }
+exit 1

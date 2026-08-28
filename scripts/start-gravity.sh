@@ -1,46 +1,56 @@
 #!/usr/bin/env sh
 set -eu
 
-PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-RUNTIME_DIR=${GRAVITY_RUNTIME_DIR:-"$PROJECT_ROOT/.gravity"}
-PID_FILE="$RUNTIME_DIR/gravity.pid"
-PYTHON_BIN=${GRAVITY_PYTHON:-"$PROJECT_ROOT/.venv/bin/python"}
+. "$(dirname -- "$0")/gravity-common.sh"
+gravity_init
+mkdir -p "$GRAVITY_RUNTIME"
+chmod 700 "$GRAVITY_RUNTIME" 2>/dev/null || true
+[ -x "$GRAVITY_PYTHON_BIN" ] || { printf 'Gravity Python environment is missing: %s\n' "$GRAVITY_PYTHON_BIN" >&2; exit 1; }
 
-mkdir -p "$RUNTIME_DIR"
-if [ ! -x "$PYTHON_BIN" ]; then
-  printf '%s\n' 'Gravity Python environment is missing. Create .venv with Python 3.11+ first.' >&2
+pid=$(gravity_pid 2>/dev/null || true)
+if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+  gravity_managed_pid "$pid" || { printf 'Refusing to replace untrusted live PID %s.\n' "$pid" >&2; exit 1; }
+  if gravity_healthy; then
+    printf 'Gravity Fitness is already healthy with PID %s.\n' "$pid"
+    exit 0
+  fi
+  printf 'Gravity PID %s is running but unhealthy. Use restart-gravity.sh.\n' "$pid" >&2
   exit 1
 fi
-if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-  printf 'Gravity Fitness is already running with PID %s.\n' "$(cat "$PID_FILE")" >&2
-  exit 1
-fi
+gravity_remove_stale_state
 
-cd "$PROJECT_ROOT"
-BASE_URL=$($PYTHON_BIN -c 'from server.gravity.config import Settings; print(Settings.load().app_base_url)')
-nohup "$PYTHON_BIN" -m server.gravity >>"$RUNTIME_DIR/gravity.stdout.log" 2>>"$RUNTIME_DIR/gravity.stderr.log" &
-SERVER_PID=$!
-printf '%s\n' "$SERVER_PID" >"$PID_FILE"
-HEALTHY=0
+stdout_log="$GRAVITY_RUNTIME/gravity.stdout.log"
+stderr_log="$GRAVITY_RUNTIME/gravity.stderr.log"
+gravity_rotate_log "$stdout_log"
+gravity_rotate_log "$stderr_log"
+cd "$GRAVITY_PROJECT_ROOT"
+if [ -n "$GRAVITY_CONFIG_ARGUMENTS" ]; then
+  nohup python3 "$GRAVITY_PROJECT_ROOT/scripts/gravity-env.py" --config "$GRAVITY_CONFIG_FILE" -- \
+    "$GRAVITY_PYTHON_BIN" -m server.gravity --host 127.0.0.1 --port "$GRAVITY_MANAGED_PORT" \
+    >>"$stdout_log" 2>>"$stderr_log" &
+else
+  nohup "$GRAVITY_PYTHON_BIN" -m server.gravity --host 127.0.0.1 --port "$GRAVITY_MANAGED_PORT" \
+    >>"$stdout_log" 2>>"$stderr_log" &
+fi
+started_pid=$!
+
 attempt=0
-while [ "$attempt" -lt 20 ]; do
-  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-    rm -f "$PID_FILE"
-    printf '%s\n' 'Gravity Fitness exited during startup. Check .gravity/gravity.stderr.log.' >&2
+while [ "$attempt" -lt 40 ]; do
+  if ! kill -0 "$started_pid" 2>/dev/null; then
+    gravity_remove_stale_state
+    printf 'Gravity Fitness exited during startup. Check %s.\n' "$stderr_log" >&2
     exit 1
   fi
-  if "$PYTHON_BIN" -c 'import json,sys,urllib.request; d=json.load(urllib.request.urlopen(sys.argv[1]+"/api/health",timeout=1)); raise SystemExit(0 if d.get("status")=="ok" and d.get("database")=="ok" else 1)' "$BASE_URL" 2>/dev/null; then
-    HEALTHY=1
-    break
+  pid=$(gravity_pid 2>/dev/null || true)
+  if [ "$pid" = "$started_pid" ] && gravity_managed_pid "$pid" && gravity_healthy; then
+    printf 'Gravity Fitness started with PID %s.\n' "$pid"
+    printf 'Local health: %s\n' "$GRAVITY_HEALTH_URL"
+    exit 0
   fi
   attempt=$((attempt + 1))
   sleep 1
 done
-if [ "$HEALTHY" -ne 1 ]; then
-  kill "$SERVER_PID" 2>/dev/null || true
-  rm -f "$PID_FILE"
-  printf 'Gravity Fitness did not become healthy at %s.\n' "$BASE_URL" >&2
-  exit 1
-fi
-printf 'Gravity Fitness started with PID %s.\n' "$SERVER_PID"
-printf 'Health: %s/api/health\n' "$BASE_URL"
+if gravity_managed_pid "$started_pid"; then kill "$started_pid" 2>/dev/null || true; fi
+gravity_remove_stale_state
+printf 'Gravity Fitness did not become healthy on loopback. Check %s.\n' "$stderr_log" >&2
+exit 1

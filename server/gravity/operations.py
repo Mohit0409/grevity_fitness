@@ -192,12 +192,14 @@ class BackupManager:
             os.chmod(archive_path, 0o600)
         except OSError:
             pass
+        verification = self.verify_backup(archive_path)
         return {
             "path": str(archive_path),
             "createdAt": manifest["createdAt"],
             "databaseSha256": manifest["databaseSha256"],
             "migrations": len(manifest["migrations"]),
             "archiveSha256": _sha256_file(archive_path),
+            "verified": bool(verification["valid"]),
         }
 
     def _materialize_archive(self, archive_path: Path, destination: Path) -> dict[str, object]:
