@@ -1,4 +1,4 @@
-# Gravity Fitness — AI Agent Coordination
+# Gravity Fitness â€” AI Agent Coordination
 
 Last updated: 28 August 2026
 
@@ -12,9 +12,9 @@ Primary integration repo: `C:\movieXsuggestion\MyProject\grevity_fitness`
 | --- | --- | --- | --- |
 | **Chat 1** | **Firebase/Auth + integration lead** | **Active** | `main` / `C:\movieXsuggestion\MyProject\grevity_fitness` |
 | **Chat 2** | **Public website UI/UX** | **Active** | `agent/gravity-public-ui` / `C:\movieXsuggestion\MyProject\grevity_fitness-public-ui` |
-| **Chat 3** | **Hosting, reliability, backups and future Android/Termux deployment** | **Active** | `agent/gravity-ops-mobile` / `C:\Users\91896\AppData\Local\Temp\gravity-ops-mobile` |
+| **Chat 3** | **Hosting, reliability, backups and future Android/Termux deployment** | **Integrated / complete** | `agent/gravity-ops-mobile` / `C:\Users\91896\AppData\Local\Temp\gravity-ops-mobile` |
 
-## Chat 1 — Firebase/Auth + Integration Lead
+## Chat 1 â€” Firebase/Auth + Integration Lead
 
 Chat 1 owns Google login, Mobile OTP, Firebase token verification, Gravity first-party sessions, identity linking, duplicate-account prevention, auth CSP/security and final integration of approved agent commits.
 
@@ -31,17 +31,17 @@ Chat 1 owns these files while auth work is active:
 
 Current Chat 1 state:
 
-- Latest pushed auth browser fix: `1e1958c` (`fix: allow firebase recaptcha verification`).
+- Latest pushed auth hardening commit: `76a054b` (`feat: validate firebase auth policy canary`).
 - Real Google login and real Mobile OTP are working on the public Gravity URL; reCAPTCHA remains enabled and fail closed.
 - The verified active customer has both `google.com` and `phone` identities linked to the same Gravity customer, with email and phone both verified; Gravity first-party session creation is confirmed.
 - Duplicate-account, cross-account merge, session rotation/revocation and collision protections pass the 15/15 auth regression suite.
 - The read-only Firebase provider canary now verifies Google enabled, Phone enabled, and India (`IN`) present in the SMS-region allowlist; the live canary passes.
-- Full backend release suite after auth validation: 103/103 tests passed.
+- Full backend release suite after Chat 3 integration: 111/111 tests passed.
 - Firebase providers intentionally exposed by Gravity: `google.com` and `phone`.
-- Chat 1 auth validation is complete. Remaining Chat 1 work is controlled integration of approved Chat 2 / Chat 3 commits followed by final release gates.
+- Chat 1 auth validation is complete. Chat 3 is integrated; remaining Chat 1 work is controlled integration of Chat 2 followed by final release gates.
 - Chat 1 may integrate approved Chat 2 / Chat 3 commits into `main` only after reviewing conflicts and running the full release gates.
 
-## Chat 2 — Public UI/UX
+## Chat 2 â€” Public UI/UX
 
 Chat 2 owns homepage/public layout, trainers/coaching public pages, gallery, membership presentation, mobile navigation, responsive behavior, visual consistency, public accessibility, public performance and public SEO/metadata where auth code is not involved.
 
@@ -57,7 +57,7 @@ Current Chat 2 state:
 - Chat 2 public work is green: 16/16 Playwright and 102/102 Python tests passed.
 - Chat 2 must not merge into `main`; report the commit SHA to Chat 1/user for integration.
 
-## Chat 3 — Hosting / Reliability / Mobile Deployment
+## Chat 3 â€” Hosting / Reliability / Mobile Deployment
 
 Chat 3 owns Windows lifecycle scripts, runtime/process safety, health/restart automation, backups/recovery, logging/monitoring, tunnel/proxy operations, migration tooling and the future Android/Termux deployment path.
 
@@ -67,8 +67,11 @@ Current Chat 3 state:
 
 - Branch: `agent/gravity-ops-mobile`
 - Worktree: `C:\Users\91896\AppData\Local\Temp\gravity-ops-mobile`
-- Chat 3 currently has active uncommitted ops/runtime work. Do not reset, clean, checkout over, move or overwrite that worktree.
-- Chat 3 must commit only to its branch and report the resulting SHA; Chat 1 handles final integration.
+- Handoff commit: `ce50dc0` (`feat: harden operations and add Termux migration`).
+- Integrated into `main` as `1968fba`; ownership review found no Chat 1 auth or Chat 2 public-UI files changed.
+- Integrated validation: 111/111 Python tests, Windows lifecycle drill, 8/8 browser E2E, launch gate, and Firebase provider canary all passed.
+- Live laptop process was migrated from the legacy PID file to the new managed runtime lease and is healthy under the deterministic lifecycle scripts.
+- Remaining deployment-only items: elevated Task Scheduler registration on Windows, and later Android/Termux + Cloudflare Tunnel provisioning/burn-in on the actual phone.
 
 ## Coordination Rules
 
