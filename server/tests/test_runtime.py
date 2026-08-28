@@ -28,7 +28,7 @@ class RuntimeLeaseTests(unittest.TestCase):
             self.assertEqual(int(lease.pid_file.read_text()), os.getpid())
             state = json.loads(lease.state_file.read_text(encoding="utf-8"))
             self.assertEqual(state["pid"], os.getpid())
-            self.assertEqual(Path(state["projectRoot"]), self.settings.root_dir)
+            self.assertEqual(Path(state["projectRoot"]), self.settings.root_dir.resolve())
             self.assertEqual(Path(state["executable"]), Path(os.sys.executable).resolve())
             self.assertEqual(state["module"], "server.gravity")
             self.assertEqual(state["host"], "127.0.0.1")
