@@ -46,12 +46,33 @@
     });
   }
 
+  function reminderTiming(days) {
+    const value = Number(days);
+    if (value === 0) return 'Membership expired today';
+    if (value === 1) return 'Membership expires tomorrow';
+    if (value === 3) return 'Membership expires in 3 days';
+    if (value === 7) return 'Membership expires in 7 days';
+    if (Number.isFinite(value) && value > 1) return `Membership expires in ${value} days`;
+    return 'Membership expiry reminder';
+  }
+
   function reminderWindow(days) {
     const value = Number(days);
-    if (value === 0) return 'Expired today';
-    if (value === 1) return '1 day';
-    if (Number.isFinite(value) && value > 1) return `${value} days`;
-    return 'Reminder';
+    if (value === 0) return 'Expiry day';
+    if (value === 1) return '1 day before expiry';
+    if (Number.isFinite(value) && value > 1) return `${value} days before expiry`;
+    return 'Reminder timing unavailable';
+  }
+
+  function customerReminderStatus(item) {
+    if (item.state === 'suppressed') return { key: 'suppressed', label: 'Suppressed after renewal' };
+    const deliveries = Array.isArray(item.deliveries)
+      ? item.deliveries.filter((delivery) => delivery.recipientRole !== 'owner') : [];
+    if (deliveries.some((delivery) => delivery.status === 'sent')) return { key: 'sent', label: 'Sent' };
+    if (item.state === 'pending' || deliveries.some((delivery) => ['queued', 'failed', 'blocked_external_config'].includes(delivery.status))) {
+      return { key: 'pending', label: 'Pending' };
+    }
+    return { key: 'reminder', label: 'Reminder' };
   }
 
   function appendFact(listNode, term, value) {
@@ -70,17 +91,20 @@
     const top = document.createElement('div');
     top.className = 'notification-reminder-head';
     const heading = document.createElement('strong');
-    heading.textContent = 'Membership expiry';
-    const window = document.createElement('span');
-    window.className = 'notification-window';
-    window.textContent = reminderWindow(item.triggerDays);
-    top.append(heading, window);
+    heading.textContent = reminderTiming(item.triggerDays);
+    const reminderStatus = customerReminderStatus(item);
+    const status = document.createElement('span');
+    status.className = `notification-customer-status notification-customer-status--${reminderStatus.key}`;
+    status.textContent = reminderStatus.label;
+    status.setAttribute('aria-label', `Reminder status: ${reminderStatus.label}`);
+    top.append(heading, status);
 
     const facts = document.createElement('dl');
     facts.className = 'notification-reminder-facts';
     appendFact(facts, 'Plan', item.payload?.planName || 'Plan not available');
+    if (item.payload?.membershipNumber) appendFact(facts, 'Membership', item.payload.membershipNumber);
     appendFact(facts, 'Expiry', formatDateTime(item.payload?.endsAt));
-    appendFact(facts, 'Reminder window', reminderWindow(item.triggerDays));
+    appendFact(facts, 'Reminder timing', reminderWindow(item.triggerDays));
     row.append(top, facts);
 
     if (item.state === 'suppressed') {

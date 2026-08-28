@@ -15,11 +15,23 @@ function watchRuntime(page) {
 }
 
 async function expectNoOverflow(page) {
-  const metrics = await page.evaluate(() => ({
-    viewport: document.documentElement.clientWidth,
-    page: document.documentElement.scrollWidth,
-  }));
-  expect(metrics.page).toBeLessThanOrEqual(metrics.viewport);
+  const metrics = await page.evaluate(() => {
+    const viewport = document.documentElement.clientWidth;
+    const overflowers = Array.from(document.body.querySelectorAll('*')).map((node) => {
+      const rect = node.getBoundingClientRect();
+      return { node, rect };
+    }).filter(({ node, rect }) => rect.width > 0 && rect.right > viewport + 1 && getComputedStyle(node).display !== 'none')
+      .slice(0, 8).map(({ node, rect }) => ({
+        tag: node.tagName,
+        id: node.id,
+        className: String(node.className || ''),
+        right: Math.round(rect.right),
+        width: Math.round(rect.width),
+        text: String(node.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80),
+      }));
+    return { viewport, page: document.documentElement.scrollWidth, overflowers };
+  });
+  expect(metrics.page, JSON.stringify(metrics.overflowers, null, 2)).toBeLessThanOrEqual(metrics.viewport);
 }
 
 async function expectNoSeriousA11yFailures(page) {
@@ -576,6 +588,32 @@ function notificationFixture() {
       ],
     },
     {
+      id: 'reminder-internal-3', eventType: 'membership_expiry', customerId: 'customer-internal-4', membershipId: 'membership-internal-4',
+      triggerDays: 3, state: 'pending', customer: { displayName: 'Neha Member' },
+      payload: { planName: 'Basic', membershipNumber: 'GF-M-1004', endsAt: now + 3 * 86400 },
+      deliveries: [
+        { recipientRole: 'customer', channel: 'email', status: 'missing_recipient' },
+        { recipientRole: 'customer', channel: 'sms', status: 'missing_recipient' },
+        { recipientRole: 'customer', channel: 'whatsapp', status: 'missing_recipient' },
+        { recipientRole: 'owner', channel: 'email', status: 'missing_recipient' },
+        { recipientRole: 'owner', channel: 'sms', status: 'missing_recipient' },
+        { recipientRole: 'owner', channel: 'whatsapp', status: 'missing_recipient' },
+      ],
+    },
+    {
+      id: 'reminder-internal-1', eventType: 'membership_expiry', customerId: 'customer-internal-5', membershipId: 'membership-internal-5',
+      triggerDays: 1, state: 'pending', customer: { displayName: 'Ishan Member' },
+      payload: { planName: null, membershipNumber: null, endsAt: 'not-a-date' },
+      deliveries: [
+        { recipientRole: 'customer', channel: 'email', status: 'queued' },
+        { recipientRole: 'customer', channel: 'sms', status: 'queued' },
+        { recipientRole: 'customer', channel: 'whatsapp', status: 'queued' },
+        { recipientRole: 'owner', channel: 'email', status: 'queued' },
+        { recipientRole: 'owner', channel: 'sms', status: 'queued' },
+        { recipientRole: 'owner', channel: 'whatsapp', status: 'queued' },
+      ],
+    },
+    {
       id: 'reminder-internal-0', eventType: 'membership_expiry', customerId: 'customer-internal-2', membershipId: 'membership-internal-2',
       triggerDays: 0, state: 'pending', customer: { displayName: 'Ravi Member' },
       payload: { planName: 'Basic', membershipNumber: 'GF-M-1002', endsAt: now - 1800 },
@@ -609,7 +647,10 @@ test('customer membership expiry reminder history is clear and privacy-safe', as
   const reminders = [7, 3, 1, 0].map((triggerDays, index) => ({
     id: `customer-reminder-${index}`, eventType: 'membership_expiry', triggerDays,
     state: 'pending', payload: { planName: index === 0 ? 'Pro' : 'Basic', membershipNumber: `GF-M-${index}`, endsAt: now + triggerDays * 86400 },
-    deliveries: [{ id: `private-delivery-${index}`, recipientRole: 'customer', channel: 'email', status: index ? 'queued' : 'sent', lastErrorCode: 'private_provider_error' }],
+    deliveries: [
+      { id: `private-delivery-${index}`, recipientRole: 'customer', channel: 'email', status: index ? 'queued' : 'sent', lastErrorCode: 'private_provider_error' },
+      ...(index === 0 ? [{ id: 'owner-hidden-delivery', recipientRole: 'owner', channel: 'email', status: 'failed', lastErrorCode: 'owner_secret_error' }] : []),
+    ],
   }));
   reminders.push({
     id: 'customer-reminder-suppressed', eventType: 'membership_expiry', triggerDays: 3, state: 'suppressed',
@@ -621,17 +662,20 @@ test('customer membership expiry reminder history is clear and privacy-safe', as
   await page.goto('/account');
   const card = page.locator('#notification-history-card');
   await expect(card).toBeVisible();
-  await expect(card.getByText('Membership expiry', { exact: true })).toHaveCount(5);
-  await expect(card).toContainText('7 days');
-  await expect(card).toContainText('3 days');
-  await expect(card).toContainText('1 day');
-  await expect(card).toContainText('Expired today');
+  await expect(card).toContainText('Membership expires in 7 days');
+  await expect(card).toContainText('Membership expires in 3 days');
+  await expect(card).toContainText('Membership expires tomorrow');
+  await expect(card).toContainText('Membership expired today');
   await expect(card).toContainText('Renewal confirmed. This reminder was stopped.');
+  await expect(card).toContainText('GF-M-0');
   await expect(card).toContainText('Pro');
+  await expect(card.getByLabel('Reminder status: Sent')).toHaveCount(1);
+  await expect(card.getByLabel('Reminder status: Pending')).toHaveCount(3);
+  await expect(card.getByLabel('Reminder status: Suppressed after renewal')).toHaveCount(1);
   const factValues = await card.locator('.notification-reminder-facts dd').allTextContents();
   expect(factValues).not.toContain('Not available');
   const privateText = await card.innerText();
-  for (const forbidden of ['SMS', 'WhatsApp', 'blocked_external_config', 'private_provider_error', 'private-delivery', 'recipientRole', 'attemptCount']) {
+  for (const forbidden of ['SMS', 'WhatsApp', 'blocked_external_config', 'private_provider_error', 'owner_secret_error', 'private-delivery', 'owner-hidden-delivery', 'recipientRole', 'attemptCount']) {
     expect(privateText).not.toContain(forbidden);
   }
   await expectNoSeriousA11yFailures(page);
@@ -677,14 +721,14 @@ test('admin expiry notifications separate customer and owner delivery truthfully
   await expect(page.locator('#app')).toBeVisible();
   await page.locator('#notificationsNav').click();
   await expect(page.locator('#notificationsList')).toHaveAttribute('aria-busy', 'false');
-  await expect(page.locator('.notification-admin-card')).toHaveCount(3);
+  await expect(page.locator('.notification-admin-card')).toHaveCount(5);
 
   const asha = page.locator('.notification-admin-card').filter({ hasText: 'Asha Member' });
   const ashaCustomer = asha.locator('.notification-audience').filter({ hasText: 'Customer notifications' });
   const ashaOwner = asha.locator('.notification-audience').filter({ hasText: 'Owner notifications' });
   await expect(ashaCustomer.getByLabel('Email: Sent')).toBeVisible();
   await expect(ashaCustomer.getByLabel('SMS: Queued')).toBeVisible();
-  await expect(ashaCustomer.getByLabel('WhatsApp: Blocked by configuration')).toBeVisible();
+  await expect(ashaCustomer.getByLabel('WhatsApp: Configuration required')).toBeVisible();
   await expect(ashaOwner.getByLabel('Email: Sent')).toBeVisible();
   await expect(ashaOwner.getByLabel('SMS: Retrying')).toBeVisible();
   await expect(ashaOwner.getByLabel('WhatsApp: Missing recipient')).toBeVisible();
@@ -693,8 +737,18 @@ test('admin expiry notifications separate customer and owner delivery truthfully
   await expect(ravi).toContainText('Expired today');
   await expect(ravi.locator('.notification-audience').filter({ hasText: 'Customer notifications' }).getByLabel('Email: Failed')).toBeVisible();
   await expect(ravi.locator('.notification-audience').filter({ hasText: 'Customer notifications' }).getByLabel('SMS: Missing recipient')).toBeVisible();
-  await expect(ravi.locator('.notification-audience').filter({ hasText: 'Owner notifications' }).getByLabel('Email: Blocked by configuration')).toBeVisible();
+  await expect(ravi.locator('.notification-audience').filter({ hasText: 'Owner notifications' }).getByLabel('Email: Configuration required')).toBeVisible();
   await expect(ravi.locator('.notification-audience').filter({ hasText: 'Owner notifications' }).getByLabel('WhatsApp: Status unavailable')).toBeVisible();
+
+  const neha = page.locator('.notification-admin-card').filter({ hasText: 'Neha Member' });
+  await expect(neha.locator('.notification-audience').filter({ hasText: 'Customer notifications' }).getByLabel('Email: Missing recipient')).toBeVisible();
+  await expect(neha.locator('.notification-audience').filter({ hasText: 'Customer notifications' }).getByLabel('SMS: Missing recipient')).toBeVisible();
+  await expect(neha.locator('.notification-audience').filter({ hasText: 'Owner notifications' }).getByLabel('Email: Missing recipient')).toBeVisible();
+  await expect(neha.locator('.notification-audience').filter({ hasText: 'Owner notifications' }).getByLabel('SMS: Missing recipient')).toBeVisible();
+
+  const ishan = page.locator('.notification-admin-card').filter({ hasText: 'Ishan Member' });
+  await expect(ishan).toContainText('Membership number unavailable');
+  await expect(ishan).toContainText('Not available');
 
   const renewed = page.locator('.notification-admin-card').filter({ hasText: 'Renewed Member' });
   await expect(renewed).toContainText('Suppressed after renewal');
@@ -703,24 +757,30 @@ test('admin expiry notifications separate customer and owner delivery truthfully
   await expect(renewed.locator('.notification-audience').filter({ hasText: 'Owner notifications' }).getByLabel('WhatsApp: Suppressed after renewal')).toBeVisible();
 
   await expect(page.getByLabel('Email provider: Ready')).toBeVisible();
-  await expect(page.getByLabel('SMS provider: Blocked by configuration')).toBeVisible();
-  await expect(page.getByLabel('WhatsApp provider: Blocked by configuration')).toBeVisible();
+  await expect(page.getByLabel('SMS provider: Configuration required')).toBeVisible();
+  await expect(page.getByLabel('WhatsApp provider: Configuration required')).toBeVisible();
   const workspaceText = await page.locator('#notificationsView').innerText();
   for (const forbidden of ['delivery-internal', 'customer-internal', 'membership-internal', 'sms_delivery_failed', 'smtp_delivery_failed', 'BLOCKED_ADAPTER_MISSING', 'BLOCKED_EXTERNAL_CONFIG']) {
     expect(workspaceText).not.toContain(forbidden);
   }
 
   const filter = page.locator('#notificationFilter');
-  await filter.selectOption('expiring');
-  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 3 reminders shown');
+  await filter.selectOption('window7');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 5 reminders shown');
+  await filter.selectOption('window3');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 5 reminders shown');
+  await filter.selectOption('window1');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 5 reminders shown');
   await filter.selectOption('expired');
-  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 3 reminders shown');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 5 reminders shown');
   await filter.selectOption('failed');
-  await expect(page.locator('#notificationFilterSummary')).toHaveText('2 of 3 reminders shown');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('2 of 5 reminders shown');
   await filter.selectOption('blocked');
-  await expect(page.locator('#notificationFilterSummary')).toHaveText('3 of 3 reminders shown');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('3 of 5 reminders shown');
+  await filter.selectOption('missing');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('3 of 5 reminders shown');
   await filter.selectOption('suppressed');
-  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 3 reminders shown');
+  await expect(page.locator('#notificationFilterSummary')).toHaveText('1 of 5 reminders shown');
   await filter.focus();
   await expect(filter).toBeFocused();
   await page.keyboard.press('Home');
@@ -731,6 +791,15 @@ test('admin expiry notifications separate customer and owner delivery truthfully
   await page.locator('#notificationDays').selectOption('0');
   await page.locator('#scanNotifications').click();
   await expect.poll(() => scanBody).toEqual({ daysBefore: 0 });
+  await filter.selectOption('all');
+  await filter.focus();
+  const focusStyle = await filter.evaluate((node) => ({ style: getComputedStyle(node).outlineStyle, width: parseFloat(getComputedStyle(node).outlineWidth) }));
+  expect(focusStyle.style).not.toBe('none');
+  expect(focusStyle.width).toBeGreaterThanOrEqual(2);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const motion = await asha.evaluate((node) => ({ animation: getComputedStyle(node).animationName, transition: getComputedStyle(node).transitionDuration }));
+  expect(motion.animation).toBe('none');
+  expect(motion.transition).toBe('0s');
   await expectNoSeriousA11yFailures(page);
   await page.screenshot({ path: testInfo.outputPath('admin-reminders-390.png'), fullPage: true });
 
@@ -745,6 +814,11 @@ test('admin expiry notifications separate customer and owner delivery truthfully
       }
     }
   }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  await expectNoOverflow(page);
+  await expect(page.locator('#notificationsList')).toBeVisible();
+  await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
   expect(runtimeProblems).toEqual([]);
 });
 

@@ -82,7 +82,7 @@
         : { key: 'failed', label: 'Failed' };
     }
     if (delivery.status === 'blocked_external_config' || String(delivery.status || '').startsWith('blocked_')) {
-      return { key: 'blocked', label: 'Blocked by configuration' };
+      return { key: 'blocked', label: 'Configuration required' };
     }
     if (delivery.status === 'missing_recipient') return { key: 'missing', label: 'Missing recipient' };
     return { key: 'unknown', label: 'Status unavailable' };
@@ -106,7 +106,7 @@
   function providerLabel(value) {
     return value === 'READY'
       ? { key: 'ready', label: 'Ready' }
-      : { key: 'blocked', label: 'Blocked by configuration' };
+      : { key: 'blocked', label: 'Configuration required' };
   }
 
   function renderProviderState() {
@@ -196,10 +196,13 @@
   }
 
   function matchesFilter(item) {
-    if (state.filter === 'expiring') return Number(item.triggerDays) > 0 && item.state !== 'suppressed';
+    if (state.filter === 'window7') return Number(item.triggerDays) === 7 && item.state !== 'suppressed';
+    if (state.filter === 'window3') return Number(item.triggerDays) === 3 && item.state !== 'suppressed';
+    if (state.filter === 'window1') return Number(item.triggerDays) === 1 && item.state !== 'suppressed';
     if (state.filter === 'expired') return Number(item.triggerDays) === 0 && item.state !== 'suppressed';
     if (state.filter === 'failed') return hasStatus(item, (delivery) => delivery.status === 'failed');
     if (state.filter === 'blocked') return hasStatus(item, (delivery) => String(delivery.status || '').startsWith('blocked_'));
+    if (state.filter === 'missing') return hasStatus(item, (delivery) => delivery.status === 'missing_recipient');
     if (state.filter === 'suppressed') return item.state === 'suppressed';
     return true;
   }
