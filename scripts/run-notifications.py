@@ -115,9 +115,19 @@ def _provider_readiness(root: Path, environ: Mapping[str, str] | None = None) ->
 
     settings = Settings.load(root_dir=root, environ=environ)
     return {
-        "email": {"status": "configured" if settings.smtp_configured else "blocked"},
-        "sms": {"status": "configured" if settings.sms_credentials_configured else "blocked"},
-        "whatsapp": {"status": "configured" if settings.whatsapp_credentials_configured else "blocked"},
+        # Keep these statuses aligned with NotificationService.provider_blockers().
+        # Credentials alone do not install an SMS or WhatsApp delivery adapter.
+        "email": {"status": "ready" if settings.smtp_configured else "blocked_external_config"},
+        "sms": {
+            "status": "blocked_adapter_missing"
+            if settings.sms_credentials_configured
+            else "blocked_external_config"
+        },
+        "whatsapp": {
+            "status": "blocked_adapter_missing"
+            if settings.whatsapp_credentials_configured
+            else "blocked_external_config"
+        },
         "owner_email": {"status": "configured" if settings.owner_email else "blocked"},
         "owner_phone": {"status": "configured" if settings.owner_phone else "blocked"},
         "owner_whatsapp": {"status": "configured" if settings.owner_whatsapp else "blocked"},

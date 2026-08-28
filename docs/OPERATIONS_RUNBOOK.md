@@ -79,16 +79,16 @@ Run the same protected-config command manually when validating a provider or inv
 
 The safe status report and `notifications.log` record only aggregate fields: scan window, `created`, `deduped`, `suppressed_renewed`, delivery attempted/sent/failed/skipped totals, provider readiness, last successful scan, last successful delivery, and consecutive failure count. They never include recipient addresses/numbers, SMTP passwords, SMS keys, WhatsApp tokens, Firebase JSON, or raw provider output.
 
-Provider readiness is evaluated from the protected configuration each run:
+Provider readiness is evaluated from the protected configuration each run. It describes whether delivery is usable, not merely whether a credential is present:
 
-- email requires `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `EMAIL_FROM`;
-- SMS requires `SMS_PROVIDER` and `SMS_API_KEY`;
-- WhatsApp requires `WHATSAPP_PROVIDER`, `WHATSAPP_ACCESS_TOKEN`, and `WHATSAPP_PHONE_NUMBER_ID`;
+- email is `ready` only with `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `EMAIL_FROM`;
+- SMS without credentials is `blocked_external_config`; with `SMS_PROVIDER` and `SMS_API_KEY` it remains `blocked_adapter_missing` until a concrete SMS adapter is selected and integrated;
+- WhatsApp without credentials is `blocked_external_config`; with `WHATSAPP_PROVIDER`, `WHATSAPP_ACCESS_TOKEN`, and `WHATSAPP_PHONE_NUMBER_ID` it remains `blocked_adapter_missing` until a concrete WhatsApp adapter is selected and integrated;
 - owner routing is reported separately from `OWNER_EMAIL`, `OWNER_PHONE`, and `OWNER_WHATSAPP` without revealing values.
 
-Do not put any of these values on a scheduled-task command line or in Git. A blocked provider is reported safely; a configured provider that fails delivery makes the cycle fail so the outbox can retry on the next run.
+Do not put any of these values on a scheduled-task command line or in Git. A blocked provider is reported safely; a ready delivery adapter that fails makes the cycle fail so the outbox can retry on the next run.
 
-Integration prerequisite: this scheduler deliberately invokes the expiry-day command `--scan-notifications 0`. Install it only after Chat 1's final notification-core change that accepts day `0` has been integrated; it fails safe rather than silently omitting expiry-day reminders when that contract is absent.
+The scheduler deliberately invokes the expiry-day command `--scan-notifications 0`. The supported backend contract accepts day `0`; retain this explicit check when deploying to a different release so an incompatible backend fails safe rather than silently omitting expiry-day reminders.
 
 ## Public enquiry PII retention
 

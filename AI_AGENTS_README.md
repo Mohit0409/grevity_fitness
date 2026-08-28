@@ -67,14 +67,13 @@ Chat 3 must not modify Chat 1 auth files or Chat 2 public UI files unless the us
 
 Current Chat 3 state:
 
-- Branch: `agent/gravity-ops-mobile`
-- Worktree: `C:\Users\91896\AppData\Local\Temp\gravity-ops-mobile`
-- Handoff commit: `ce50dc0` (`feat: harden operations and add Termux migration`).
+- Baseline branch: `agent/gravity-ops-mobile`; handoff commit `ce50dc0` (`feat: harden operations and add Termux migration`).
 - Integrated into `main` as `1968fba`; ownership review found no Chat 1 auth or Chat 2 public-UI files changed.
 - Integrated validation: 111/111 Python tests, Windows lifecycle drill, 8/8 browser E2E, launch gate, and Firebase provider canary all passed.
 - Live laptop process was migrated from the legacy PID file to the new managed runtime lease and is healthy under the deterministic lifecycle scripts.
-- Notification scheduler work is active on `agent/gravity-notification-ops`. It owns safe Windows/Termux scheduling, retry/locking, monitoring, provider-readiness reporting, and notification operations runbooks; it does not change notification business logic or delivery adapters.
-- Notification scheduler integration depends on Chat 1's final core contract accepting the required expiry-day CLI invocation `--scan-notifications 0`; Chat 3 does not modify notification business logic or delivery adapters.
+- Notification-scheduler branch/worktree: `agent/gravity-notification-ops` / `C:\Users\91896\AppData\Local\Temp\gravity-notification-ops`, rebased on the current Chat 1 notification backend.
+- It owns safe Windows/Termux scheduling, retry/locking, monitoring, provider-readiness reporting, and notification operations runbooks; it does not change notification business logic or delivery adapters.
+- The scheduler runs the supported `--scan-notifications 7`, `3`, `1`, `0`, then `--deliver-notifications` contract. SMTP can report `ready`; SMS/WhatsApp remain `blocked_adapter_missing` even when credentials are present until a concrete adapter is integrated.
 - Remaining deployment-only items: elevated Task Scheduler registration on Windows, and later Android/Termux + Cloudflare Tunnel provisioning/burn-in on the actual phone.
 
 ## Coordination Rules

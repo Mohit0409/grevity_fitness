@@ -167,8 +167,14 @@ class NotificationOperationsRunnerTests(unittest.TestCase):
             },
         )
 
-        self.assertTrue(all(value["status"] == "blocked" for value in blocked.values()))
-        self.assertTrue(all(value["status"] == "configured" for value in configured.values()))
+        self.assertEqual(blocked["email"]["status"], "blocked_external_config")
+        self.assertEqual(blocked["sms"]["status"], "blocked_external_config")
+        self.assertEqual(blocked["whatsapp"]["status"], "blocked_external_config")
+        self.assertTrue(all(blocked[name]["status"] == "blocked" for name in ("owner_email", "owner_phone", "owner_whatsapp")))
+        self.assertEqual(configured["email"]["status"], "ready")
+        self.assertEqual(configured["sms"]["status"], "blocked_adapter_missing")
+        self.assertEqual(configured["whatsapp"]["status"], "blocked_adapter_missing")
+        self.assertTrue(all(configured[name]["status"] == "configured" for name in ("owner_email", "owner_phone", "owner_whatsapp")))
         serialized = json.dumps(configured)
         self.assertNotIn("smtp-secret", serialized)
         self.assertNotIn("sms-secret", serialized)
