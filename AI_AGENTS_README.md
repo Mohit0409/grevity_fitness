@@ -12,7 +12,7 @@ Primary integration repo: `C:\movieXsuggestion\MyProject\grevity_fitness`
 | --- | --- | --- | --- |
 | **Chat 1** | **Firebase/Auth + integration lead** | **Active** | `main` / `C:\movieXsuggestion\MyProject\grevity_fitness` |
 | **Chat 2** | **Public website UI/UX** | **Active** | `agent/gravity-public-ui` / `C:\movieXsuggestion\MyProject\grevity_fitness-public-ui` |
-| **Chat 3** | **Hosting, reliability, backups and future Android/Termux deployment** | **Integrated / complete** | `agent/gravity-ops-mobile` / `C:\Users\91896\AppData\Local\Temp\gravity-ops-mobile` |
+| **Chat 3** | **Hosting, reliability, backups, notification scheduler and future Android/Termux deployment** | **Active** | `agent/gravity-notification-ops` / `C:\Users\91896\AppData\Local\Temp\gravity-notification-ops` |
 
 ## Chat 1 â€” Firebase/Auth + Integration Lead
 
@@ -74,7 +74,9 @@ Current Chat 3 state:
 - Integrated validation: 111/111 Python tests, Windows lifecycle drill, 8/8 browser E2E, launch gate, and Firebase provider canary all passed.
 - Live laptop process was migrated from the legacy PID file to the new managed runtime lease and is healthy under the deterministic lifecycle scripts.
 - Termux installer/runbook safeguards were integrated as `a76d748` after the `agent/gravity-ops-followup` review.
-- Current follow-up branch: `agent/gravity-ops-followup` / `C:\Users\91896\AppData\Local\Temp\gravity-ops-followup`; it hardens SYSTEM-task ngrok recovery and is pending integration.
+- Deterministic SYSTEM-task ngrok recovery handoff `1cee6b1` was integrated into `main` as `bcb3034`.
+- Notification scheduler handoff `39c517e` from `agent/gravity-notification-ops` is under Chat 1 integration review. It adds safe Windows/Termux scheduling, retry/locking, monitoring, provider-readiness reporting and notification operations runbooks without changing notification business logic or delivery adapters.
+- Chat 1 backend `aadfc6f` already supports the required expiry-day CLI invocation `--scan-notifications 0`.
 - Remaining deployment-only items: elevated Task Scheduler registration on Windows, and later Android/Termux + Cloudflare Tunnel provisioning/burn-in on the actual phone.
 
 ## Coordination Rules

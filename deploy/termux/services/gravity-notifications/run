@@ -1,0 +1,16 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -u
+umask 077
+
+CONFIG="${GRAVITY_ENV_FILE:-$HOME/.config/gravity/gravity.env}"
+REPO_FILE="$HOME/.config/gravity/repository"
+[ -r "$CONFIG" ] || { echo "Gravity config is missing: $CONFIG" >&2; exit 1; }
+[ -r "$REPO_FILE" ] || { echo "Gravity repository marker is missing: $REPO_FILE" >&2; exit 1; }
+REPO="$(cat "$REPO_FILE")"
+[ -r "$REPO/scripts/run-notifications.sh" ] || { echo "Notification runner is missing: $REPO/scripts/run-notifications.sh" >&2; exit 1; }
+
+INTERVAL_SECONDS=3600
+while true; do
+  GRAVITY_ENV_FILE="$CONFIG" sh "$REPO/scripts/run-notifications.sh" || true
+  sleep "$INTERVAL_SECONDS"
+done

@@ -3,7 +3,8 @@ param(
   [switch]$EnsureNgrok,
   [string]$NgrokConfigPath,
   [string]$NgrokExecutablePath,
-  [string]$OffsiteBackupDirectory
+  [string]$OffsiteBackupDirectory,
+  [ValidateRange(15, 1440)][int]$NotificationIntervalMinutes = 60
 )
 
 $ErrorActionPreference = 'Stop'
@@ -51,5 +52,13 @@ $backupTrigger = New-ScheduledTaskTrigger -Daily -At '02:00'
 $backupSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 2) -RestartCount 2 -RestartInterval (New-TimeSpan -Minutes 15)
 Register-ScheduledTask -TaskName 'GravityFitness-DailyBackup' -Action $backupAction -Trigger $backupTrigger -Settings $backupSettings -Principal $systemPrincipal -Description 'Create, verify, and recovery-drill a Gravity Fitness SQLite backup.' -Force | Out-Null
 
-Write-Host 'Installed GravityFitness-Watchdog and GravityFitness-DailyBackup.' -ForegroundColor Green
+$notificationScript = Join-Path $PSScriptRoot 'run-notifications.ps1'
+$notificationArguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ' + (Quote-TaskArgument $notificationScript) + ' -ConfigPath ' + (Quote-TaskArgument $ConfigPath)
+$notificationAction = New-ScheduledTaskAction -Execute $powerShell -Argument $notificationArguments -WorkingDirectory $projectRoot
+$notificationStartupTrigger = New-ScheduledTaskTrigger -AtStartup
+$notificationIntervalTrigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(2)) -RepetitionInterval (New-TimeSpan -Minutes $NotificationIntervalMinutes)
+$notificationSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 20)
+Register-ScheduledTask -TaskName 'GravityFitness-Notifications' -Action $notificationAction -Trigger @($notificationStartupTrigger, $notificationIntervalTrigger) -Settings $notificationSettings -Principal $systemPrincipal -Description 'Run idempotent membership-expiry scans and due-notification delivery.' -Force | Out-Null
+
+Write-Host 'Installed GravityFitness-Watchdog, GravityFitness-DailyBackup, and GravityFitness-Notifications.' -ForegroundColor Green
 Write-Host 'Run watch-gravity.ps1 once now, then inspect Task Scheduler history and operations.log.'
