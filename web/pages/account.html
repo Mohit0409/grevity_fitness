@@ -115,7 +115,7 @@
           <button class="btn btn-primary" type="submit">Create account</button>
         </form>
 
-        <div class="account-separator">or continue securely</div>
+        <div class="account-separator" id="provider-separator">Choose a secure sign-in method</div>
         <div class="account-provider-grid">
           <button class="btn btn-outline" type="button" id="google-sign-in">Google</button>
           <button class="btn btn-outline" type="button" id="phone-sign-in-toggle">Mobile number</button>
@@ -124,8 +124,8 @@
         <form class="account-form" id="phone-form" hidden novalidate>
           <div class="account-field">
             <label for="phone-number">Mobile number</label>
-            <input id="phone-number" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+919000000000" required/>
-            <div class="account-field-error" id="phone-number-error"></div>
+            <input id="phone-number" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="10-digit mobile or +91..." required/>
+            <div class="account-field-error" id="phone-number-error">Indian 10-digit numbers are converted to +91 automatically.</div>
           </div>
           <button class="btn btn-primary" type="submit" id="send-phone-code">Send verification code</button>
           <div id="phone-code-wrap" class="account-field" hidden>
@@ -181,8 +181,8 @@
           <form class="account-form account-link-form" id="link-phone-form" hidden novalidate>
             <div class="account-field">
               <label for="link-phone-number">Mobile number</label>
-              <input id="link-phone-number" type="tel" autocomplete="tel" inputmode="tel" placeholder="+919000000000" required/>
-              <div class="account-field-error" id="link-phone-error"></div>
+              <input id="link-phone-number" type="tel" autocomplete="tel" inputmode="tel" placeholder="10-digit mobile or +91..." required/>
+              <div class="account-field-error" id="link-phone-error">Indian 10-digit numbers are converted to +91 automatically.</div>
             </div>
             <button class="btn btn-primary" type="submit">Send verification code</button>
             <div class="account-field" id="link-phone-code-wrap" hidden>
@@ -245,7 +245,7 @@
   </div>
 </main>
 
-<script src="/js/account-page.js?v=phase14" type="module"></script>
+<script src="/js/account-page.js?v=phase16" type="module"></script>
 <script src="/js/account-notifications.js" defer></script>
 <script src="/js/account-payments.js" defer></script>
 <script src="/js/account-coaching.js" defer></script>

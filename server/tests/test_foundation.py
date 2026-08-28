@@ -221,6 +221,9 @@ class HttpFoundationTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertIn(b"/api/auth/link", script)
             self.assertIn(b"linkFirebaseUser", script)
+            self.assertIn(b"normalizePhoneNumber", script)
+            self.assertIn(b"`+91${compact}`", script)
+            self.assertIn(b"auth/unauthorized-domain", script)
 
     def test_readiness_ui_contract_is_wired(self):
         with running_server() as (base, _settings):

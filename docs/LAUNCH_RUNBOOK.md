@@ -39,6 +39,8 @@ firebase apps:sdkconfig WEB VERIFIED_WEB_APP_ID --project gravity-authe
 
 The SDK config supplies public client values such as API key, auth domain, project ID, and app ID; it does **not** replace the private Firebase Admin service-account credential. Refuse project-ID mismatches. In particular, do not copy the older `gravityfitnessnmh` web configuration into the `gravity-authe` auth boundary merely because that project is accessible. Keep the service-account JSON outside the repository and public web root.
 
+For browser sign-in, the exact public hostname must also appear in Firebase Authentication Authorized Domains. The current Gravity account policy uses Google and Phone OTP; do not advertise Email/Password unless that provider is explicitly enabled in `gravity-authe`. A temporary ngrok hostname may be authorized for staging, but replace it with the durable production hostname at cutover.
+
 ## 2. Put HTTPS in front of Gravity
 
 `deploy/Caddyfile.example` is a provider-neutral same-host TLS template. Set `GRAVITY_PUBLIC_DOMAIN` to the verified production hostname and point public DNS to the approved TLS host before starting the cutover.

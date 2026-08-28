@@ -360,7 +360,7 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
                 "projectId": settings.firebase_project_id,
                 "appId": settings.firebase_app_id,
             }
-            payload["providers"] = ["password", "google.com", "phone"]
+            payload["providers"] = ["google.com", "phone"]
         self._json_response(HTTPStatus.OK, payload, request_id=request_id, send_body=send_body)
         return HTTPStatus.OK
 

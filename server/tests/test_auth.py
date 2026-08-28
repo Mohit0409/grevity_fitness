@@ -199,6 +199,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
             status, _headers, config = app.request("GET", "/api/auth/config")
             self.assertEqual(status, 200)
             self.assertTrue(config["enabled"])
+            self.assertEqual(config["providers"], ["google.com", "phone"])
             self.assertNotIn("serviceAccount", json.dumps(config))
 
             status, headers, payload = app.exchange("token-alice")

@@ -9,6 +9,7 @@ let firebaseConfig = null;
 let phoneConfirmation = null;
 let recaptchaVerifier = null;
 let authConfigEnabled = false;
+let authProviders = [];
 let linkPhoneConfirmation = null;
 let linkRecaptchaVerifier = null;
 
@@ -40,6 +41,14 @@ function csrfCookie() {
   return cookieValue('gravity_csrf') || cookieValue('__Host-gravity_csrf');
 }
 
+function normalizePhoneNumber(value) {
+  const compact = String(value || '').trim().replace(/[\s()-]/g, '');
+  if (/^[6-9][0-9]{9}$/.test(compact)) return `+91${compact}`;
+  if (/^0[6-9][0-9]{9}$/.test(compact)) return `+91${compact.slice(1)}`;
+  if (/^\+[1-9][0-9]{7,14}$/.test(compact)) return compact;
+  return '';
+}
+
 async function jsonRequest(path, options = {}) {
   const response = await fetch(path, {
     credentials: 'same-origin',
@@ -68,8 +77,15 @@ function friendlyError(error) {
   if (error && error.code === 'rate_limited') return 'Too many attempts. Please wait and try again.';
   if (error && error.code === 'authentication_unavailable') return 'Member accounts are temporarily unavailable.';
   if (error && error.code === 'invalid_csrf') return 'Your security token expired. Reload the page and try again.';
+  if (error && error.code === 'auth/unauthorized-domain') return 'This website address is not authorized for Firebase sign-in yet.';
+  if (error && error.code === 'auth/invalid-phone-number') return 'Enter a valid Indian 10-digit mobile number or a number with country code.';
+  if (error && error.code === 'auth/operation-not-allowed') return 'This sign-in method is not enabled in Firebase.';
+  if (error && error.code === 'auth/popup-blocked') return 'Your browser blocked the Google sign-in popup. Allow popups and try again.';
+  if (error && error.code === 'auth/popup-closed-by-user') return 'Google sign-in was closed before it finished.';
+  if (error && error.code === 'auth/network-request-failed') return 'Firebase could not be reached. Check your connection and try again.';
+  if (error && error.code === 'auth/too-many-requests') return 'Firebase temporarily blocked repeated attempts. Wait a little and try again.';
   if (error && error.code && error.code.startsWith('auth/')) {
-    return 'We could not verify those details. Check them and try again.';
+    return 'Firebase could not complete sign-in. Please try again.';
   }
   return 'Something went wrong. Your changes were not assumed successful; please try again.';
 }
@@ -78,10 +94,17 @@ function selectMode() {
   const mode = new URLSearchParams(window.location.search).get('mode') === 'register' ? 'register' : 'login';
   const login = document.getElementById('login-form');
   const register = document.getElementById('register-form');
-  login.hidden = mode !== 'login';
-  register.hidden = mode !== 'register';
-  document.getElementById('mode-login').toggleAttribute('aria-current', mode === 'login');
-  document.getElementById('mode-register').toggleAttribute('aria-current', mode === 'register');
+  const modeLinks = document.querySelector('.account-mode-links');
+  const passwordEnabled = authProviders.includes('password');
+  if (modeLinks) modeLinks.hidden = !passwordEnabled;
+  login.hidden = !passwordEnabled || mode !== 'login';
+  register.hidden = !passwordEnabled || mode !== 'register';
+  document.getElementById('mode-login').toggleAttribute('aria-current', passwordEnabled && mode === 'login');
+  document.getElementById('mode-register').toggleAttribute('aria-current', passwordEnabled && mode === 'register');
+  document.getElementById('google-sign-in').hidden = !authProviders.includes('google.com');
+  document.getElementById('phone-sign-in-toggle').hidden = !authProviders.includes('phone');
+  const separator = document.getElementById('provider-separator');
+  if (separator) separator.textContent = passwordEnabled ? 'or continue securely' : 'Choose a secure sign-in method';
 }
 
 async function loadFirebase() {
@@ -244,6 +267,7 @@ async function initializeAccount() {
     ]);
     authConfigEnabled = Boolean(config.enabled && config.firebase);
     firebaseConfig = authConfigEnabled ? config.firebase : null;
+    authProviders = Array.isArray(config.providers) ? config.providers : [];
     if (session.authenticated) {
       renderUser(session.user);
       return;
@@ -367,9 +391,17 @@ document.getElementById('phone-form').addEventListener('submit', async (event) =
     if (!recaptchaVerifier) {
       recaptchaVerifier = new firebaseApi.RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
     }
+    const phoneInput = document.getElementById('phone-number');
+    const phoneNumber = normalizePhoneNumber(phoneInput.value);
+    if (!phoneNumber) {
+      const invalidPhone = new Error('invalid_phone_number');
+      invalidPhone.code = 'auth/invalid-phone-number';
+      throw invalidPhone;
+    }
+    phoneInput.value = phoneNumber;
     phoneConfirmation = await firebaseApi.signInWithPhoneNumber(
       firebaseAuth,
-      document.getElementById('phone-number').value.trim(),
+      phoneNumber,
       recaptchaVerifier
     );
     document.getElementById('phone-code-wrap').hidden = false;
@@ -440,9 +472,17 @@ document.getElementById('link-phone-form').addEventListener('submit', async (eve
         { size: 'invisible' }
       );
     }
+    const phoneInput = document.getElementById('link-phone-number');
+    const phoneNumber = normalizePhoneNumber(phoneInput.value);
+    if (!phoneNumber) {
+      const invalidPhone = new Error('invalid_phone_number');
+      invalidPhone.code = 'auth/invalid-phone-number';
+      throw invalidPhone;
+    }
+    phoneInput.value = phoneNumber;
     linkPhoneConfirmation = await firebaseApi.signInWithPhoneNumber(
       firebaseAuth,
-      document.getElementById('link-phone-number').value.trim(),
+      phoneNumber,
       linkRecaptchaVerifier
     );
     document.getElementById('link-phone-code-wrap').hidden = false;

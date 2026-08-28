@@ -64,6 +64,11 @@ No plan benefits, coach identities, credentials, testimonials, transformations, 
    - Razorpay is no longer a mandatory launch dependency when mode remains `test` and all Razorpay credentials are blank.
    - In that state checkout stays disabled, the provider canary reports `skipped`, and launch readiness is not blocked.
    - Any live mode or partial Razorpay credential configuration still enables the strict live-mode, checkout-key, and webhook gates.
+16. Firebase runtime sign-in recovery:
+   - The current staging ngrok hostname was added to `gravity-authe` Authorized Domains after real browser sign-in returned Firebase auth errors.
+   - Firebase project inspection confirmed Google and Phone providers are enabled while Email/Password is disabled; the public account UI now advertises only Google and Mobile OTP.
+   - Indian 10-digit mobile numbers are normalized to E.164 `+91` format before Firebase Phone Auth, including the signed-in identity-link flow.
+   - Firebase browser errors now distinguish unauthorized domain, invalid phone, disabled provider, popup, network, and rate-limit failures instead of collapsing every provider error into one generic message.
 
 ## Database and operations
 
@@ -92,7 +97,7 @@ git diff --check
 ## External blockers
 
 - `BLOCKED_EXTERNAL_DOMAIN`: the current ngrok hostname is staging-only and may present an interstitial/warning. It is not a verified production domain.
-- `BLOCKED_EXTERNAL_FIREBASE_REAL_SIGNIN`: verified `gravity-authe` client/backend configuration is now installed and the Firebase Admin provider canary passes. A real Google/email/mobile customer sign-in and identity-link canary still requires operator interaction in the browser/SMS flow.
+- `BLOCKED_EXTERNAL_FIREBASE_REAL_SIGNIN`: verified `gravity-authe` client/backend configuration is installed, the Firebase Admin canary passes, Google and Phone are enabled, and the current staging hostname is authorized. A real Google or mobile OTP sign-in plus identity-link canary still requires operator interaction in the browser/SMS flow.
 - `OPTIONAL_EXTERNAL_RAZORPAY`: online checkout is intentionally disabled while `RAZORPAY_MODE=test` and all Razorpay credentials are blank. It is not a launch blocker in that state. If online payments are enabled later, live credentials, webhook configuration, the provider canary, and an approved real transaction become required.
 - `REQUIRES_OPERATOR_LEGAL_REVIEW`: the privacy notice is an implementation draft and requires operator/legal approval before production launch.
 - The current laptop launch gate reports ready with Razorpay disabled; final public production still requires the durable-domain, real-sign-in, and legal/operator gates above.
