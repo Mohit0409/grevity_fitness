@@ -31,10 +31,12 @@ Chat 1 owns these files while auth work is active:
 
 Current Chat 1 state:
 
-- Latest pushed auth commit before the current reCAPTCHA patch: `652877c` (`fix: harden firebase phone auth feedback`).
-- Google login is working on the public Gravity URL.
+- Latest pushed auth commit: `1e1958c` (`fix: allow firebase recaptcha verification`).
+- Real Google login is working on the public Gravity URL.
+- Real Mobile OTP is working after restricting the Firebase SMS region allowlist to India (`IN`); reCAPTCHA remains enabled and fail closed.
+- The verified active customer has both `google.com` and `phone` identities linked to the same Gravity customer, with email and phone both verified; Gravity first-party session creation is confirmed.
 - Firebase providers intentionally exposed by Gravity: `google.com` and `phone`.
-- Mobile OTP is the active debugging task; reCAPTCHA must remain enabled and fail closed.
+- Remaining Chat 1 validation: repeat-login/duplicate-account canaries and integration of approved Chat 2 / Chat 3 commits.
 - Chat 1 may integrate approved Chat 2 / Chat 3 commits into `main` only after reviewing conflicts and running the full release gates.
 
 ## Chat 2 — Public UI/UX
@@ -49,6 +51,8 @@ Current Chat 2 state:
 - Worktree: `C:\movieXsuggestion\MyProject\grevity_fitness-public-ui`
 - Responsive UI commit: `bcc18a1` (`Polish Gravity public responsive UI`).
 - Coordination-file commit: `3ca6845`.
+- Phase 2 performance/accessibility commit: `54cd4a7` (`Harden Gravity public performance and accessibility`).
+- Chat 2 public work is green: 16/16 Playwright and 102/102 Python tests passed.
 - Chat 2 must not merge into `main`; report the commit SHA to Chat 1/user for integration.
 
 ## Chat 3 — Hosting / Reliability / Mobile Deployment
