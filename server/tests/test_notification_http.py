@@ -120,7 +120,8 @@ class NotificationHttpTests(unittest.TestCase):
                 base, "/api/admin/notifications/scan", method="POST",
                 body={"daysBefore": 0}, headers=headers,
             )
-            self.assertEqual((status, payload), (422, {"error": "notification_validation"}))
+            self.assertEqual(status, 200)
+            self.assertEqual(payload["scan"]["daysBefore"], 0)
             owner_session = server.admin_service.resolve_session(issue.session_token)
             reception = server.admin_service.create_admin(
                 owner_session, "frontdesk", "Gravity!Desk123", "reception"

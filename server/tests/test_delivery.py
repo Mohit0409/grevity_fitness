@@ -86,8 +86,8 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(adapter.sent[0]["recipient"], "member@example.com")
         self.assertIn("membership expiry reminder", adapter.sent[0]["subject"].lower())
         reminder = self.notifications.list_admin()[0]
-        self.assertEqual(reminder["state"], "completed")
-        statuses = {item["channel"]: item["status"] for item in reminder["deliveries"]}
+        self.assertEqual(reminder["state"], "pending")
+        statuses = {item["channel"]: item["status"] for item in reminder["deliveries"] if item["recipientRole"] == "customer"}
         self.assertEqual(statuses["email"], "sent")
         self.assertEqual(statuses["sms"], "blocked_external_config")
         self.assertEqual(statuses["whatsapp"], "blocked_external_config")

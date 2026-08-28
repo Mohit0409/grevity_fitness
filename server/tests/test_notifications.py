@@ -79,7 +79,7 @@ class NotificationServiceTests(unittest.TestCase):
         reminders = self.notifications.list_admin()
         self.assertEqual(len(reminders), 1)
         self.assertEqual(reminders[0]["membershipId"], membership["id"])
-        statuses = {item["channel"]: item["status"] for item in reminders[0]["deliveries"]}
+        statuses = {item["channel"]: item["status"] for item in reminders[0]["deliveries"] if item["recipientRole"] == "customer"}
         self.assertEqual(statuses, {
             "email": "blocked_external_config",
             "sms": "blocked_external_config",
@@ -127,7 +127,7 @@ class NotificationServiceTests(unittest.TestCase):
         self.expiring_membership("customer-2")
         self.notifications.scan_expiring(7)
         reminders = self.notifications.list_admin()
-        statuses = {item["channel"]: item["status"] for item in reminders[0]["deliveries"]}
+        statuses = {item["channel"]: item["status"] for item in reminders[0]["deliveries"] if item["recipientRole"] == "customer"}
         self.assertEqual(statuses, {
             "email": "missing_recipient",
             "sms": "missing_recipient",
@@ -157,7 +157,7 @@ class NotificationServiceTests(unittest.TestCase):
         )
         self.assertEqual(sent["status"], "sent")
         self.assertEqual(sent["attemptCount"], 2)
-        self.assertEqual(self.notifications.list_admin()[0]["state"], "completed")
+        self.assertEqual(self.notifications.list_admin()[0]["state"], "pending")
 
 
 if __name__ == "__main__":

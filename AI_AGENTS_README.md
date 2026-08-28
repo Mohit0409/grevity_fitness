@@ -39,6 +39,8 @@ Current Chat 1 state:
 - Full backend release suite after Chat 3 integration: 111/111 tests passed.
 - Firebase providers intentionally exposed by Gravity: `google.com` and `phone`.
 - Chat 1 auth validation is complete. Chat 3 is integrated; remaining Chat 1 work is controlled integration of Chat 2 followed by final release gates.
+- Chat 1 membership-expiry backend now supports non-overlapping 7/3/1/0-day reminder windows and six-way customer/owner fan-out across email, SMS and WhatsApp while resolving contacts only at send time.
+- SMTP is the only bundled production delivery provider. StyleDash has no SMS/WhatsApp vendor implementation, so Gravity exposes tested provider boundaries and keeps those channels fail-closed until an external provider is selected/configured.
 - Chat 1 may integrate approved Chat 2 / Chat 3 commits into `main` only after reviewing conflicts and running the full release gates.
 
 ## Chat 2 â€” Public UI/UX
