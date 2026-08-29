@@ -106,6 +106,11 @@ class OperationsScriptTests(unittest.TestCase):
         self.assertIn("-ExplicitPath $NgrokExecutablePath", tunnel)
         self.assertIn("-NgrokConfigPath C:\\ProgramData\\GravityFitness\\ngrok.yml", runbook)
         self.assertIn("-NgrokExecutablePath 'C:\\Program Files\\ngrok\\ngrok.exe'", runbook)
+        self.assertIn("Controlled Windows lifecycle cutover", runbook)
+        self.assertIn("-ExpectedReleaseSha $releaseSha -RequireDetachedHead -PreflightOnly", runbook)
+        self.assertIn(".\\scripts\\adopt-ngrok.ps1", runbook)
+        self.assertIn("-ConfirmAdopt", runbook)
+        self.assertIn(".\\scripts\\verify-gravity-tasks.ps1", runbook)
 
     def test_windows_ngrok_refuses_duplicate_unmanaged_loopback_tunnel(self) -> None:
         tunnel = (ROOT / "scripts" / "start-ngrok.ps1").read_text(encoding="utf-8")
@@ -158,6 +163,47 @@ class OperationsScriptTests(unittest.TestCase):
         for text in (powershell, shell, installer):
             for marker in forbidden:
                 self.assertNotIn(marker, text)
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows Task Scheduler preflight")
+    def test_task_installer_preflight_is_non_mutating_and_secret_free(self) -> None:
+        installer = ROOT / "scripts" / "install-gravity-tasks.ps1"
+        with TemporaryDirectory() as temporary:
+            config = Path(temporary) / "gravity.env"
+            config.write_text("GRAVITY_HOST=127.0.0.1\nGRAVITY_PORT=8799\n", encoding="utf-8")
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-File", str(installer),
+                 "-ConfigPath", str(config), "-PreflightOnly"],
+                cwd=ROOT, capture_output=True, text=True,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        plan = __import__("json").loads(result.stdout.strip())
+        self.assertEqual([item["name"] for item in plan["tasks"]], [
+            "GravityFitness-Watchdog", "GravityFitness-DailyBackup", "GravityFitness-Notifications"
+        ])
+        self.assertTrue(all(item["principal"] == "SYSTEM" for item in plan["tasks"]))
+        self.assertTrue(all(item["runLevel"] == "Highest" for item in plan["tasks"]))
+        for marker in ("SECRET_KEY=", "SMTP_PASSWORD=", "SMS_API_KEY=", "authtoken="):
+            self.assertNotIn(marker, result.stdout)
+
+    def test_task_verifier_is_read_only_and_checks_release_identity(self) -> None:
+        verifier = (ROOT / "scripts" / "verify-gravity-tasks.ps1").read_text(encoding="utf-8")
+        self.assertIn("Get-ScheduledTask", verifier)
+        self.assertNotIn("Register-ScheduledTask", verifier)
+        self.assertIn("ExpectedReleaseSha", verifier)
+        self.assertIn("RequireDetachedHead", verifier)
+        self.assertIn("MSFT_TaskBootTrigger", verifier)
+        self.assertIn("MultipleInstances", verifier)
+        self.assertIn("working_directory_mismatch", verifier)
+        self.assertIn("secret_marker", verifier)
+
+    def test_ngrok_adoption_defaults_to_probe_only_and_requires_explicit_commit(self) -> None:
+        adoption = (ROOT / "scripts" / "adopt-ngrok.ps1").read_text(encoding="utf-8")
+        self.assertIn("ConfirmAdopt", adoption)
+        self.assertIn("--probe-only", adoption)
+        self.assertIn("Gravity loopback health must be green", adoption)
+        self.assertIn("ngrok-skip-browser-warning", adoption)
+        self.assertIn("Remove-Item -LiteralPath $temporaryEvidence", adoption)
+        self.assertNotIn("authtoken", adoption.casefold())
 
     def test_browser_assets_contain_no_server_secret_configuration_names(self) -> None:
         forbidden = (

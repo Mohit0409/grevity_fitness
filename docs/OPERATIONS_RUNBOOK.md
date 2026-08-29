@@ -69,6 +69,67 @@ Add `-EnsureNgrok` only while the temporary ngrok deployment is intentionally in
 
 `ngrok.yml` contains the ngrok token. Keep it outside Git in a directory restricted to deployment administrators and `SYSTEM`; never put the token on the task command line. A stable production tunnel is preferred. Review Task Scheduler history and `.gravity/operations.log` after installation. Remove only these tasks with `uninstall-gravity-tasks.ps1`.
 
+### Controlled Windows lifecycle cutover
+
+Use this sequence only from Chat 1's immutable detached release checkout. Replace the tuple values with the exact release paths recorded by Chat 1; never paste an ngrok token into these commands.
+
+```powershell
+$releaseRoot = 'C:\ProgramData\GravityFitness\releases\<release-sha>'
+$config = 'C:\ProgramData\GravityFitness\gravity.env'
+$ngrokConfig = 'C:\ProgramData\GravityFitness\ngrok.yml'
+$ngrokExe = 'C:\Program Files\ngrok\ngrok.exe'
+$python = 'C:\ProgramData\GravityFitness\python\python.exe'
+Set-Location $releaseRoot
+$releaseSha = (git rev-parse HEAD).Trim()
+
+.\scripts\install-gravity-tasks.ps1 `
+  -ConfigPath $config -EnsureNgrok `
+  -NgrokConfigPath $ngrokConfig -NgrokExecutablePath $ngrokExe `
+  -ExpectedReleaseSha $releaseSha -RequireDetachedHead -PreflightOnly
+```
+
+`-PreflightOnly` is non-mutating and does not require Administrator rights. It must show the three SYSTEM/Highest tasks, the detached clean release SHA, loopback Gravity target, and only path-based arguments.
+
+If an ngrok tunnel is already running, adopt it only when that process already uses the final `$ngrokExe`, `$ngrokConfig`, and loopback Gravity target. Resolve exactly one candidate, probe first, then use `-ConfirmAdopt` only during the controlled operator window:
+
+```powershell
+$candidates = @(Get-CimInstance Win32_Process -Filter "Name='ngrok.exe'" |
+  Where-Object { $_.CommandLine -like '*http://127.0.0.1:8787*' -and $_.CommandLine -like "*$ngrokConfig*" })
+if ($candidates.Count -ne 1) { throw 'Expected exactly one final-path Gravity ngrok process.' }
+$ngrokPid = [int]$candidates[0].ProcessId
+
+.\scripts\adopt-ngrok.ps1 -ConfigPath $config `
+  -NgrokConfigPath $ngrokConfig -NgrokExecutablePath $ngrokExe `
+  -PythonPath $python -ProcessId $ngrokPid
+
+# Elevated controlled operator step after the probe is green:
+.\scripts\adopt-ngrok.ps1 -ConfigPath $config `
+  -NgrokConfigPath $ngrokConfig -NgrokExecutablePath $ngrokExe `
+  -PythonPath $python -ProcessId $ngrokPid -ConfirmAdopt
+```
+
+If the running tunnel uses a different executable/config path, **do not adopt it**. During the controlled release window stop only the verified old ngrok PID, then start the final managed tunnel with `start-ngrok.ps1`; its duplicate-tunnel guard must remain enabled.
+
+From the same elevated detached release checkout, install and verify the task definitions:
+
+```powershell
+.\scripts\install-gravity-tasks.ps1 `
+  -ConfigPath $config -EnsureNgrok `
+  -NgrokConfigPath $ngrokConfig -NgrokExecutablePath $ngrokExe `
+  -ExpectedReleaseSha $releaseSha -RequireDetachedHead
+
+.\scripts\verify-gravity-tasks.ps1 `
+  -ConfigPath $config -ExpectedReleaseSha $releaseSha -RequireDetachedHead `
+  -EnsureNgrok -NgrokConfigPath $ngrokConfig -NgrokExecutablePath $ngrokExe
+
+.\scripts\watch-gravity.ps1 -ConfigPath $config -EnsureNgrok `
+  -NgrokConfigPath $ngrokConfig -NgrokExecutablePath $ngrokExe
+.\scripts\status-gravity.ps1 -ConfigPath $config -Json
+.\scripts\status-notifications.ps1 -ConfigPath $config
+```
+
+After a planned reboot, rerun `verify-gravity-tasks.ps1`, `status-gravity.ps1`, `admin-health-check.ps1`, and the public `/api/health` check. A missing task, mismatched SHA/path/principal/trigger, unhealthy backend/tunnel, or stale notification scheduler is a release blocker.
+
 Before installing tasks after a code or Python-runtime change, run the isolated lifecycle drill. It uses a temporary port/database, tests start/status/backup/recovery/crash-watchdog/stop, and deletes only its verified temporary directory after success:
 
 ```powershell
