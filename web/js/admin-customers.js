@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null, customers: [], selected: null, detail: null, plans: [], opener: null, paymentTarget: null };
+  const state = { admin: null, customers: [], selected: null, detail: null, plans: [], opener: null, paymentTarget: null, renewKey: null, paymentKey: null };
   const core = () => window.GravityAdminCore;
 
   function hasPermission(permission) { return core()?.hasPermission(permission) || false; }
@@ -23,6 +23,12 @@
   function toPaise(value) {
     const amount = Number(value || 0);
     return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
+  }
+
+  function newIdempotencyKey(prefix) {
+    const uuid = globalThis.crypto?.randomUUID?.();
+    if (uuid) return `${prefix}-${uuid}`;
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 14)}`;
   }
 
   function paymentMethodLabel(value) {
@@ -360,7 +366,7 @@
 
   async function openRenew() {
     if (!state.selected) return;
-    state.opener = document.activeElement; await loadPlans();
+    state.opener = document.activeElement; state.renewKey = newIdempotencyKey('admin-renew'); await loadPlans();
     const current = currentMembership(); $('renewError').textContent = '';
     $('renewCurrentExpiry').textContent = current ? `Current membership ${current.membershipNumber || ''} expires ${formatDate(current.endsAt)}. Leave start date blank to let the server queue renewal safely.` : 'No active membership. The server will determine the authoritative start and expiry.';
     const select = $('renewPlan'); select.replaceChildren();
@@ -376,7 +382,7 @@
     const startsAt = dateToUnix($('renewStart').value); if (startsAt) body.startsAt = startsAt;
     if ($('renewNote').value.trim()) body.note = $('renewNote').value.trim();
     try {
-      await core().api(`/api/admin/customers/${encodeURIComponent(state.selected.id)}/renew`, { method: 'POST', body });
+      await core().api(`/api/admin/customers/${encodeURIComponent(state.selected.id)}/renew`, { method: 'POST', headers: { 'Idempotency-Key': state.renewKey }, body });
       $('renewMembershipDialog').close(); core().flash('Membership renewed. Server dates and balance are authoritative.'); await refreshSelected(); await refreshRelated();
     } catch (error) { $('renewError').textContent = errorText(error, 'renew'); }
     finally { setBusy(submit, false); }
@@ -384,7 +390,7 @@
 
   function openRecordPayment(membership, customer = state.selected) {
     if (!membership || !customer) return;
-    state.opener = document.activeElement; state.paymentTarget = { membership, customer };
+    state.opener = document.activeElement; state.paymentTarget = { membership, customer }; state.paymentKey = newIdempotencyKey('admin-payment');
     $('paymentError').textContent = ''; $('paymentCustomer').textContent = customer.displayName || customer.customerName || 'Customer';
     $('paymentMembership').textContent = membership.membershipNumber || '--'; $('paymentPending').textContent = moneyPaise(membership.payment?.pendingPaise, membership.currency);
     $('paymentAmount').value = (Number(membership.payment?.pendingPaise || 0) / 100).toFixed(2); $('paymentAmount').max = (Number(membership.payment?.pendingPaise || 0) / 100).toFixed(2);
@@ -399,7 +405,7 @@
     const paidAt = dateToUnix($('paymentDate').value); if (paidAt) body.paidAt = paidAt;
     if ($('paymentNote').value.trim()) body.note = $('paymentNote').value.trim();
     try {
-      await core().api(`/api/admin/memberships/${encodeURIComponent(target.membership.id)}/payments`, { method: 'POST', body });
+      await core().api(`/api/admin/memberships/${encodeURIComponent(target.membership.id)}/payments`, { method: 'POST', headers: { 'Idempotency-Key': state.paymentKey }, body });
       $('recordPaymentDialog').close(); core().flash('Payment recorded against the server ledger.');
       if (state.selected?.id === (target.customer.id || target.customer.customerId)) await refreshSelected();
       await refreshRelated();
