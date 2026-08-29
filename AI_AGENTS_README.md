@@ -905,3 +905,12 @@ Current local service remains pinned v9 / migration 009 until Chat 1 records Adm
 12. On critical failure, rollback to the fresh migration-009 backup plus pinned v9; no ad-hoc DB edits.
 
 Until step 8 records GO, the live database remains migration 009 and current runtime remains pinned v9. The only active product is the Admin Portal software.
+## CHAT 1 STATUS - 2026-08-29 after 22:01 queue review
+
+- Chat 1 re-read the authoritative `NEW TASK ASSIGNMENTS - 2026-08-29 22:01 IST` queue and is working only on Gravity Fitness Admin Portal software. Customer/public website, domain/DNS, Firebase Hosting, ngrok/tunnel, public hostname, and public redesign remain deferred.
+- Frozen runtime/RC remains `c4f2219a77f0a1248497c15c5eef6bc5389dd476` at `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`, detached and clean. No broad acceptance was restarted and no runtime/product/ops code changed.
+- Chat 1 prepared a secret-safe elevated configuration script and local deployment manifest under ignored `.gravity\release-prep\c4f2219\`. They copy existing private `.env` values without printing them, then override only local operational settings: production mode, loopback host/port/base URL, proxy trust disabled, explicit live data path, protected runtime/log/backup paths, and approved Python path.
+- Prepared task preflight/install/verify commands use exact RC SHA + detached requirement and explicitly omit `-EnsureNgrok`. No off-host destination is invented.
+- Preparation artifacts parse cleanly and contain no embedded `SECRET_KEY`, Firebase web API key, Razorpay key ID/secret, or webhook secret values.
+- Current session remains non-elevated; protected `C:\ProgramData\GravityFitness\gravity.env` is still absent and Gravity SYSTEM task count remains 0. Therefore protected-config creation/task installation correctly stops at the elevation boundary.
+- Existing v9 service remains healthy on `127.0.0.1:8787`; live DB remains migration 009. Migration 010 remains forbidden until explicit Admin Software GO.
