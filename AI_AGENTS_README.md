@@ -538,3 +538,14 @@ Success: exact `c4f2219` gets a 37-test lifecycle sign-off; protected deployment
 10. On any critical failure: rollback to the fresh migration-009 backup plus pinned v9; no ad-hoc SQLite/migration edits.
 
 Until step 8 explicitly records GO, production must remain on pinned v9 / migration 009. Frozen code SHA is `c4f2219`; changing code invalidates this release freeze until Chat 1 creates and validates a replacement immutable RC.
+
+## RELEASE LEAD INGRESS UPDATE - 2026-08-29 after 19:39 queue review
+
+- Chat 1 re-read the authoritative `NEW TASK ASSIGNMENTS - 2026-08-29 19:39 IST` queue and preserved frozen runtime SHA `c4f2219a77f0a1248497c15c5eef6bc5389dd476`; no runtime/product/ops code was changed.
+- Production-ingress audit found no verified durable production hostname, reserved production tunnel identity, or approved custom-domain value in the repository. Existing domain values are illustrative placeholders or the staging ngrok hostname.
+- Ingress decision is therefore explicitly **NO-GO** rather than guessed. Required production topology remains: verified durable HTTPS hostname -> explicitly trusted proxy/tunnel -> loopback Gravity backend `127.0.0.1:8787`.
+- Do not authorize migration 010 using the current free ngrok staging hostname/interstitial. A verified operator-owned production hostname/tunnel must be supplied and validated before the deployment tuple can be completed.
+- Chat 2 independent exact-`c4f2219` frontend sign-off is still outstanding in canonical coordination.
+- Chat 3 SHA-sensitive exact-`c4f2219` 37-test lifecycle/ngrok/task sign-off is still outstanding in canonical coordination.
+- Protected Gravity/ngrok paths remain absent, the session is non-elevated, and scheduled-task count remains 0; protected lifecycle/preflight/install/reboot/fresh-backup/cutover work remains gated.
+- Next Chat 1 action after both independent sign-offs and a verified production hostname/tunnel decision: freeze the complete deployment tuple, then enter the controlled elevated protected-path window while production remains migration 009.

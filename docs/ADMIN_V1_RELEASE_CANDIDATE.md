@@ -147,3 +147,11 @@ Migration 010 remains forbidden until production ingress, protected deployment p
 On GO: perform the guarded final-RC/migration-010 cutover and run complete local/public health, owner TOTP/Admin workspaces, approved-customer login, unknown-phone denial, trainer redaction, payment/renewal history, notifications, task history, readiness, and browser smoke.
 
 On any critical failure: stop the candidate safely and restore the fresh migration-009 backup with pinned v9. Never manually edit migration rows or live SQLite/WAL files.
+
+## Ingress resolution update - 2026-08-29 19:39 queue
+
+Chat 1 audited the repository for an already-approved production hostname, reserved production tunnel identity, or custom-domain value. None is present. The only concrete public hostname remains the staging ngrok endpoint; other domain values are examples/placeholders.
+
+Production ingress is therefore explicitly **NO-GO** until the operator supplies and verifies a durable production hostname/tunnel that ordinary browsers can use without the free-tier warning page. The accepted topology is HTTPS on that verified hostname through an explicitly trusted proxy/tunnel to loopback `127.0.0.1:8787`.
+
+No production URL has been invented or frozen. Because ingress is unresolved, the complete deployment tuple cannot yet be finalized and the protected/elevated lifecycle window must not begin. Migration 010 remains prohibited.
