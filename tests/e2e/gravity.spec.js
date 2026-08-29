@@ -893,6 +893,7 @@ async function mockAdminSoftware(page, options = {}) {
   const editBodies = [];
   const renewBodies = [];
   const paymentBodies = [];
+  const paymentAttempts = [];
   let customerMode = options.customerMode || 'ok';
   let paymentMode = options.paymentMode || 'ok';
 
@@ -988,7 +989,7 @@ async function mockAdminSoftware(page, options = {}) {
 
   await page.route(/\/api\/admin\/customers\/[^/]+\/renew$/, async (route) => {
     const customerId = decodeURIComponent(new URL(route.request().url()).pathname.split('/').slice(-2)[0]);
-    const body = route.request().postDataJSON(); renewBodies.push({ customerId, ...body });
+    const body = route.request().postDataJSON(); renewBodies.push({ customerId, idempotencyKey: route.request().headers()['idempotency-key'], ...body });
     const plan = plans.find((item) => item.id === body.planId); if (!plan) return json(route, 404, { error: 'admin_software_not_found' });
     const paid = Number(body.amountPaidPaise || 0); if (paid > plan.pricePaise) return json(route, 409, { error: 'admin_software_conflict' });
     const current = (memberships[customerId] || []).find((item) => item.status === 'active'); const startsAt = Number(body.startsAt || current?.endsAt || now);
@@ -1012,8 +1013,9 @@ async function mockAdminSoftware(page, options = {}) {
   await page.route(/\/api\/admin\/memberships\/[^/]+\/payments$/, async (route) => {
     const membershipId = decodeURIComponent(new URL(route.request().url()).pathname.split('/').slice(-2)[0]); const membership = findMembership(membershipId); if (!membership) return json(route, 404, { error: 'admin_software_not_found' });
     const body = route.request().postDataJSON();
+    const attempt = { membershipId, idempotencyKey: route.request().headers()['idempotency-key'], ...body }; paymentAttempts.push(attempt);
     if (paymentMode === 'error') return json(route, 503, { error: 'temporary_failure' });
-    paymentBodies.push({ membershipId, ...body }); await new Promise((resolve) => setTimeout(resolve, 120));
+    paymentBodies.push(attempt); await new Promise((resolve) => setTimeout(resolve, 120));
     const amount = Number(body.amountPaise || 0); if (amount <= 0) return json(route, 422, { error: 'admin_software_validation', fields: { amountPaidPaise: 'Amount must be greater than zero' } });
     if (amount > Number(membership.payment.pendingPaise || 0)) return json(route, 409, { error: 'admin_software_conflict' });
     membership.payment.paidPaise += amount; membership.payment.pendingPaise -= amount; const customer = findCustomer(membership.customerId);
@@ -1043,7 +1045,7 @@ async function mockAdminSoftware(page, options = {}) {
   await page.route('**/api/admin/admins', (route) => json(route, 200, { admins: [admin] }));
   await page.route('**/api/admin/audit?limit=100', (route) => json(route, 200, { audit: [] }));
 
-  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; } };
+  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; } };
 }
 
 
@@ -1170,6 +1172,7 @@ test('renewal is server-backed with opening payment and preserved history', asyn
   await expect(page.locator('#renewMembershipDialog')).not.toBeVisible();
   await expect.poll(() => fixture.renewBodies.length).toBe(1);
   expect(fixture.renewBodies[0].amountPaidPaise).toBe(25000);
+  expect(fixture.renewBodies[0].idempotencyKey).toMatch(/^admin-renew-/);
   await expect(drawer).toContainText('GF-RENEW-1');
   await expect(drawer).toContainText('GF-2026-ASHA');
   await expect(drawer).toContainText('Renewal deposit');
@@ -1225,6 +1228,9 @@ test('payment validation handles overpayment and network failure without mutatin
   await page.locator('#submitPayment').click();
   await expect(page.locator('#recordPaymentDialog')).not.toBeVisible();
   await expect(drawer).toContainText(/899/);
+  expect(fixture.paymentAttempts).toHaveLength(2);
+  expect(fixture.paymentAttempts[0].idempotencyKey).toMatch(/^admin-payment-/);
+  expect(fixture.paymentAttempts[1].idempotencyKey).toBe(fixture.paymentAttempts[0].idempotencyKey);
   expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
 });
 
