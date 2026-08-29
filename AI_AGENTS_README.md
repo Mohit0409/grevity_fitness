@@ -121,3 +121,13 @@ Current state:
 8. Every handoff reports branch, commit SHA, changed files, tests, and blockers.
 9. Migration 010 stays off the live database until final integrated release gates pass and a fresh verified pre-migration backup exists.
 10. Update this file when ownership, handoff SHA, or rollout state changes.
+
+## Current coordination - 2026-08-29 15:48 IST
+
+- Chat 1: integrated Admin V1 release gates on `main` are green after the latest Chat 2 commits: Admin-focused Playwright 21/21 PASS, full browser Playwright 45/45 PASS, and full backend unittest 164/164 PASS. `git diff --check`, Python compile, 21 JavaScript syntax checks, and tracked-file secret/private-key scans also pass.
+- Chat 1 release ops: live production is still the detached pinned v9 runtime at `C:\movieXsuggestion\MyProject\grevity_fitness-runtime-v9` / `49529c9`. PID 4644 owns `127.0.0.1:8787`, local health is green, and the production DB remains migrations 001-009 / `notification_owner_fanout` with no `membership_payments` table.
+- Public tunnel: ngrok 3.39.9 is running as PID 15356 and `https://foyer-amenity-staff.ngrok-free.dev` forwards to the pinned v9 backend. API health is HTTP 200 with the ngrok free-tier bypass header; without it ngrok serves its `ERR_NGROK_6024` browser warning/interstitial, so do not describe the public browser experience as warning-free.
+- Reboot recovery is still NOT solved: `GravityFitness-Watchdog`, `GravityFitness-DailyBackup`, and `GravityFitness-Notifications` scheduled tasks remain absent, and the current Desktop Commander session is not elevated. Do not point lifecycle tasks at current `main` before the controlled Admin V1 release.
+- Chat 2: role-aware UI + Team Access + stale Fees response hardening are integrated on `main` as `28b8b14`, `5a246f2`, and `74c3bd2`. Chat 2 worktree is clean at `cb1d9e9`; no frontend reimplementation is needed.
+- Chat 3: worktree remains at stale expected-failure commit `017080e`. The underlying >200 customer filter boundary is fixed on `main` in `2ea3b38`, and the normal passing regression `test_customer_filters_apply_before_limit_and_return_late_plan_match` passed in the 164/164 backend gate. Chat 3 should sync/rebase and convert its stale marker to a normal passing regression; do not merge `017080e` as-is.
+- Migration 010 remains prohibited on live production. Remaining release blockers are Chat 3 handoff cleanup/confirmation plus the lifecycle/reboot recovery plan and a controlled production cutover decision; production stays pinned to migration 009 until those are resolved.
