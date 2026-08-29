@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null, customers: [], selected: null, detail: null, plans: [], opener: null, paymentTarget: null, renewKey: null, paymentKey: null };
+  const state = { admin: null, customers: [], selected: null, detail: null, plans: [], opener: null, paymentTarget: null, renewKey: null, paymentKey: null, listRequestId: 0 };
   const core = () => window.GravityAdminCore;
 
   function hasPermission(permission) { return core()?.hasPermission(permission) || false; }
@@ -146,7 +146,7 @@
       const phone = document.createElement('td'); phone.textContent = maskPhone(member.phone);
       const plan = document.createElement('td'); plan.textContent = membership?.planName || '--';
       const expiry = document.createElement('td'); expiry.textContent = membership ? formatDate(membership.endsAt) : '--';
-      const pending = document.createElement('td'); pending.textContent = membership ? moneyPaise(payment.pendingPaise, membership.currency) : '--';
+      const pending = document.createElement('td'); pending.textContent = !hasPermission('payments.read') ? 'Restricted' : (membership ? moneyPaise(payment.pendingPaise, membership.currency) : '--');
       const status = document.createElement('td'); status.appendChild(statusBadge(member.status));
       const action = document.createElement('td');
       const open = document.createElement('button'); open.type = 'button'; open.className = 'table-action'; open.textContent = 'Open';
@@ -157,7 +157,9 @@
       const head = document.createElement('div'); head.className = 'mobile-record-head';
       const label = document.createElement('div'); const cname = document.createElement('strong'); cname.textContent = member.displayName || 'Customer'; const cphone = document.createElement('small'); cphone.textContent = maskPhone(member.phone); label.append(cname, cphone); head.append(label, statusBadge(member.status));
       const meta = document.createElement('dl'); meta.className = 'mobile-record-facts';
-      [['Plan', membership?.planName || '--'], ['Expiry', membership ? formatDate(membership.endsAt) : '--'], ['Pending', membership ? moneyPaise(payment.pendingPaise, membership.currency) : '--']].forEach(([key, value]) => { const div = document.createElement('div'); const dt = document.createElement('dt'); dt.textContent = key; const dd = document.createElement('dd'); dd.textContent = value; div.append(dt, dd); meta.appendChild(div); });
+      const facts = [['Plan', membership?.planName || '--'], ['Expiry', membership ? formatDate(membership.endsAt) : '--']];
+      if (hasPermission('payments.read')) facts.push(['Pending', membership ? moneyPaise(payment.pendingPaise, membership.currency) : '--']);
+      facts.forEach(([key, value]) => { const div = document.createElement('div'); const dt = document.createElement('dt'); dt.textContent = key; const dd = document.createElement('dd'); dd.textContent = value; div.append(dt, dd); meta.appendChild(div); });
       const mobileOpen = document.createElement('button'); mobileOpen.type = 'button'; mobileOpen.className = 'table-action full-width'; mobileOpen.textContent = 'Open customer'; mobileOpen.addEventListener('click', () => openCustomerById(member.id, mobileOpen));
       card.append(head, meta, mobileOpen); mobile.appendChild(card);
     }
@@ -167,15 +169,25 @@
 
   async function renderWorkspace() {
     await loadPlans();
+    const requestId = ++state.listRequestId;
+    const panel = $('customersPanel'); panel?.setAttribute('aria-busy', 'true');
+    $('membersBody').replaceChildren(emptyRow('Loading customers...', 7));
     const params = new URLSearchParams();
     const query = $('memberSearch').value.trim();
     if (query) params.set('q', query);
     if ($('customerStatusFilter').value) params.set('status', $('customerStatusFilter').value);
     if ($('customerMembershipFilter').value) params.set('membershipStatus', $('customerMembershipFilter').value);
     if ($('customerPlanFilter').value) params.set('planId', $('customerPlanFilter').value);
-    const payload = await core().api(`/api/admin/customers?${params.toString()}`);
-    state.customers = Array.isArray(payload.customers) ? payload.customers : [];
-    renderCustomers();
+    try {
+      const payload = await core().api(`/api/admin/customers?${params.toString()}`);
+      if (requestId !== state.listRequestId) return;
+      state.customers = Array.isArray(payload.customers) ? payload.customers : [];
+      renderCustomers();
+    } catch (error) {
+      if (requestId !== state.listRequestId) return;
+      $('membersBody').replaceChildren(emptyRow('Customer list is temporarily unavailable. Retry or change the filters.', 7));
+      throw error;
+    } finally { if (requestId === state.listRequestId) panel?.setAttribute('aria-busy', 'false'); }
   }
 
   function renderMembershipHistory(root, memberships) {
@@ -183,16 +195,18 @@
     const h = document.createElement('div'); h.className = 'profile-section-head'; h.innerHTML = '<h4>Membership history</h4>';
     const wrap = document.createElement('div'); wrap.className = 'tablewrap';
     const table = document.createElement('table'); table.className = 'software-table compact-table';
-    table.innerHTML = '<thead><tr><th>Membership</th><th>Plan</th><th>Start</th><th>Expiry</th><th>Status</th><th>Paid / Pending</th></tr></thead>';
+    const canReadPayments = hasPermission('payments.read');
+    table.innerHTML = canReadPayments ? '<thead><tr><th>Membership</th><th>Plan</th><th>Start</th><th>Expiry</th><th>Status</th><th>Paid / Pending</th></tr></thead>' : '<thead><tr><th>Membership</th><th>Plan</th><th>Start</th><th>Expiry</th><th>Status</th></tr></thead>';
     const body = document.createElement('tbody');
     for (const item of memberships) {
       const row = document.createElement('tr');
       for (const value of [item.membershipNumber || '--', item.planName || '--', formatDate(item.startsAt), formatDate(item.endsAt)]) { const td = document.createElement('td'); td.textContent = value; row.appendChild(td); }
       const status = document.createElement('td'); status.appendChild(statusBadge(item.status));
-      const payment = document.createElement('td'); payment.textContent = `${moneyPaise(item.payment?.paidPaise, item.currency)} / ${moneyPaise(item.payment?.pendingPaise, item.currency)}`;
-      row.append(status, payment); body.appendChild(row);
+      row.appendChild(status);
+      if (canReadPayments) { const payment = document.createElement('td'); payment.textContent = `${moneyPaise(item.payment?.paidPaise, item.currency)} / ${moneyPaise(item.payment?.pendingPaise, item.currency)}`; row.appendChild(payment); }
+      body.appendChild(row);
     }
-    if (!body.children.length) body.appendChild(emptyRow('No membership history yet.', 6));
+    if (!body.children.length) body.appendChild(emptyRow('No membership history yet.', canReadPayments ? 6 : 5));
     table.appendChild(body); wrap.appendChild(table); section.append(h, wrap); root.appendChild(section);
   }
 
@@ -252,7 +266,7 @@
     appendFact(pf, 'Total fee', payMembership ? moneyPaise(payMembership.payment?.totalPaise, payMembership.currency) : '--');
     appendFact(pf, 'Paid', payMembership ? moneyPaise(payMembership.payment?.paidPaise, payMembership.currency) : '--');
     appendFact(pf, 'Pending', payMembership ? moneyPaise(payMembership.payment?.pendingPaise, payMembership.currency) : '--');
-    payment.append(ph, pf); top.append(membership, payment); body.appendChild(top);
+    payment.append(ph, pf); top.appendChild(membership); if (hasPermission('payments.read')) top.appendChild(payment); body.appendChild(top);
 
     const actions = document.createElement('div'); actions.className = 'profile-actions';
     const pay = document.createElement('button'); pay.type = 'button'; pay.className = 'primary-action'; pay.textContent = 'Record Payment';
@@ -261,11 +275,12 @@
     const renew = document.createElement('button'); renew.type = 'button'; renew.textContent = 'Renew Membership'; renew.disabled = !hasPermission('memberships.manage'); renew.addEventListener('click', openRenew);
     const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'ghost'; edit.textContent = 'Edit Customer'; edit.disabled = !hasPermission('members.manage'); edit.addEventListener('click', openEdit);
     const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'ghost'; toggle.textContent = member.status === 'active' ? 'Disable account' : 'Enable account'; toggle.disabled = !hasPermission('members.manage'); toggle.addEventListener('click', toggleStatus);
-    actions.append(pay, renew, edit, toggle); body.appendChild(actions);
+    if (hasPermission('payments.record')) actions.appendChild(pay);
+    actions.append(renew, edit, toggle); body.appendChild(actions);
 
     renderMembershipHistory(body, allMemberships());
-    renderPaymentHistory(body, Array.isArray(detail.payments) ? detail.payments : []);
-    renderNotificationHistory(body, Array.isArray(detail.notifications) ? detail.notifications : []);
+    if (hasPermission('payments.read')) renderPaymentHistory(body, Array.isArray(detail.payments) ? detail.payments : []);
+    if (hasPermission('notifications.manage')) renderNotificationHistory(body, Array.isArray(detail.notifications) ? detail.notifications : []);
   }
 
   async function refreshSelected() {

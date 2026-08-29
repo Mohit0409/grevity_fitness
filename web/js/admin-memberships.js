@@ -50,6 +50,8 @@
   }
 
   async function renderMemberships() {
+    const panel = $('membershipsPanel'); panel?.setAttribute('aria-busy', 'true');
+    const body = $('membershipsBody'); body.replaceChildren(emptyRow('Loading memberships...', 8));
     const statusFilter = $('membershipStatusFilter').value;
     const planId = $('membershipPlanFilter').value;
     $('expiryDays').disabled = statusFilter !== 'expiring';
@@ -57,13 +59,16 @@
     if (statusFilter && statusFilter !== 'expiring') params.set('status', statusFilter);
     if (statusFilter === 'expiring') params.set('status', 'active');
     if (planId) params.set('planId', planId);
-    const payload = await core().api(`/api/admin/memberships?${params.toString()}`);
+    let payload;
+    try { payload = await core().api(`/api/admin/memberships?${params.toString()}`); }
+    catch (error) { body.replaceChildren(emptyRow('Memberships are temporarily unavailable. Retry or change the filters.', 8)); throw error; }
+    finally { panel?.setAttribute('aria-busy', 'false'); }
     let rows = Array.isArray(payload.memberships) ? payload.memberships : [];
     if (statusFilter === 'expiring') {
       const days = Number($('expiryDays').value || 7);
       rows = rows.filter((item) => Number(item.membership?.daysRemaining ?? Number.POSITIVE_INFINITY) <= days);
     }
-    const body = $('membershipsBody'); body.replaceChildren();
+    body.replaceChildren();
     for (const item of rows) {
       const membership = item.membership || {}; const customer = item.customer || {}; const payment = membership.payment || {};
       const row = document.createElement('tr');
@@ -73,7 +78,7 @@
       const start = document.createElement('td'); start.textContent = formatDate(membership.startsAt);
       const expiry = document.createElement('td'); expiry.textContent = formatDate(membership.endsAt);
       const status = document.createElement('td'); status.appendChild(badge(membership.status));
-      const money = document.createElement('td'); money.textContent = `${moneyPaise(payment.paidPaise, membership.currency)} / ${moneyPaise(payment.pendingPaise, membership.currency)}`;
+      const money = document.createElement('td'); money.textContent = hasPermission('payments.read') ? `${moneyPaise(payment.paidPaise, membership.currency)} / ${moneyPaise(payment.pendingPaise, membership.currency)}` : 'Restricted';
       const action = document.createElement('td'); action.className = 'row-actions';
       const open = document.createElement('button'); open.type = 'button'; open.className = 'table-action'; open.textContent = 'Open'; open.addEventListener('click', () => window.GravityCustomerAdmin?.openCustomerById(customer.id)); action.appendChild(open);
       if (Number(payment.pendingPaise || 0) > 0 && hasPermission('payments.record')) { const pay = document.createElement('button'); pay.type = 'button'; pay.className = 'ghost table-action'; pay.textContent = 'Pay'; pay.addEventListener('click', () => window.GravityCustomerAdmin?.openPaymentFor(membership, { id: customer.id, displayName: customer.displayName })); action.appendChild(pay); }

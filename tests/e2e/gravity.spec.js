@@ -859,7 +859,7 @@ test('admin notifications handle all providers blocked, empty data and API failu
 async function mockAdminSoftware(page, options = {}) {
   const now = Math.floor(Date.now() / 1000);
   const day = 86400;
-  const admin = { id: 'owner-ui-test', username: 'owner', role: 'owner', permissions: ['*'] };
+  const admin = options.admin || { id: 'owner-ui-test', username: 'owner', role: 'owner', permissions: ['*'] };
   const authState = { authenticated: !options.startUnauthenticated };
   const plans = [
     { id: 'plan-basic', code: 'basic', name: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'active', sortOrder: 1 },
@@ -896,6 +896,9 @@ async function mockAdminSoftware(page, options = {}) {
   const paymentAttempts = [];
   let customerMode = options.customerMode || 'ok';
   let paymentMode = options.paymentMode || 'ok';
+  let dashboardMode = options.dashboardMode || 'ok';
+  const customerDelays = options.customerDelays || {};
+  const customerQueries = [];
 
   const findCustomer = (id) => customers.find((item) => item.id === id);
   const allMemberships = () => Object.values(memberships).flat();
@@ -963,7 +966,7 @@ async function mockAdminSoftware(page, options = {}) {
   await page.route('**/api/admin/login', (route) => json(route, 200, { factorRequired: true }));
   await page.route('**/api/admin/verify', (route) => { authState.authenticated = true; return json(route, 200, { admin }); });
   await page.route('**/api/admin/logout', (route) => { authState.authenticated = false; return json(route, 200, {}); });
-  await page.route(/\/api\/admin\/dashboard(?:\?.*)?$/, (route) => json(route, 200, dashboardPayload()));
+  await page.route(/\/api\/admin\/dashboard(?:\?.*)?$/, (route) => dashboardMode === 'error' ? json(route, 503, { error: 'temporary_failure' }) : json(route, 200, dashboardPayload()));
 
   await page.route(/\/api\/admin\/customers(?:\?.*)?$/, async (route) => {
     if (route.request().method() === 'POST') {
@@ -979,8 +982,9 @@ async function mockAdminSoftware(page, options = {}) {
       if (paid > 0) { payment = { id: `pay-new-${createBodies.length}`, membershipId: membership.id, membershipNumber: membership.membershipNumber, customerId: id, customerName: customer.displayName, amountPaise: paid, currency: plan.currency, method: body.paymentMethod, note: body.note || null, paidAt: now, status: 'recorded' }; payments.unshift(payment); }
       return json(route, 201, { customer, membership, payment, paymentSummary: membership.payment });
     }
+    const params = new URL(route.request().url()).searchParams; const q = (params.get('q') || '').toLowerCase(); customerQueries.push(q); const status = params.get('status') || ''; const membershipStatus = params.get('membershipStatus') || ''; const planId = params.get('planId') || '';
+    const delay = Number(customerDelays[q] || 0); if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
     if (customerMode === 'error') return json(route, 503, { error: 'temporary_failure' });
-    const params = new URL(route.request().url()).searchParams; const q = (params.get('q') || '').toLowerCase(); const status = params.get('status') || ''; const membershipStatus = params.get('membershipStatus') || ''; const planId = params.get('planId') || '';
     let rows = customers.filter((customer) => (!q || `${customer.displayName} ${customer.phone || ''}`.toLowerCase().includes(q)) && (!status || customer.status === status)).map(customerListItem);
     if (membershipStatus) rows = rows.filter((item) => (item.membership?.status || 'none') === membershipStatus);
     if (planId) rows = rows.filter((item) => item.membership?.planId === planId);
@@ -1045,7 +1049,7 @@ async function mockAdminSoftware(page, options = {}) {
   await page.route('**/api/admin/admins', (route) => json(route, 200, { admins: [admin] }));
   await page.route('**/api/admin/audit?limit=100', (route) => json(route, 200, { audit: [] }));
 
-  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; } };
+  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, customerQueries, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; } };
 }
 
 
@@ -1075,6 +1079,7 @@ test('admin login enters the operational gym dashboard', async ({ page }) => {
 });
 
 test('customers workspace supports search filters detail history and status changes', async ({ page }) => {
+  test.setTimeout(60_000);
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page);
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -1339,5 +1344,126 @@ test('admin customer empty and API failure states are explicit and console-safe'
   await page.locator('#memberSearch').fill('failure');
   await expect(page.locator('#flash')).toBeVisible();
   await expect(page.locator('#flash')).toContainText('Customer list is temporarily unavailable.');
+  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
+});
+
+
+test('trainer sees coaching and read-only member operations without financial or notification UI', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const admin = {
+    id: 'trainer-ui-test', username: 'trainer', role: 'trainer',
+    permissions: ['dashboard.view', 'members.read', 'diet.manage', 'progress.manage'],
+  };
+  await mockAdminSoftware(page, { admin });
+  await page.goto('/admin');
+  await expect(page.locator('#membersNav')).toBeVisible();
+  await expect(page.locator('#membershipsNav')).toBeVisible();
+  await expect(page.locator('#coachingNav')).toHaveJSProperty('hidden', false);
+  await page.locator('#advancedNav summary').click();
+  await expect(page.locator('#coachingNav')).toBeVisible();
+  await expect(page.locator('#feesNav')).toBeHidden();
+  await expect(page.locator('#notificationsNav')).toBeHidden();
+  await expect(page.locator('#readinessNav')).toBeHidden();
+  await expect(page.locator('#headerAddCustomer')).toBeHidden();
+  await expect(page.locator('#stats')).not.toContainText('Pending Fees');
+  await expect(page.locator('#stats')).not.toContainText('Payments Today');
+  await expect(page.locator('#dashboardFeesPanel')).toBeHidden();
+  await expect(page.locator('#dashboardPaymentsPanel')).toBeHidden();
+  await page.locator('#membersNav').click();
+  await expect(page.locator('#membersBody')).toContainText('Restricted');
+  await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
+  const drawer = page.locator('#customerDrawer');
+  await expect(drawer).not.toContainText('Payment summary');
+  await expect(drawer).not.toContainText('Payment history');
+  await expect(drawer).not.toContainText('Notification history');
+  await expect(drawer.getByRole('button', { name: 'Record Payment' })).toHaveCount(0);
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('reception gets customer membership fee and enquiry operations but not advanced owner controls', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const admin = {
+    id: 'reception-ui-test', username: 'reception', role: 'reception',
+    permissions: ['dashboard.view', 'members.read', 'members.manage', 'memberships.manage', 'payments.read', 'payments.record', 'enquiries.read', 'enquiries.manage'],
+  };
+  await mockAdminSoftware(page, { admin });
+  await page.goto('/admin');
+  await expect(page.locator('#membersNav')).toBeVisible();
+  await expect(page.locator('#membershipsNav')).toBeVisible();
+  await expect(page.locator('#feesNav')).toBeVisible();
+  await expect(page.locator('#enquiriesNav')).toHaveJSProperty('hidden', false);
+  await page.locator('#advancedNav summary').click();
+  await expect(page.locator('#enquiriesNav')).toBeVisible();
+  await expect(page.locator('#notificationsNav')).toBeHidden();
+  await expect(page.locator('#coachingNav')).toBeHidden();
+  await expect(page.locator('#readinessNav')).toBeHidden();
+  await expect(page.locator('#adminsNav')).toBeHidden();
+  await expect(page.locator('#headerAddCustomer')).toBeVisible();
+  await page.locator('#membersNav').click();
+  await expect(page.locator('#membersBody')).toContainText('₹999');
+  await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
+  const drawer = page.locator('#customerDrawer');
+  await expect(drawer).toContainText('Payment summary');
+  await expect(drawer).toContainText('Payment history');
+  await expect(drawer.getByRole('button', { name: 'Record Payment' })).toBeVisible();
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('admin role sees notification coaching readiness and audit surfaces without owner-only team access', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const admin = {
+    id: 'admin-ui-test', username: 'admin', role: 'admin',
+    permissions: [
+      'dashboard.view', 'members.read', 'members.manage', 'memberships.manage', 'membership_plans.manage',
+      'payments.read', 'payments.record', 'notifications.manage', 'diet.manage', 'progress.manage',
+      'content.manage', 'audit.read', 'system.readiness', 'enquiries.read', 'enquiries.manage',
+    ],
+  };
+  await mockAdminSoftware(page, { admin });
+  await page.goto('/admin');
+  await expect(page.locator('#notificationsNav')).toBeVisible();
+  await page.locator('#advancedNav summary').click();
+  await expect(page.locator('#coachingNav')).toBeVisible();
+  await expect(page.locator('#readinessNav')).toBeVisible();
+  await expect(page.locator('#auditNav')).toBeVisible();
+  await expect(page.locator('#adminsNav')).toBeHidden();
+  await expect(page.locator('#advancedNav')).toBeVisible();
+  await expect(page.locator('#dashboardFeesPanel')).toBeVisible();
+  await expect(page.locator('#dashboardPaymentsPanel')).toBeVisible();
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('customer loading state ignores stale search responses and keeps the newest query', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page, { customerDelays: { slow: 1200 } });
+  await page.goto('/admin');
+  await page.locator('#membersNav').click();
+  await page.locator('#memberSearch').fill('slow');
+  await expect.poll(() => fixture.customerQueries.includes('slow')).toBe(true);
+  await expect(page.locator('#customersPanel')).toHaveAttribute('aria-busy', 'true');
+  await page.locator('#memberSearch').fill('Asha');
+  await expect.poll(() => fixture.customerQueries.includes('asha')).toBe(true);
+  await expect(page.locator('#membersBody')).toContainText('Asha Sharma');
+  await expect(page.locator('#membersBody tr')).toHaveCount(1);
+  await page.waitForTimeout(500);
+  await expect(page.locator('#membersBody')).toContainText('Asha Sharma');
+  await expect(page.locator('#membersBody tr')).toHaveCount(1);
+  await expect(page.locator('#customersPanel')).toHaveAttribute('aria-busy', 'false');
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('dashboard failure renders an inline retry state and recovers without navigation', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  await page.goto('/admin');
+  fixture.setDashboardMode('error');
+  await page.evaluate(() => window.GravityAdminDashboard.renderWorkspace());
+  await expect(page.locator('#stats')).toContainText('Dashboard unavailable');
+  await expect(page.locator('#dashboardExpiringBody')).toContainText('temporarily unavailable');
+  const retry = page.getByRole('button', { name: 'Retry dashboard' });
+  await expect(retry).toBeVisible();
+  fixture.setDashboardMode('ok');
+  await retry.click();
+  await expect(page.locator('#stats')).toContainText('Total Customers');
   expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
 });

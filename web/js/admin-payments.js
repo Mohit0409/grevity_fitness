@@ -11,11 +11,14 @@
   function emptyRow(message, colspan) { const row = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = colspan; cell.className = 'empty'; cell.textContent = message; row.appendChild(cell); return row; }
 
   async function renderWorkspace() {
-    const body = $('feesBody'); body.replaceChildren();
+    const body = $('feesBody'); const panel = $('feesPanel'); panel?.setAttribute('aria-busy', 'true'); body.replaceChildren(emptyRow('Loading fee balances...', 8));
     if (!hasPermission('payments.read')) { body.appendChild(emptyRow('You do not have permission to view fee balances.', 8)); $('feesPendingTotal').textContent = '--'; return; }
     const query = $('feeSearch').value.trim(); const mode = $('feeBalanceFilter').value;
     const params = new URLSearchParams(); if (query) params.set('q', query); if (mode === 'pending') params.set('pendingOnly', '1');
-    const result = await core().api(`/api/admin/fees?${params.toString()}`);
+    let result;
+    try { result = await core().api(`/api/admin/fees?${params.toString()}`); }
+    catch (error) { body.replaceChildren(emptyRow('Fee balances are temporarily unavailable. Retry or change the filters.', 8)); $('feesPendingTotal').textContent = '--'; throw error; }
+    finally { panel?.setAttribute('aria-busy', 'false'); }
     $('feesPendingTotal').textContent = moneyPaise(result.pendingFeesTotalPaise);
     let rows = Array.isArray(result.rows) ? result.rows : [];
     if (mode === 'paid') rows = rows.filter((item) => Number(item.membership?.payment?.pendingPaise || 0) === 0);

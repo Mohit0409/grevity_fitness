@@ -247,6 +247,10 @@
     $('membersNav').hidden = !hasPermission('members.read');
     $('membershipsNav').hidden = !hasPermission('members.read');
     $('feesNav').hidden = !hasPermission('payments.read');
+    $('notificationsNav').hidden = !hasPermission('notifications.manage');
+    $('coachingNav').hidden = !(hasPermission('diet.manage') || hasPermission('progress.manage'));
+    $('readinessNav').hidden = !hasPermission('system.readiness');
+    $('advancedNav').hidden = Array.from($('advancedNav').querySelectorAll('button[data-view]')).every((button) => button.hidden);
     $('addCustomer').hidden = !(hasPermission('members.manage') && hasPermission('memberships.manage'));
     $('headerAddCustomer').hidden = !(hasPermission('members.manage') && hasPermission('memberships.manage'));
     $('headerRecordPayment').hidden = !hasPermission('payments.read');
