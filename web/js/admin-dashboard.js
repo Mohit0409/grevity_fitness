@@ -4,6 +4,7 @@
   const $ = (id) => document.getElementById(id);
   const state = { admin: null };
   const core = () => window.GravityAdminCore;
+  function hasPermission(permission) { return core()?.hasPermission(permission) || false; }
 
   function formatDate(value) {
     if (!value) return '--';
@@ -36,16 +37,19 @@
 
   function renderStats(stats = {}) {
     const root = $('stats'); root.replaceChildren();
-    root.append(
+    const items = [
       stat('Total Customers', String(stats.totalCustomers ?? 0)),
       stat('Active Members', String(stats.activeMembers ?? 0)),
       stat('Expiring Soon', String(stats.expiringSoon ?? 0), 'Next 7 days'),
       stat('Expired Members', String(stats.expiredMembers ?? 0)),
-      stat('Pending Fees', moneyPaise(stats.pendingFeesTotalPaise)),
       stat('New This Month', String(stats.newCustomersThisMonth ?? 0)),
+    ];
+    if (hasPermission('payments.read')) items.push(
+      stat('Pending Fees', moneyPaise(stats.pendingFeesTotalPaise)),
       stat('Payments Today', moneyPaise(stats.paymentsReceivedTodayPaise)),
       stat('Payments This Month', moneyPaise(stats.paymentsReceivedThisMonthPaise)),
     );
+    root.append(...items);
   }
 
   function expiringRows(groups = {}) {
@@ -118,12 +122,27 @@
   async function renderWorkspace() {
     const api = core()?.api;
     if (!api) return;
-    const dashboard = await api('/api/admin/dashboard');
-    renderStats(dashboard.stats || {});
-    renderExpiring(dashboard.expiring || {});
-    renderPendingFees(Array.isArray(dashboard.pendingFees) ? dashboard.pendingFees : []);
-    renderRecentPayments(Array.isArray(dashboard.recentPayments) ? dashboard.recentPayments : []);
-    renderRecentCustomers(Array.isArray(dashboard.recentCustomers) ? dashboard.recentCustomers : []);
+    const canReadPayments = hasPermission('payments.read');
+    $('dashboardFeesPanel').hidden = !canReadPayments;
+    $('dashboardPaymentsPanel').hidden = !canReadPayments;
+    $('stats').setAttribute('aria-busy', 'true');
+    $('stats').replaceChildren(stat('Loading dashboard', '--'));
+    $('dashboardExpiringBody').replaceChildren(emptyRow('Loading memberships...', 5));
+    try {
+      const dashboard = await api('/api/admin/dashboard');
+      renderStats(dashboard.stats || {});
+      renderExpiring(dashboard.expiring || {});
+      if (canReadPayments) {
+        renderPendingFees(Array.isArray(dashboard.pendingFees) ? dashboard.pendingFees : []);
+        renderRecentPayments(Array.isArray(dashboard.recentPayments) ? dashboard.recentPayments : []);
+      }
+      renderRecentCustomers(Array.isArray(dashboard.recentCustomers) ? dashboard.recentCustomers : []);
+    } catch (_) {
+      $('stats').replaceChildren(stat('Dashboard unavailable', '--', 'Retry to refresh operational data'));
+      $('dashboardExpiringBody').replaceChildren(emptyRow('Dashboard data is temporarily unavailable.', 5));
+      const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'ghost'; retry.textContent = 'Retry dashboard'; retry.addEventListener('click', () => renderWorkspace());
+      $('recentCustomers').replaceChildren(retry);
+    } finally { $('stats').setAttribute('aria-busy', 'false'); }
   }
 
   window.GravityAdminDashboard = { setAdmin(admin) { state.admin = admin; }, renderWorkspace };

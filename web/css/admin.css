@@ -228,6 +228,8 @@ input, select, textarea { border-radius: 8px; background: #0b1016; border-color:
 .software-empty--action strong { color: #dce3eb; }
 .software-empty--action p { margin: 0 0 6px; line-height: 1.5; }
 .software-loading { min-height: 160px; display: grid; place-items: center; color: #8994a3; }
+.panel[aria-busy="true"] .tablewrap, .panel[aria-busy="true"] .mobile-record-list { opacity: .72; }
+.panel[aria-busy="true"] select, .panel[aria-busy="true"] input, .panel[aria-busy="true"] .filter-action { cursor: progress; }
 .error-state { color: #ff9ca6; }
 .customer-filters, .membership-filters { display: grid; grid-template-columns: minmax(220px,1.4fr) repeat(3,minmax(140px,.6fr)); gap: 10px; align-items: end; margin-bottom: 12px; }
 .membership-filters { grid-template-columns: repeat(3,minmax(150px,.55fr)) minmax(220px,1fr); }
