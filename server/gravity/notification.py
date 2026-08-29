@@ -256,39 +256,57 @@ class NotificationService:
     def reconcile(self) -> int:
         self.membership_service.reconcile()
         now = self._now()
-        suppressed = 0
         with self.database.session() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            rows = connection.execute(
-                "SELECT r.id,r.customer_id,r.membership_id,r.trigger_days,m.status,m.ends_at,c.status AS customer_status "
-                "FROM notification_reminders r JOIN memberships m ON m.id=r.membership_id "
-                "JOIN customers c ON c.id=r.customer_id WHERE r.state='pending'"
-            ).fetchall()
-            for row in rows:
-                trigger_days = int(row["trigger_days"])
-                membership_status = str(row["status"])
-                allowed_status = membership_status == "active" or (
-                    trigger_days == 0 and membership_status == "expired"
-                )
-                should_suppress = (
-                    not allowed_status
-                    or row["customer_status"] != "active"
-                    or self._has_renewal(
-                        connection,
-                        str(row["customer_id"]),
-                        str(row["membership_id"]),
-                        int(row["ends_at"]),
-                    )
-                )
-                if should_suppress:
-                    connection.execute(
-                        "UPDATE notification_reminders SET state='suppressed',updated_at=? "
-                        "WHERE id=? AND state='pending'",
-                        (now, row["id"]),
-                    )
-                    suppressed += 1
+            invalid = connection.execute(
+                "UPDATE notification_reminders SET state='suppressed',updated_at=? "
+                "WHERE state='pending' AND id IN ("
+                "SELECT r.id FROM notification_reminders r "
+                "JOIN memberships m ON m.id=r.membership_id "
+                "JOIN customers c ON c.id=r.customer_id "
+                "WHERE r.state='pending' AND ("
+                "NOT (m.status='active' OR (r.trigger_days=0 AND m.status='expired')) "
+                "OR c.status!='active'"
+                ")"
+                ")",
+                (now,),
+            )
+            renewed = connection.execute(
+                "UPDATE notification_reminders SET state='suppressed',updated_at=? "
+                "WHERE state='pending' AND id IN ("
+                "SELECT DISTINCT r.id FROM notification_reminders r "
+                "JOIN memberships m ON m.id=r.membership_id "
+                "JOIN memberships renewal ON renewal.customer_id=r.customer_id "
+                "AND renewal.id<>r.membership_id "
+                "AND renewal.status IN ('scheduled','active') "
+                "AND renewal.starts_at<=m.ends_at AND renewal.ends_at>m.ends_at "
+                "WHERE r.state='pending'"
+                ")",
+                (now,),
+            )
+            suppressed = max(0, int(invalid.rowcount or 0)) + max(0, int(renewed.rowcount or 0))
             connection.commit()
         return suppressed
+
+    @staticmethod
+    def _batched_deliveries(connection, reminder_ids: list[str], *, recipient_role: str | None = None):
+        grouped: dict[str, list[object]] = {reminder_id: [] for reminder_id in reminder_ids}
+        if not reminder_ids:
+            return grouped
+        placeholders = ",".join("?" for _ in reminder_ids)
+        params: list[object] = list(reminder_ids)
+        role_clause = ""
+        if recipient_role is not None:
+            role_clause = " AND recipient_role=?"
+            params.append(recipient_role)
+        rows = connection.execute(
+            f"SELECT * FROM notification_deliveries WHERE reminder_id IN ({placeholders})"
+            f"{role_clause} ORDER BY reminder_id,recipient_role,channel",
+            params,
+        ).fetchall()
+        for row in rows:
+            grouped.setdefault(str(row["reminder_id"]), []).append(row)
+        return grouped
 
     def list_admin(self, limit: int = 100) -> list[dict[str, object]]:
         self.reconcile()
@@ -300,8 +318,10 @@ class NotificationService:
                 "JOIN customers c ON c.id=r.customer_id ORDER BY r.created_at DESC LIMIT ?",
                 (bounded,),
             ).fetchall()
+            reminder_ids = [str(row["id"]) for row in rows]
+            deliveries = self._batched_deliveries(connection, reminder_ids)
             for row in rows:
-                item = self._safe_reminder(row, self._delivery_rows(connection, str(row["id"])))
+                item = self._safe_reminder(row, deliveries.get(str(row["id"]), []))
                 item["customer"] = {
                     "displayName": row["display_name"],
                     "emailAvailable": bool(row["email"]),
@@ -313,21 +333,18 @@ class NotificationService:
     def list_customer(self, customer_id: str, limit: int = 50) -> list[dict[str, object]]:
         self.reconcile()
         bounded = min(max(int(limit), 1), 100)
-        result: list[dict[str, object]] = []
         with self.database.session() as connection:
             rows = connection.execute(
                 "SELECT * FROM notification_reminders WHERE customer_id=? "
                 "ORDER BY created_at DESC LIMIT ?",
                 (customer_id, bounded),
             ).fetchall()
-            for row in rows:
-                result.append(
-                    self._safe_reminder(
-                        row,
-                        self._delivery_rows(connection, str(row["id"]), recipient_role="customer"),
-                    )
-                )
-        return result
+            reminder_ids = [str(row["id"]) for row in rows]
+            deliveries = self._batched_deliveries(connection, reminder_ids, recipient_role="customer")
+            return [
+                self._safe_reminder(row, deliveries.get(str(row["id"]), []))
+                for row in rows
+            ]
 
     def queue_delivery(self, delivery_id: str) -> dict[str, object]:
         self.reconcile()

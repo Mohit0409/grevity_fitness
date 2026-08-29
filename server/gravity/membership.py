@@ -134,37 +134,36 @@ class MembershipService:
 
     def _reconcile_connection(self, connection, *, customer_id: str | None = None) -> None:
         now = self._now()
-        where = "status IN ('scheduled','active')"
-        params: list[object] = []
-        if customer_id:
-            where += " AND customer_id=?"
-            params.append(customer_id)
-        rows = connection.execute(
-            f"SELECT id,status,starts_at,ends_at FROM memberships WHERE {where}",
-            params,
+        customer_clause = " AND customer_id=?" if customer_id else ""
+        customer_params: list[object] = [customer_id] if customer_id else []
+        expired_rows = connection.execute(
+            "SELECT id,status,starts_at,ends_at FROM memberships "
+            "WHERE status IN ('scheduled','active') AND ends_at<=?" + customer_clause,
+            [now, *customer_params],
         ).fetchall()
-        for row in rows:
+        activating_rows = connection.execute(
+            "SELECT id,status,starts_at,ends_at FROM memberships "
+            "WHERE status='scheduled' AND starts_at<=? AND ends_at>?" + customer_clause,
+            [now, now, *customer_params],
+        ).fetchall()
+        for row, next_status, event_type in (
+            *((row, "expired", "expired") for row in expired_rows),
+            *((row, "active", "activated") for row in activating_rows),
+        ):
             status = str(row["status"])
-            starts_at = int(row["starts_at"])
-            ends_at = int(row["ends_at"])
-            next_status = None
-            event_type = None
-            if ends_at <= now:
-                next_status, event_type = "expired", "expired"
-            elif status == "scheduled" and starts_at <= now:
-                next_status, event_type = "active", "activated"
-            if next_status:
-                connection.execute(
-                    "UPDATE memberships SET status=?,updated_at=? WHERE id=? AND status=?",
-                    (next_status, now, row["id"], status),
-                )
-                self._event(
-                    connection,
-                    str(row["id"]),
-                    event_type,
-                    actor_admin_user_id=None,
-                    metadata={"automatic": True},
-                )
+            cursor = connection.execute(
+                "UPDATE memberships SET status=?,updated_at=? WHERE id=? AND status=?",
+                (next_status, now, row["id"], status),
+            )
+            if cursor.rowcount != 1:
+                continue
+            self._event(
+                connection,
+                str(row["id"]),
+                event_type,
+                actor_admin_user_id=None,
+                metadata={"automatic": True},
+            )
 
     def reconcile(self, *, customer_id: str | None = None) -> None:
         with self.database.session() as connection:

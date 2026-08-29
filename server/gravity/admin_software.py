@@ -568,31 +568,40 @@ class AdminSoftwareService:
 
     def fees(self, *, query: str = "", pending_only: bool = False, limit: int = 300) -> dict[str, object]:
         needle = query.strip().casefold()[:100]
+        pattern = f"%{needle}%"
         with self.database.session() as connection:
             connection.execute("BEGIN IMMEDIATE")
             self.membership_service._reconcile_connection(connection)
             memberships = connection.execute(
-                "SELECT m.*,c.display_name,c.phone_e164 FROM memberships m JOIN customers c ON c.id=m.customer_id "
+                "WITH fee_rows AS ("
+                "SELECT m.*,c.display_name,c.phone_e164,"
+                "COALESCE(SUM(CASE WHEN p.status='recorded' THEN p.amount_paise ELSE 0 END),0) AS recorded_paise,"
+                "CASE WHEN m.source='payment' AND m.payment_reference IS NOT NULL THEN 0 "
+                "ELSE MAX(0,m.plan_price_paise_snapshot-COALESCE(SUM(CASE WHEN p.status='recorded' THEN p.amount_paise ELSE 0 END),0)) END AS pending_paise "
+                "FROM memberships m JOIN customers c ON c.id=m.customer_id "
+                "LEFT JOIN membership_payments p ON p.membership_id=m.id "
                 "WHERE c.status!='deleted' AND m.status!='cancelled' "
                 "AND (?='' OR lower(COALESCE(c.display_name,'')) LIKE ? OR COALESCE(c.phone_e164,'') LIKE ?) "
-                "ORDER BY m.ends_at ASC LIMIT ?",
-                (needle, f"%{needle}%", f"%{needle}%", _bounded_limit(limit, 300)),
+                "GROUP BY m.id) "
+                "SELECT fee_rows.*,COALESCE(SUM(pending_paise) OVER (),0) AS total_pending_paise "
+                "FROM fee_rows WHERE (?=0 OR pending_paise>0) "
+                "ORDER BY pending_paise DESC,ends_at ASC,id LIMIT ?",
+                (needle, pattern, pattern, 1 if pending_only else 0, _bounded_limit(limit, 300)),
             ).fetchall()
             rows: list[dict[str, object]] = []
-            pending_total = 0
+            pending_total = int(memberships[0]["total_pending_paise"]) if memberships else 0
+            now = self._now()
             for membership in memberships:
-                summary = self._payment_summary(connection, membership)
-                if pending_only and summary["pendingPaise"] <= 0:
-                    continue
-                pending_total += summary["pendingPaise"]
+                summary = self._payment_summary_from_recorded(membership, int(membership["recorded_paise"]))
+                item = self.membership_service._safe_membership(membership, now=now)
+                item["payment"] = summary
                 rows.append({
                     "customerId": membership["customer_id"],
                     "customerName": membership["display_name"],
                     "phone": membership["phone_e164"],
-                    "membership": self._membership_payload(connection, membership),
+                    "membership": item,
                 })
             connection.commit()
-        rows.sort(key=lambda item: int(item["membership"]["payment"]["pendingPaise"]), reverse=True)
         return {"pendingFeesTotalPaise": pending_total, "rows": rows}
 
     def renew_membership(
@@ -737,11 +746,14 @@ class AdminSoftwareService:
             ).fetchone()[0])
             pending_total = 0
             pending_rows = []
-            for row in connection.execute(
-                "SELECT m.*,c.display_name FROM memberships m JOIN customers c ON c.id=m.customer_id "
-                "WHERE c.status!='deleted' AND m.status!='cancelled'"
-            ).fetchall():
-                summary = self._payment_summary(connection, row)
+            pending_source_rows = connection.execute(
+                "SELECT m.*,c.display_name,COALESCE(SUM(CASE WHEN p.status='recorded' THEN p.amount_paise ELSE 0 END),0) "
+                "AS recorded_paise FROM memberships m JOIN customers c ON c.id=m.customer_id "
+                "LEFT JOIN membership_payments p ON p.membership_id=m.id "
+                "WHERE c.status!='deleted' AND m.status!='cancelled' GROUP BY m.id"
+            ).fetchall()
+            for row in pending_source_rows:
+                summary = self._payment_summary_from_recorded(row, int(row["recorded_paise"]))
                 if summary["pendingPaise"] > 0:
                     pending_total += summary["pendingPaise"]
                     pending_rows.append({
@@ -812,17 +824,22 @@ class AdminSoftwareService:
             connection.execute("BEGIN IMMEDIATE")
             self.membership_service._reconcile_connection(connection)
             rows = connection.execute(
-                "SELECT m.*,c.display_name,c.phone_e164 FROM memberships m "
-                "JOIN customers c ON c.id=m.customer_id WHERE c.status!='deleted' "
-                "AND (?='' OR m.status=?) AND (?='' OR m.plan_id=?) "
-                "ORDER BY m.ends_at ASC LIMIT ?",
+                "SELECT m.*,c.display_name,c.phone_e164,COALESCE(SUM(CASE WHEN p.status='recorded' THEN p.amount_paise ELSE 0 END),0) "
+                "AS recorded_paise FROM memberships m "
+                "JOIN customers c ON c.id=m.customer_id "
+                "LEFT JOIN membership_payments p ON p.membership_id=m.id "
+                "WHERE c.status!='deleted' AND (?='' OR m.status=?) AND (?='' OR m.plan_id=?) "
+                "GROUP BY m.id ORDER BY m.ends_at ASC LIMIT ?",
                 (status, status, plan_id, plan_id, _bounded_limit(limit, 300)),
             ).fetchall()
             result = []
+            now = self._now()
             for row in rows:
+                membership = self.membership_service._safe_membership(row, now=now)
+                membership["payment"] = self._payment_summary_from_recorded(row, int(row["recorded_paise"]))
                 result.append({
                     "customer": {"id": row["customer_id"], "displayName": row["display_name"], "phone": row["phone_e164"]},
-                    "membership": self._membership_payload(connection, row),
+                    "membership": membership,
                 })
             connection.commit()
         return result

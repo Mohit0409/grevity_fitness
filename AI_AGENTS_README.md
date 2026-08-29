@@ -77,7 +77,7 @@ Chat 2 owns the software-style Admin application shell and V1 owner workflows: D
 Current state:
 
 - Branch: `agent/gravity-public-ui`.
-- Chat 2 Admin Software UI handoff was reviewed and integrated into local `main` as `6523989`, `fc19d7f`, and `c91ce85`.
+- Chat 2 Admin Software UI handoff was reviewed and integrated into local `main` as `6523989`, `fc19d7f`, and `c91ce85`. Chat 2 completed its role-aware/loading/race hardening in clean code commit `0a323dd` with README handoff `1eec0c3`; Chat 1 should review/cherry-pick `0a323dd` deliberately and skip the README-only handoff.
 - Integrated UI covers the software shell, dashboard, customers, customer detail, memberships, fees, renewal, manual payment, notification views, responsive behavior, accessibility, and stable payment/renewal idempotency keys.
 - Chat 2 must consume Chat 1 server-owned calculations and must not fake persistent customer/payment state client-side.
 - Chat 2 next slice is actively owned in its worktree: role-aware payment/notification visibility, loading/error states, and stale-request/race hardening across Admin frontend files. Chat 1 must not edit those frontend files while that work is uncommitted.
@@ -89,11 +89,18 @@ Chat 3 owns Admin Software workflow QA, backup/recovery validation, performance/
 
 Current state:
 
-- Branch: `agent/gravity-admin-ops`.
-- Admin reliability/ops handoff commits `eb73cfe`, `42107ab`, and `54c38c3` were reviewed and integrated into local `main` as `a61a684`, `51865fd`, and `2d2b0a3`.
-- Chat 3 added boundary-regression commit `017080e` after that integration. Its expected-failure marker is now obsolete because Chat 1 fixed filter-before-limit correctness and N+1 hydration in `2ea3b38`; on next sync Chat 3 should convert that check to a normal passing regression instead of carrying an expected failure.
-- Chat 3 may continue reliability/performance work in its branch but must not modify Chat 1 backend or Chat 2 active frontend files without coordination.
-- Chat 3 must not apply migration 010 to the live Gravity database.
+- Branch: `agent/gravity-admin-ops`; clean at `017080e` (`test: capture customer filter page boundary`).
+- Chat 3 reliability/ops code through `54c38c3` was integrated into local `main` as `a61a684`, `51865fd`, and `2d2b0a3`; release-verification follow-up is `f99cd20`.
+- `017080e` marks the old customer-plan page-boundary bug as expected failure. Chat 1 fixed that bug in `2ea3b38`; on the next Chat 3 sync, convert this into a normal passing regression instead of merging the stale expected-failure marker.
+- Chat 3 should continue scale/failure/security validation and must not apply migration 010 to the live Gravity database.
+
+## Admin scale checkpoint
+
+- Chat 1 removed customer-list, dashboard, membership-payment, Fees, and Admin-notification N+1/full-scan hot paths without adding a new migration.
+- Exact current synthetic 5,000-customer checkpoint: customer list ~58 ms median, search ~67 ms, dashboard ~1.04 s, membership expiry ~0.76 s, Admin notifications ~1.91 s, Fees ~0.81 s.
+- Admin notifications improved from ~51.4 seconds median before optimization to ~1.91 seconds median on the same synthetic scale class.
+- Fees `pendingOnly` is applied before row limiting and `pendingFeesTotalPaise` now represents the full filtered ledger rather than only returned rows.
+- Full backend gate after these shared lifecycle changes: 163/163 PASS. These are synthetic local QA measurements, not production SLO guarantees.
 
 ## Existing Notification Provider Reality
 

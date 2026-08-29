@@ -274,6 +274,40 @@ class AdminSoftwareServiceTests(unittest.TestCase):
         self.assertEqual(filtered[0]["membership"]["payment"]["paidPaise"], 50000)
         self.assertEqual(filtered[0]["membership"]["payment"]["pendingPaise"], 99900)
 
+    def test_pending_fees_filter_and_total_are_applied_before_page_limit(self) -> None:
+        now = self.clock.value
+        customers = []
+        memberships = []
+        payments = []
+        for index in range(305):
+            customer_id = f"fee-paid-customer-{index:03d}"
+            membership_id = f"fee-paid-membership-{index:03d}"
+            customers.append((customer_id, "active", f"Paid Member {index:03d}", f"+91880{index:07d}", 0, now, now))
+            memberships.append((membership_id, f"GF-FEE-PAID-{index:03d}", customer_id, "plan-basic-monthly", "Basic", 99900, "INR", 1, "active", now - 86400, now + (index + 1) * 86400, "admin_manual", "admin-1", now, now))
+            payments.append((f"fee-paid-payment-{index:03d}", membership_id, 99900, "INR", "cash", now, "recorded", "admin-1", now))
+        for index in range(301):
+            customer_id = f"fee-pending-customer-{index:03d}"
+            membership_id = f"fee-pending-membership-{index:03d}"
+            customers.append((customer_id, "active", f"Pending Member {index:03d}", f"+91881{index:07d}", 0, now, now))
+            memberships.append((membership_id, f"GF-FEE-PENDING-{index:03d}", customer_id, "plan-basic-monthly", "Basic", 99900, "INR", 1, "active", now - 86400, now + (400 + index) * 86400, "admin_manual", "admin-1", now, now))
+        with self.database.session() as connection:
+            connection.executemany(
+                "INSERT INTO customers(id,status,display_name,phone_e164,phone_verified,created_at,updated_at) VALUES (?,?,?,?,?,?,?)",
+                customers,
+            )
+            connection.executemany(
+                "INSERT INTO memberships(id,membership_number,customer_id,plan_id,plan_name_snapshot,plan_price_paise_snapshot,currency_snapshot,duration_months_snapshot,status,starts_at,ends_at,source,created_by_admin_user_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                memberships,
+            )
+            connection.executemany(
+                "INSERT INTO membership_payments(id,membership_id,amount_paise,currency,method,paid_at,status,recorded_by_admin_user_id,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                payments,
+            )
+        fees = self.service.fees(pending_only=True, limit=300)
+        self.assertEqual(len(fees["rows"]), 300)
+        self.assertTrue(all(row["membership"]["payment"]["pendingPaise"] == 99900 for row in fees["rows"]))
+        self.assertEqual(fees["pendingFeesTotalPaise"], 301 * 99900)
+
     def test_dashboard_does_not_double_count_membership_history(self) -> None:
         first = self.create_customer(phone="+919800000024", paid=0)
         self.create_customer(phone="+919800000025", paid=0)
