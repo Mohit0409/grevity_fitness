@@ -215,17 +215,18 @@
   }
 
   async function showView(view) {
-    const allowed = new Set(['dashboard', 'enquiries', 'members', 'memberships', 'coaching', 'notifications', 'readiness', 'admins', 'audit']);
+    const allowed = new Set(['dashboard', 'enquiries', 'members', 'memberships', 'fees', 'coaching', 'notifications', 'readiness', 'admins', 'audit']);
     state.view = allowed.has(view) ? view : 'dashboard';
-    const titles = { dashboard: 'Overview', enquiries: 'Enquiries', members: 'Members', memberships: 'Memberships', coaching: 'Coaching', notifications: 'Notifications', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
+    const titles = { dashboard: 'Dashboard', enquiries: 'Enquiries', members: 'Customers', memberships: 'Memberships', fees: 'Fees', coaching: 'Coaching', notifications: 'Notifications', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
     document.querySelectorAll('.view').forEach((node) => { node.hidden = node.id !== `${state.view}View`; });
-    document.querySelectorAll('nav [data-view]').forEach((node) => {
-      node.classList.toggle('active', node.dataset.view === state.view);
-    });
+    document.querySelectorAll('nav [data-view]').forEach((node) => node.classList.toggle('active', node.dataset.view === state.view));
     $('viewTitle').textContent = titles[state.view];
-    if (state.view === 'dashboard') await renderDashboard();
+    $('headerAddCustomer').hidden = state.view !== 'dashboard' && state.view !== 'members';
+    closeSidebar();
+    if (state.view === 'dashboard' && window.GravityAdminDashboard) await window.GravityAdminDashboard.renderWorkspace();
     if (state.view === 'enquiries' && window.GravityEnquiryAdmin) await window.GravityEnquiryAdmin.renderWorkspace();
-    if (state.view === 'members') await renderMembers($('memberSearch').value);
+    if (state.view === 'members' && window.GravityCustomerAdmin) await window.GravityCustomerAdmin.renderWorkspace();
+    if (state.view === 'memberships' && window.GravityMembershipAdmin) await window.GravityMembershipAdmin.renderWorkspace();
     if (state.view === 'coaching' && window.GravityCoachingAdmin) await window.GravityCoachingAdmin.renderWorkspace();
     if (state.view === 'notifications' && window.GravityNotificationAdmin) await window.GravityNotificationAdmin.renderWorkspace();
     if (state.view === 'readiness' && window.GravityReadinessAdmin) await window.GravityReadinessAdmin.renderWorkspace();
@@ -240,6 +241,8 @@
     $('newAdmin').hidden = admin.role !== 'owner';
     $('auditNav').hidden = !hasPermission('audit.read');
     $('enquiriesNav').hidden = !hasPermission('enquiries.read');
+    window.GravityAdminDashboard?.setAdmin(admin);
+    window.GravityCustomerAdmin?.setAdmin(admin);
     window.GravityEnquiryAdmin?.setAdmin(admin);
     window.GravityMembershipAdmin?.setAdmin(admin);
     window.GravityCoachingAdmin?.setAdmin(admin);
@@ -260,6 +263,38 @@
       authError.textContent = 'Admin service is temporarily unavailable.';
     }
   }
+
+  function openSidebar() {
+    document.body.classList.add('admin-nav-open');
+    $('sidebarOpen').setAttribute('aria-expanded', 'true');
+    const first = document.querySelector('.primary-nav [data-view]');
+    if (window.matchMedia('(max-width: 900px)').matches) first?.focus();
+  }
+
+  function closeSidebar() {
+    document.body.classList.remove('admin-nav-open');
+    $('sidebarOpen').setAttribute('aria-expanded', 'false');
+  }
+
+  window.GravityAdminCore = {
+    api, flash: flashMessage, hasPermission, formatTime, badge,
+    openView(view) { return showView(view); },
+    currentAdmin() { return state.admin; },
+  };
+
+  $('sidebarOpen').addEventListener('click', openSidebar);
+  $('sidebarClose').addEventListener('click', closeSidebar);
+  $('sidebarBackdrop').addEventListener('click', closeSidebar);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.body.classList.contains('admin-nav-open')) {
+      closeSidebar();
+      $('sidebarOpen').focus();
+    }
+  });
+  document.querySelectorAll('[data-go-view]').forEach((button) => button.addEventListener('click', () => {
+    showView(button.dataset.goView).catch((error) => flashMessage(error.message, 'error'));
+  }));
+  ['headerAddCustomer', 'addCustomer'].forEach((id) => $(id)?.addEventListener('click', () => window.GravityCustomerAdmin?.openAddCustomer()));
 
   $('loginForm').addEventListener('submit', async (event) => {
     event.preventDefault(); authError.textContent = '';
@@ -307,9 +342,7 @@
 
   $('memberSearch').addEventListener('input', () => {
     window.clearTimeout(state.searchTimer);
-    state.searchTimer = window.setTimeout(() => {
-      renderMembers($('memberSearch').value).catch((error) => flashMessage(error.message, 'error'));
-    }, 250);
+    state.searchTimer = window.setTimeout(() => window.GravityCustomerAdmin?.renderWorkspace().catch(() => flashMessage('Customer list is temporarily unavailable.', 'error')), 220);
   });
 
   $('newAdmin').addEventListener('click', () => {
