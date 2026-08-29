@@ -263,6 +263,22 @@ class AdminSoftwareHttpTests(unittest.TestCase):
             )
             self.assertEqual((status, denied), (403, {"error": "admin_forbidden"}))
 
+    def test_team_access_cannot_create_second_owner(self):
+        with running_server() as (server, base):
+            _issue, headers = prepare_owner(server, base)
+            status, denied = request_json(
+                base, "/api/admin/admins", method="POST",
+                body={"username": "secondowner", "password": "Gravity!Owner456", "role": "owner"},
+                headers=headers,
+            )
+            self.assertEqual(status, 422)
+            self.assertEqual(denied["error"], "admin_validation")
+            with server.database.session() as connection:
+                self.assertEqual(
+                    connection.execute("SELECT COUNT(*) FROM admin_users WHERE role='owner'").fetchone()[0],
+                    1,
+                )
+
     def test_invalid_customer_and_payment_inputs_fail_closed(self):
         with running_server() as (server, base):
             _issue, headers = prepare_owner(server, base)

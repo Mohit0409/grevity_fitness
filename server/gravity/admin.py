@@ -420,6 +420,8 @@ class AdminService:
             normalized_role = str(role).strip().casefold()
             if normalized_role not in ADMIN_ROLES:
                 raise ValueError("Invalid admin role")
+            if normalized_role == 'owner':
+                raise ValueError('Owner role can only be created during initial bootstrap')
         except ValueError as error:
             raise AdminValidationError({"admin": str(error)}) from error
         with self.database.session() as connection:

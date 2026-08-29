@@ -10,6 +10,7 @@ from server.gravity.admin import (
     AdminForbidden,
     AdminInvalidSecondFactor,
     AdminSessionInvalid,
+    AdminValidationError,
     AdminService,
     _totp_code,
 )
@@ -131,6 +132,15 @@ class AdminSecurityTests(unittest.TestCase):
         owner = self.bootstrap()
         owner_issue = self.login("owner", "Gravity!Owner123", owner.totp_secret)
         owner_session = self.service.resolve_session(owner_issue.session_token)
+        with self.assertRaises(AdminValidationError):
+            self.service.create_admin(
+                owner_session,
+                "secondowner",
+                "Gravity!Owner456",
+                "owner",
+            )
+        with self.database.session() as connection:
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM admin_users WHERE role='owner'").fetchone()[0], 1)
         trainer = self.service.create_admin(
             owner_session,
             "coach",
