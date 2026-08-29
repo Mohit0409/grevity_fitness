@@ -72,21 +72,19 @@ Primary Admin V1 routes:
 
 ## Chat 2 - Admin Software Frontend
 
-Chat 2 owns the software-style Admin application shell and V1 owner workflows: Dashboard, Customers, customer detail, Add Customer, Memberships, Renew Membership, Record Payment, Fees, Notifications, responsive behavior, accessibility, and browser E2E.
+Chat 2 owns the software-style Admin application shell and V1 owner workflows: Dashboard, Customers, customer detail, Add Customer, Memberships, Renew Membership, Record Payment, Fees, Notifications, Team Access UX, responsive behavior, accessibility, and browser E2E.
 
 Current state:
 
 - Branch: `agent/gravity-public-ui`.
-- Earlier Admin Software UI was integrated into local `main` as `6523989`, `fc19d7f`, and `c91ce85`.
-- New clean handoff: `0a323dd` (`Harden admin role-aware workflows`).
-- Role-aware UX now distinguishes owner/admin/reception/trainer navigation and actions; trainer does not see fee/payment/notification UI, reception keeps member/membership/payment/enquiry operations, and admin sees notification/coaching/readiness/audit without owner-only Team access.
-- Dashboard, Customers, Memberships, and Fees now expose explicit busy/error/retry behavior instead of blank transitions; customer list requests ignore stale responses so an older search cannot overwrite a newer query.
-- Customer profile and membership views hide payment history/summaries when `payments.read` is absent, and notification history when `notifications.manage` is absent.
-- Final Playwright release matrix: 41/41 PASS on dedicated port 8835 using Python 3.12; focused role/race/retry slice: 6/6 PASS on port 8834.
-- JavaScript syntax checks, `git diff --check`, and protected Chat 1 backend/auth/account diff audit are clean.
-- No persistent customer/payment state is fabricated client-side; server calculations remain authoritative.
-- Cross-chat security contract item for Chat 1: trainer has `members.read` but not `payments.read`, while current customer/membership server payloads can include payment summaries/history. Chat 2 hides these fields in UI, but frontend hiding is not authorization; Chat 1 should decide and test server-side field redaction/least-privilege behavior before release.
-- `0a323dd` is ready for deliberate Chat 1 review/integration; Chat 2 must not merge into `main`.
+- Existing Admin V1 frontend integration on local `main`: `6523989`, `fc19d7f`, and `c91ce85`.
+- Next reviewed code handoffs, in integration order: `0a323dd` (`Harden admin role-aware workflows`), `960bf24` (`Clarify least-privilege team access`), and `1654271` (`Prevent stale fee workspace renders`). Skip README-only handoff commits when cherry-picking.
+- `0a323dd` adds permission-aware navigation/actions, trainer financial/notification UI redaction, loading/error states, Dashboard retry, and stale customer-search protection.
+- `960bf24` makes Team Access owner-friendly and least-privilege: Reception default, no Owner option, exact role capability/restriction preview, human-readable role labels, mobile keyboard-accessible staff table, and synthetic staff-enrollment coverage.
+- `1654271` cancels pending debounced Fee searches on immediate filter/refresh actions and ignores stale Fee responses so older requests cannot duplicate or overwrite the newest ledger view.
+- Current browser release gate after all three handoffs: 43/43 PASS. Focused Admin gate: 17/17 PASS. Focused Fees + Team Access regression: 3/3 PASS.
+- Chat 1 server baseline `028e0aa` now redacts trainer payment/notification data server-side and denies Fees/Payments reads; `9968cd5` rejects creation of a second Owner server-side. Chat 2 UI is aligned with those server rules and is not the authorization boundary.
+- Chat 2 must consume Chat 1 server-owned calculations and must not fake persistent customer/payment state client-side.
 
 ## Chat 3 - Admin Reliability / QA / Operations
 
@@ -101,9 +99,11 @@ Current state:
 
 ## Admin scale checkpoint
 
-- Chat 1 backend scale work is active after synthetic 5,000-customer QA exposed Admin notification reads above 50 seconds.
-- Current optimized checkpoint: customer list ~150 ms median, pending fees ~282 ms, membership expiry ~811 ms, dashboard ~1.48 s, Admin notifications ~2.16 s on the synthetic 5,000-customer dataset.
-- These are synthetic local QA measurements, not production SLO guarantees. No new performance migration has been added.
+- Chat 1 removed customer-list, dashboard, membership-payment, Fees, and Admin-notification N+1/full-scan hot paths without adding a new migration.
+- Exact current synthetic 5,000-customer checkpoint: customer list ~58 ms median, search ~67 ms, dashboard ~1.04 s, membership expiry ~0.76 s, Admin notifications ~1.91 s, Fees ~0.81 s.
+- Admin notifications improved from ~51.4 seconds median before optimization to ~1.91 seconds median on the same synthetic scale class.
+- Fees `pendingOnly` is applied before row limiting and `pendingFeesTotalPaise` now represents the full filtered ledger rather than only returned rows.
+- Full backend gate after these shared lifecycle changes: 163/163 PASS. These are synthetic local QA measurements, not production SLO guarantees.
 
 ## Existing Notification Provider Reality
 
@@ -124,3 +124,11 @@ Current state:
 8. Every handoff reports branch, commit SHA, changed files, tests, and blockers.
 9. Migration 010 stays off the live database until final integrated release gates pass and a fresh verified pre-migration backup exists.
 10. Update this file when ownership, handoff SHA, or rollout state changes.
+
+
+## Current coordination - 2026-08-29 14:55 IST
+
+- Chat 1: backend performance/security integrated through `9968cd5`; full backend rerun in progress. Team Access now rejects creation of a second owner server-side, and trainer read responses are financially/notification redacted server-side.
+- Chat 2: Team Access and Fee-race hardening are complete in code commits `960bf24` and `1654271` on top of role-aware handoff `0a323dd`. Browser release gate is 43/43 PASS; focused Admin gate 17/17 PASS. Chat 1 should cherry-pick those three code commits in order and skip README-only handoffs.
+- Chat 3: `017080e` is stale as an expected-failure test because Chat 1 fixed the >200 customer filter boundary in `2ea3b38`. Convert it to a normal passing regression after syncing; do not merge the expected-failure form.
+- Live production remains migration 009. No Admin V1 migration/deploy until integrated browser + backend + backup gates are green.
