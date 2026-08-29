@@ -161,3 +161,18 @@ Current state:
 - Syntax checks for all `web/js/admin*.js` and `tests/e2e/gravity.spec.js`: PASS. `git diff --check`: PASS.
 - No backend/domain/auth/migration/ops files changed. No production DB or migration 010 action was performed.
 - Frontend blocker: none. Chat 1 should run the final integrated release gate after cherry-pick.
+
+## Chat 2 final RC UI acceptance handoff - 2026-08-29 18:28 IST
+
+- Product stress handoff remains `9a7111a` (`web/css/admin.css`, `tests/e2e/gravity.spec.js`). It is already integrated into final RC `b6b42d7` as the top commit.
+- Required 17:56 rerun exposed a test-harness startup race only: Admin module `loadSession()` is asynchronous, while the two stress tests could drive `openView()` before mocked owner handoff completed.
+- Test-only follow-up `760a07b` adds two `expect.poll(...currentAdmin...)` readiness waits. No product/UI/backend/auth/migration/ops code changes. `9a7111a` was not amended or rewritten.
+- Determinism proof after `760a07b`: repeated deterministic + advanced stress tests 10/10 PASS; focused stress gate 3/3 PASS; Admin/customer browser gate 27/27 PASS; full Playwright 51/51 PASS.
+- Static hygiene after `760a07b`: test syntax PASS; all `web/js/admin*.js` syntax PASS; `git diff --check` PASS; diff secret-like value scan PASS; no debug/TEMP/console diagnostic markers.
+- Exact final RC inspected read-only: `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-b6b42d7`, detached clean at `b6b42d7264a1ee8ca7fac06b994a9fbb8f8fb24e`.
+- Final RC responsive/stress acceptance: 4/4 PASS, covering Admin widths 320/360/375/390/430/768/1024/1366/1440/1920, 320x568, 390x667 + 200% text, long unbroken content, large rupee values, internal table scrolling, dialog/focus behavior, 0/1/50/200-row bounded DOM, and all ten Admin workspaces.
+- Final RC integration-risk UI acceptance: 14/14 PASS covering notification failure/403, customer workflows, Fees/Membership stale responses, Trainer/Reception/Admin RBAC, Enquiries stale/403 clearing, Readiness recovery/403, customer search races, Dashboard stale financial clearing/recovery, expired session, Team Access, and Audit.
+- Final RC remained clean after acceptance. No final-RC files were modified.
+- Frontend product verdict for exact RC `b6b42d7`: PASS; no integration-only frontend defect found.
+- `760a07b` is test-only and does not change the shipped frontend. Chat 1 may cherry-pick it if deterministic final-gate source tests are desired, but doing so changes the consolidated SHA and therefore requires a new immutable RC identity before release.
+- No production process, ngrok state, scheduled task, live database, migration row, secret, or protected deployment path was touched by Chat 2.
