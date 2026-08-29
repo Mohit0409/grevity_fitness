@@ -182,3 +182,16 @@ For Phase 1, the required lifecycle is local loopback `127.0.0.1:8787` plus the 
 Phase-1 NO-GO blockers are now: protected local `gravity.env` + least-privilege ACLs, non-mutating local task preflight, installation/verification of Watchdog/DailyBackup/Notifications, deliberate reboot with local backend/task/notification acceptance, and a fresh verified/recovery-drilled/hashed/off-host `pre-admin-v1` migration-009 backup. After those gates pass, Chat 1 may record local Admin Software GO and perform guarded migration 010/local Admin V1 cutover with complete local smoke.
 
 Public website/domain/tunnel work remains a separate Phase-2 project after local Admin V1 is stable.
+
+## Phase-1 local deployment tuple - 2026-08-29 21:18 queue
+
+- Final RC: `c4f2219a77f0a1248497c15c5eef6bc5389dd476` / `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219` (detached, clean).
+- Rollback runtime: `49529c9484348bee398147a0a294693d2644ca16` / `C:\movieXsuggestion\MyProject\grevity_fitness-runtime-v9`.
+- Live DB: `C:\movieXsuggestion\MyProject\grevity_fitness\.gravity\data\gravity.sqlite3`; keep migration 009 until explicit local GO.
+- Protected config: `C:\ProgramData\GravityFitness\gravity.env`; currently absent and must be created only in an elevated/operator-controlled window with least-privilege ACLs.
+- Python/runtime: `C:\Users\91896\AppData\Local\Programs\Python\Python312\python.exe`; backend target is loopback `127.0.0.1:8787`.
+- Phase-1 task install/preflight uses exact RC `scripts\install-gravity-tasks.ps1` with `-ConfigPath 'C:\ProgramData\GravityFitness\gravity.env' -ExpectedReleaseSha 'c4f2219a77f0a1248497c15c5eef6bc5389dd476' -RequireDetachedHead`, adding `-PreflightOnly` for preflight and explicitly omitting `-EnsureNgrok`.
+- Required tasks: `GravityFitness-Watchdog`, `GravityFitness-DailyBackup`, and `GravityFitness-Notifications`, SYSTEM/Highest, exact RC working directory, `IgnoreNew`, secret-free arguments.
+- Local reboot acceptance: exact RC detached/clean identity, managed loopback backend health, all three task states/results, fresh notification-cycle evidence, no stuck runner lock, no unexpected failure counters. Tunnel/public evidence is excluded from Phase 1.
+- Fresh backup gate: after reboot acceptance while still migration 009, create/verify/recovery-drill/hash `pre-admin-v1` with pinned v9. Off-host destination is currently **UNRESOLVED**: only `C:` is mounted and documented example `E:\GravityBackups` is absent; do not fabricate an off-host target.
+- Abort criteria: any SHA/checkout mismatch, config/ACL failure, task-plan or principal mismatch, non-loopback backend target, secret-bearing task argument, failed reboot acceptance, failed backup verification/recovery drill/off-host copy, or unexpected migration state keeps local Admin V1 NO-GO.

@@ -817,3 +817,12 @@ Success: Chat 3 proves the local Windows lifecycle independently of public ingre
 10. After local Admin V1 is stable, start a separate Phase-2 plan for free/public domain/tunnel access if still desired.
 
 Until step 7 explicitly records GO, production remains pinned v9 / migration 009. Public ingress is not a Phase-1 blocker.
+
+## CHAT 1 LOCAL RELEASE STATUS - 2026-08-29 after 21:18 queue review
+
+- Chat 1 accepted the Phase-1 scope correction: Admin Portal V1 is Windows/local software; public domain/DNS/ngrok/tunnel/public ingress is deferred to Phase 2 and is not a Phase-1 blocker.
+- Frozen runtime remains `c4f2219a77f0a1248497c15c5eef6bc5389dd476`; immutable RC remains detached/clean at `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`. No completed Chat 2/3 acceptance was rerun.
+- Phase-1 local deployment tuple is now recorded in `docs/ADMIN_V1_RELEASE_CANDIDATE.md`: exact RC/rollback/live DB/protected config/Python/loopback/task plan/reboot acceptance/backup gate/abort criteria. Task install and preflight explicitly omit `-EnsureNgrok`.
+- Current operator session is **not elevated** and `C:\ProgramData\GravityFitness\gravity.env` is absent; therefore Chat 1 stops before protected-config creation as required by the queue.
+- Off-host backup destination also requires operator input: only filesystem drive `C:` is currently mounted and documented example `E:\GravityBackups` does not exist. No off-host path is invented.
+- Production remains pinned v9 / migration 009; Gravity SYSTEM tasks remain uninstalled. No protected files, task mutations, reboot, backup, migration 010, or cutover were performed.
