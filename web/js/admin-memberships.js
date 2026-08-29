@@ -7,13 +7,17 @@
 
   function hasPermission(permission) { return core()?.hasPermission(permission) || false; }
   function formatDate(value) { if (!value) return '--'; const date = new Date(Number(value) * 1000); return Number.isNaN(date.getTime()) ? '--' : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
-  function money(plan) { try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency: plan.currency || 'INR', maximumFractionDigits: 0 }).format(Number(plan.pricePaise || 0) / 100); } catch (_) { return `${plan.currency || 'INR'} ${Number(plan.pricePaise || 0) / 100}`; } }
+  function moneyPaise(value, currency = 'INR') { try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(Number(value || 0) / 100); } catch (_) { return `${currency} ${Number(value || 0) / 100}`; } }
+  function money(plan) { return moneyPaise(plan.pricePaise, plan.currency || 'INR'); }
   function badge(status) { const span = document.createElement('span'); span.className = `badge badge--${String(status || 'unknown')}`; span.textContent = String(status || 'unknown').replaceAll('_', ' '); return span; }
   function emptyRow(message, colspan) { const row = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = colspan; cell.className = 'empty'; cell.textContent = message; row.appendChild(cell); return row; }
 
   async function loadPlans() {
     const payload = await core().api('/api/admin/membership/plans');
     state.plans = Array.isArray(payload.plans) ? payload.plans : [];
+    const filter = $('membershipPlanFilter'); const current = filter.value; filter.replaceChildren(new Option('All plans', ''));
+    for (const plan of state.plans) filter.appendChild(new Option(plan.name, plan.id));
+    if (Array.from(filter.options).some((option) => option.value === current)) filter.value = current;
     return state.plans;
   }
 
@@ -45,22 +49,46 @@
     if (!body.children.length) body.appendChild(emptyRow('No membership plans configured.', 5));
   }
 
-  async function renderExpiring() {
-    const body = $('expiringBody'); body.replaceChildren();
-    if (!hasPermission('memberships.manage')) { body.appendChild(emptyRow('You do not have permission to view membership operations.', 6)); return; }
-    const days = Number($('expiryDays').value || 7); const payload = await core().api(`/api/admin/memberships/expiring?days=${days}`); const memberships = Array.isArray(payload.memberships) ? payload.memberships : [];
-    for (const item of memberships) {
-      const row = document.createElement('tr');
-      for (const value of [item.customer?.displayName || 'Customer', item.planName || '--', item.membershipNumber || '--', formatDate(item.endsAt), `${Number(item.daysRemaining ?? 0)} day${Number(item.daysRemaining ?? 0) === 1 ? '' : 's'}`]) { const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell); }
-      const action = document.createElement('td'); const open = document.createElement('button'); open.type = 'button'; open.className = 'table-action'; open.textContent = 'Open customer'; open.addEventListener('click', () => window.GravityCustomerAdmin?.openCustomer({ id: item.customerId, displayName: item.customer?.displayName, email: item.customer?.email, phone: item.customer?.phone, status: 'active' })); action.appendChild(open); row.appendChild(action); body.appendChild(row);
+  async function renderMemberships() {
+    const statusFilter = $('membershipStatusFilter').value;
+    const planId = $('membershipPlanFilter').value;
+    $('expiryDays').disabled = statusFilter !== 'expiring';
+    const params = new URLSearchParams();
+    if (statusFilter && statusFilter !== 'expiring') params.set('status', statusFilter);
+    if (statusFilter === 'expiring') params.set('status', 'active');
+    if (planId) params.set('planId', planId);
+    const payload = await core().api(`/api/admin/memberships?${params.toString()}`);
+    let rows = Array.isArray(payload.memberships) ? payload.memberships : [];
+    if (statusFilter === 'expiring') {
+      const days = Number($('expiryDays').value || 7);
+      rows = rows.filter((item) => Number(item.membership?.daysRemaining ?? Number.POSITIVE_INFINITY) <= days);
     }
-    if (!body.children.length) body.appendChild(emptyRow(`No memberships expire within ${days} days.`, 6));
+    const body = $('membershipsBody'); body.replaceChildren();
+    for (const item of rows) {
+      const membership = item.membership || {}; const customer = item.customer || {}; const payment = membership.payment || {};
+      const row = document.createElement('tr');
+      const customerCell = document.createElement('td'); customerCell.textContent = customer.displayName || 'Customer';
+      const number = document.createElement('td'); number.textContent = membership.membershipNumber || '--';
+      const plan = document.createElement('td'); plan.textContent = membership.planName || '--';
+      const start = document.createElement('td'); start.textContent = formatDate(membership.startsAt);
+      const expiry = document.createElement('td'); expiry.textContent = formatDate(membership.endsAt);
+      const status = document.createElement('td'); status.appendChild(badge(membership.status));
+      const money = document.createElement('td'); money.textContent = `${moneyPaise(payment.paidPaise, membership.currency)} / ${moneyPaise(payment.pendingPaise, membership.currency)}`;
+      const action = document.createElement('td'); action.className = 'row-actions';
+      const open = document.createElement('button'); open.type = 'button'; open.className = 'table-action'; open.textContent = 'Open'; open.addEventListener('click', () => window.GravityCustomerAdmin?.openCustomerById(customer.id)); action.appendChild(open);
+      if (Number(payment.pendingPaise || 0) > 0 && hasPermission('payments.record')) { const pay = document.createElement('button'); pay.type = 'button'; pay.className = 'ghost table-action'; pay.textContent = 'Pay'; pay.addEventListener('click', () => window.GravityCustomerAdmin?.openPaymentFor(membership, { id: customer.id, displayName: customer.displayName })); action.appendChild(pay); }
+      row.append(customerCell, number, plan, start, expiry, status, money, action); body.appendChild(row);
+    }
+    if (!body.children.length) body.appendChild(emptyRow('No memberships match these filters.', 8));
   }
 
-  async function renderWorkspace() { $('newPlan').hidden = !hasPermission('membership_plans.manage'); if (!hasPermission('membership_plans.manage')) $('planEditor').hidden = true; await Promise.all([renderPlans(), renderExpiring()]); }
+  async function renderWorkspace() {
+    $('newPlan').hidden = !hasPermission('membership_plans.manage'); if (!hasPermission('membership_plans.manage')) $('planEditor').hidden = true;
+    await loadPlans(); await renderMemberships();
+  }
 
   $('newPlan').addEventListener('click', () => editPlan()); $('cancelPlanEdit').addEventListener('click', () => { $('planEditor').hidden = true; });
-  $('expiryDays').addEventListener('change', () => renderExpiring().catch(() => core().flash('Expiring memberships could not be loaded.', 'error')));
+  ['membershipStatusFilter', 'membershipPlanFilter', 'expiryDays'].forEach((id) => $(id).addEventListener('change', () => renderMemberships().catch(() => core().flash('Memberships could not be loaded.', 'error'))));
   $('planForm').addEventListener('submit', async (event) => { event.preventDefault(); if (!hasPermission('membership_plans.manage')) return; const id = $('planId').value; try { await core().api(id ? `/api/admin/membership/plans/${encodeURIComponent(id)}` : '/api/admin/membership/plans', { method: id ? 'PATCH' : 'POST', body: planPayload() }); $('planEditor').hidden = true; core().flash(id ? 'Membership plan updated.' : 'Membership plan created.'); await renderPlans(); } catch (_) { core().flash('Membership plan could not be saved.', 'error'); } });
 
   window.GravityMembershipAdmin = { setAdmin(admin) { state.admin = admin; }, renderWorkspace, refresh() { return renderWorkspace(); } };

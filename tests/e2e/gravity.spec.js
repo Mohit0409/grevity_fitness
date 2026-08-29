@@ -858,87 +858,196 @@ test('admin notifications handle all providers blocked, empty data and API failu
 
 async function mockAdminSoftware(page, options = {}) {
   const now = Math.floor(Date.now() / 1000);
+  const day = 86400;
   const admin = { id: 'owner-ui-test', username: 'owner', role: 'owner', permissions: ['*'] };
   const authState = { authenticated: !options.startUnauthenticated };
   const plans = [
     { id: 'plan-basic', code: 'basic', name: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'active', sortOrder: 1 },
     { id: 'plan-pro', code: 'pro', name: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'active', sortOrder: 2 },
   ];
-  const members = [
-    { id: 'cust-asha', displayName: 'Asha Sharma', phone: '+919876543210', email: 'asha@example.com', status: 'active', createdAt: now - 200 * 86400, lastLoginAt: now - 3600 },
-    { id: 'cust-ravi', displayName: 'Ravi Patel', phone: '+919812345678', email: null, status: 'active', createdAt: now - 80 * 86400, lastLoginAt: null },
-    { id: 'cust-disabled', displayName: 'Disabled Member', phone: '+919800001111', email: null, status: 'disabled', createdAt: now - 300 * 86400, lastLoginAt: null },
+  const customers = [
+    { id: 'cust-asha', displayName: 'Asha Sharma', phone: '+919876543210', phoneVerified: true, email: 'asha@example.com', status: 'active', createdAt: now - 200 * day, lastLoginAt: now - 3600 },
+    { id: 'cust-ravi', displayName: 'Ravi Patel', phone: '+919812345678', phoneVerified: true, email: null, status: 'active', createdAt: now - 20 * day, lastLoginAt: null },
+    { id: 'cust-disabled', displayName: 'Disabled Member', phone: '+919800001111', phoneVerified: false, email: null, status: 'disabled', createdAt: now - 300 * day, lastLoginAt: null },
   ];
   const memberships = {
     'cust-asha': [
-      { id: 'mem-asha-live', membershipNumber: 'GF-2026-ASHA', customerId: 'cust-asha', planId: 'plan-pro', planName: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'active', startsAt: now - 60 * 86400, endsAt: now + 7 * 86400, daysRemaining: 7, source: 'admin_manual', createdAt: now - 60 * 86400 },
-      { id: 'mem-asha-old', membershipNumber: 'GF-2026-OLD', customerId: 'cust-asha', planId: 'plan-basic', planName: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'expired', startsAt: now - 120 * 86400, endsAt: now - 90 * 86400, daysRemaining: 0, source: 'admin_manual', createdAt: now - 120 * 86400 },
+      { id: 'mem-asha-live', membershipNumber: 'GF-2026-ASHA', customerId: 'cust-asha', planId: 'plan-pro', planName: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'active', startsAt: now - 60 * day, endsAt: now + 7 * day, daysRemaining: 7, source: 'admin_manual', createdAt: now - 60 * day, payment: { totalPaise: 149900, paidPaise: 50000, pendingPaise: 99900 } },
+      { id: 'mem-asha-old', membershipNumber: 'GF-2026-OLD', customerId: 'cust-asha', planId: 'plan-basic', planName: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'expired', startsAt: now - 120 * day, endsAt: now - 90 * day, daysRemaining: 0, source: 'admin_manual', createdAt: now - 120 * day, payment: { totalPaise: 99900, paidPaise: 99900, pendingPaise: 0 } },
+      { id: 'mem-asha-cancelled', membershipNumber: 'GF-CANCELLED', customerId: 'cust-asha', planId: 'plan-basic', planName: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'cancelled', startsAt: now - 180 * day, endsAt: now - 150 * day, daysRemaining: 0, source: 'admin_manual', createdAt: now - 180 * day, payment: { totalPaise: 99900, paidPaise: 0, pendingPaise: 99900 } },
     ],
     'cust-ravi': [
-      { id: 'mem-ravi-live', membershipNumber: 'GF-2026-RAVI', customerId: 'cust-ravi', planId: 'plan-basic', planName: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'active', startsAt: now - 20 * 86400, endsAt: now + 3 * 86400, daysRemaining: 3, source: 'admin_manual', createdAt: now - 20 * 86400 },
+      { id: 'mem-ravi-live', membershipNumber: 'GF-2026-RAVI', customerId: 'cust-ravi', planId: 'plan-basic', planName: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'active', startsAt: now - 20 * day, endsAt: now + 3 * day, daysRemaining: 3, source: 'admin_manual', createdAt: now - 20 * day, payment: { totalPaise: 99900, paidPaise: 99900, pendingPaise: 0 } },
+      { id: 'mem-ravi-next', membershipNumber: 'GF-RAVI-NEXT', customerId: 'cust-ravi', planId: 'plan-pro', planName: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'scheduled', startsAt: now + 3 * day, endsAt: now + 93 * day, daysRemaining: 0, source: 'admin_manual', createdAt: now - day, payment: { totalPaise: 149900, paidPaise: 0, pendingPaise: 149900 } },
     ],
     'cust-disabled': [],
   };
+  const payments = [
+    { id: 'pay-asha-1', membershipId: 'mem-asha-live', membershipNumber: 'GF-2026-ASHA', customerId: 'cust-asha', customerName: 'Asha Sharma', amountPaise: 50000, currency: 'INR', method: 'upi', note: 'Opening payment', paidAt: now - day, status: 'recorded' },
+    { id: 'pay-ravi-1', membershipId: 'mem-ravi-live', membershipNumber: 'GF-2026-RAVI', customerId: 'cust-ravi', customerName: 'Ravi Patel', amountPaise: 99900, currency: 'INR', method: 'cash', note: null, paidAt: now - 2 * day, status: 'recorded' },
+  ];
+  const notifications = [
+    { id: 'n-asha', membershipId: 'mem-asha-live', customerId: 'cust-asha', state: 'pending', triggerDays: 7, createdAt: now - 120 },
+  ];
+  const createBodies = [];
+  const editBodies = [];
   const renewBodies = [];
-  const statusBodies = [];
+  const paymentBodies = [];
   let customerMode = options.customerMode || 'ok';
+  let paymentMode = options.paymentMode || 'ok';
 
-  await page.route('**/api/admin/session', (route) => route.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify({ configured: true, bootstrapRequired: false, authenticated: authState.authenticated, admin: authState.authenticated ? admin : undefined }),
-  }));
-  await page.route('**/api/admin/login', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ factorRequired: true }) }));
-  await page.route('**/api/admin/verify', (route) => { authState.authenticated = true; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ admin }) }); });
-  await page.route('**/api/admin/logout', (route) => { authState.authenticated = false; return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
-  await page.route('**/api/admin/dashboard', (route) => route.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify({ customers: { total: members.length, active: 2, disabled: 1, deleted: 0 }, admins: { owner: 1 }, recentAudit: [{ action: 'membership_created', result: 'success', createdAt: now - 600 }] }),
-  }));
-  await page.route('**/api/admin/members?q=*', (route) => {
-    if (customerMode === 'error') return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'temporary_failure' }) });
-    const q = new URL(route.request().url()).searchParams.get('q')?.toLowerCase() || '';
-    const rows = members.filter((m) => !q || `${m.displayName} ${m.phone || ''} ${m.email || ''}`.toLowerCase().includes(q));
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ members: customerMode === 'empty' ? [] : rows }) });
+  const findCustomer = (id) => customers.find((item) => item.id === id);
+  const allMemberships = () => Object.values(memberships).flat();
+  const findMembership = (id) => allMemberships().find((item) => item.id === id);
+  const currentForList = (customerId) => {
+    const rows = memberships[customerId] || [];
+    return rows.find((item) => item.status === 'active') || rows.find((item) => item.status === 'scheduled') || rows.find((item) => item.status === 'expired') || rows.find((item) => item.status === 'cancelled') || null;
+  };
+  const customerListItem = (customer) => ({ ...customer, membership: currentForList(customer.id) });
+  const customerDetail = (customerId) => {
+    const customer = findCustomer(customerId);
+    const rows = memberships[customerId] || [];
+    return {
+      customer: { ...customer },
+      membership: {
+        current: rows.find((item) => item.status === 'active') || null,
+        upcoming: rows.find((item) => item.status === 'scheduled') || null,
+        history: rows.filter((item) => ['expired', 'cancelled'].includes(item.status)),
+        all: rows,
+      },
+      payments: payments.filter((item) => item.customerId === customerId).sort((a, b) => b.paidAt - a.paidAt),
+      notifications: notifications.filter((item) => item.customerId === customerId),
+    };
+  };
+  const feeRows = (query = '', pendingOnly = false) => {
+    const needle = query.toLowerCase();
+    return allMemberships().filter((membership) => membership.status !== 'cancelled').map((membership) => {
+      const customer = findCustomer(membership.customerId);
+      return { customerId: customer?.id, customerName: customer?.displayName, phone: customer?.phone, membership };
+    }).filter((item) => (!needle || `${item.customerName || ''} ${item.phone || ''}`.toLowerCase().includes(needle)) && (!pendingOnly || Number(item.membership.payment?.pendingPaise || 0) > 0)).sort((a, b) => Number(b.membership.payment?.pendingPaise || 0) - Number(a.membership.payment?.pendingPaise || 0));
+  };
+  const dashboardPayload = () => {
+    const pending = feeRows('', true);
+    const active = allMemberships().filter((item) => item.status === 'active');
+    const expiring = { today: [], tomorrow: [], threeDays: [], sevenDays: [] };
+    for (const membership of active) {
+      if (membership.daysRemaining > 7) continue;
+      const customer = findCustomer(membership.customerId);
+      const row = { customerId: membership.customerId, customerName: customer?.displayName, membershipId: membership.id, membershipNumber: membership.membershipNumber, planName: membership.planName, endsAt: membership.endsAt, status: membership.status };
+      if (membership.daysRemaining <= 1) expiring.tomorrow.push(row);
+      else if (membership.daysRemaining <= 3) expiring.threeDays.push(row);
+      else expiring.sevenDays.push(row);
+    }
+    const pendingFees = pending.map((item) => ({ customerId: item.customerId, customerName: item.customerName, membershipId: item.membership.id, membershipNumber: item.membership.membershipNumber, planName: item.membership.planName, endsAt: item.membership.endsAt, ...item.membership.payment }));
+    return {
+      stats: {
+        totalCustomers: customers.length,
+        activeMembers: active.length,
+        expiringSoon: Object.values(expiring).flat().length,
+        expiredMembers: customers.filter((customer) => (memberships[customer.id] || []).some((m) => m.status === 'expired') && !(memberships[customer.id] || []).some((m) => ['active', 'scheduled'].includes(m.status))).length,
+        pendingFeesTotalPaise: pending.reduce((sum, item) => sum + Number(item.membership.payment?.pendingPaise || 0), 0),
+        newCustomersThisMonth: customers.filter((customer) => customer.createdAt >= now - 31 * day).length,
+        paymentsReceivedTodayPaise: payments.filter((item) => item.paidAt >= now - day).reduce((sum, item) => sum + item.amountPaise, 0),
+        paymentsReceivedThisMonthPaise: payments.filter((item) => item.paidAt >= now - 31 * day).reduce((sum, item) => sum + item.amountPaise, 0),
+      },
+      expiring,
+      pendingFees: pendingFees.slice(0, 12),
+      recentPayments: [...payments].sort((a, b) => b.paidAt - a.paidAt).slice(0, 8),
+      recentCustomers: [...customers].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8).map(customerListItem),
+    };
+  };
+  const json = (route, status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+
+  await page.route('**/api/admin/session', (route) => json(route, 200, { configured: true, bootstrapRequired: false, authenticated: authState.authenticated, admin: authState.authenticated ? admin : undefined }));
+  await page.route('**/api/admin/login', (route) => json(route, 200, { factorRequired: true }));
+  await page.route('**/api/admin/verify', (route) => { authState.authenticated = true; return json(route, 200, { admin }); });
+  await page.route('**/api/admin/logout', (route) => { authState.authenticated = false; return json(route, 200, {}); });
+  await page.route(/\/api\/admin\/dashboard(?:\?.*)?$/, (route) => json(route, 200, dashboardPayload()));
+
+  await page.route(/\/api\/admin\/customers(?:\?.*)?$/, async (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON(); createBodies.push(body);
+      if (customers.some((item) => item.phone === body.phone)) return json(route, 409, { error: 'admin_software_conflict' });
+      if (!body.displayName || String(body.displayName).trim().length < 2 || !String(body.phone || '').startsWith('+')) return json(route, 422, { error: 'admin_software_validation', fields: { phone: 'Use an international mobile number such as +919876543210' } });
+      const plan = plans.find((item) => item.id === body.planId); if (!plan) return json(route, 404, { error: 'admin_software_not_found' });
+      const paid = Number(body.amountPaidPaise || 0); if (paid > plan.pricePaise) return json(route, 409, { error: 'admin_software_conflict' });
+      const id = `cust-new-${createBodies.length}`; const customer = { id, displayName: body.displayName, phone: body.phone, phoneVerified: false, email: null, status: 'active', createdAt: now, lastLoginAt: null };
+      customers.unshift(customer);
+      const startsAt = Number(body.startsAt || now); const membership = { id: `mem-new-${createBodies.length}`, membershipNumber: `GF-NEW-${createBodies.length}`, customerId: id, planId: plan.id, planName: plan.name, pricePaise: plan.pricePaise, currency: plan.currency, durationMonths: plan.durationMonths, status: 'active', startsAt, endsAt: startsAt + plan.durationMonths * 30 * day, daysRemaining: plan.durationMonths * 30, source: 'admin_manual', createdAt: now, payment: { totalPaise: plan.pricePaise, paidPaise: paid, pendingPaise: plan.pricePaise - paid } };
+      memberships[id] = [membership]; let payment = null;
+      if (paid > 0) { payment = { id: `pay-new-${createBodies.length}`, membershipId: membership.id, membershipNumber: membership.membershipNumber, customerId: id, customerName: customer.displayName, amountPaise: paid, currency: plan.currency, method: body.paymentMethod, note: body.note || null, paidAt: now, status: 'recorded' }; payments.unshift(payment); }
+      return json(route, 201, { customer, membership, payment, paymentSummary: membership.payment });
+    }
+    if (customerMode === 'error') return json(route, 503, { error: 'temporary_failure' });
+    const params = new URL(route.request().url()).searchParams; const q = (params.get('q') || '').toLowerCase(); const status = params.get('status') || ''; const membershipStatus = params.get('membershipStatus') || ''; const planId = params.get('planId') || '';
+    let rows = customers.filter((customer) => (!q || `${customer.displayName} ${customer.phone || ''}`.toLowerCase().includes(q)) && (!status || customer.status === status)).map(customerListItem);
+    if (membershipStatus) rows = rows.filter((item) => (item.membership?.status || 'none') === membershipStatus);
+    if (planId) rows = rows.filter((item) => item.membership?.planId === planId);
+    return json(route, 200, { customers: customerMode === 'empty' ? [] : rows });
   });
-  await page.route('**/api/admin/membership/plans', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ plans }) }));
-  await page.route('**/api/admin/membership/plans/*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ plan: plans[0] }) }));
-  await page.route('**/api/admin/memberships/expiring?days=*', (route) => {
-    const days = Number(new URL(route.request().url()).searchParams.get('days') || 7);
-    const rows = Object.values(memberships).flat().filter((m) => m.status === 'active' && m.daysRemaining <= days).map((m) => {
-      const customer = members.find((item) => item.id === m.customerId);
-      return { ...m, customer: { displayName: customer?.displayName, email: customer?.email, phone: customer?.phone } };
-    });
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: rows }) });
-  });
-  await page.route('**/api/admin/members/*/memberships', async (route) => {
-    const match = new URL(route.request().url()).pathname.match(/\/api\/admin\/members\/([^/]+)\/memberships$/);
-    const customerId = decodeURIComponent(match?.[1] || '');
-    if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: memberships[customerId] || [] }) });
+
+  await page.route(/\/api\/admin\/customers\/[^/]+\/renew$/, async (route) => {
+    const customerId = decodeURIComponent(new URL(route.request().url()).pathname.split('/').slice(-2)[0]);
     const body = route.request().postDataJSON(); renewBodies.push({ customerId, ...body });
-    const plan = plans.find((item) => item.id === body.planId) || plans[0];
-    const current = (memberships[customerId] || []).find((item) => item.status === 'active');
-    const startsAt = body.startsAt || current?.endsAt || now;
-    const created = { id: `renew-${renewBodies.length}`, membershipNumber: `GF-RENEW-${renewBodies.length}`, customerId, planId: plan.id, planName: plan.name, pricePaise: plan.pricePaise, currency: plan.currency, durationMonths: plan.durationMonths, status: current ? 'scheduled' : 'active', startsAt, endsAt: startsAt + plan.durationMonths * 30 * 86400, daysRemaining: 0, source: 'admin_manual', createdAt: now };
-    memberships[customerId] = [created, ...(memberships[customerId] || [])];
-    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ membership: created }) });
+    const plan = plans.find((item) => item.id === body.planId); if (!plan) return json(route, 404, { error: 'admin_software_not_found' });
+    const paid = Number(body.amountPaidPaise || 0); if (paid > plan.pricePaise) return json(route, 409, { error: 'admin_software_conflict' });
+    const current = (memberships[customerId] || []).find((item) => item.status === 'active'); const startsAt = Number(body.startsAt || current?.endsAt || now);
+    const membership = { id: `renew-${renewBodies.length}`, membershipNumber: `GF-RENEW-${renewBodies.length}`, customerId, planId: plan.id, planName: plan.name, pricePaise: plan.pricePaise, currency: plan.currency, durationMonths: plan.durationMonths, status: current ? 'scheduled' : 'active', startsAt, endsAt: startsAt + plan.durationMonths * 30 * day, daysRemaining: current ? 0 : plan.durationMonths * 30, source: 'admin_manual', createdAt: now, payment: { totalPaise: plan.pricePaise, paidPaise: paid, pendingPaise: plan.pricePaise - paid } };
+    memberships[customerId] = [membership, ...(memberships[customerId] || [])]; let payment = null;
+    if (paid > 0) { const customer = findCustomer(customerId); payment = { id: `pay-renew-${renewBodies.length}`, membershipId: membership.id, membershipNumber: membership.membershipNumber, customerId, customerName: customer?.displayName, amountPaise: paid, currency: plan.currency, method: body.paymentMethod, note: body.note || null, paidAt: now, status: 'recorded' }; payments.unshift(payment); }
+    return json(route, 201, { membership, payment, paymentSummary: membership.payment });
   });
-  await page.route('**/api/admin/members/*', async (route) => {
-    const customerId = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop());
-    const body = route.request().postDataJSON(); statusBodies.push({ customerId, ...body });
-    const member = members.find((item) => item.id === customerId); if (member) member.status = body.status;
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ member: { id: customerId, status: body.status } }) });
-  });
-  await page.route('**/api/admin/notifications?limit=100', (route) => route.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify({ providerBlockers: { email: 'READY', sms: 'BLOCKED_EXTERNAL_CONFIG', whatsapp: 'BLOCKED_EXTERNAL_CONFIG' }, notifications: [
-      { id: 'n-asha', eventType: 'membership_expiry', customerId: 'cust-asha', membershipId: 'mem-asha-live', triggerDays: 7, state: 'pending', payload: { planName: 'Pro', membershipNumber: 'GF-2026-ASHA', endsAt: now + 7 * 86400 }, customer: { displayName: 'Asha Sharma' }, deliveries: [] },
-    ] }),
-  }));
-  await page.route('**/api/admin/notifications/scan', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ scan: { created: 0, deduped: 0, suppressedRenewed: 0 }, providerBlockers: {} }) }));
-  await page.route('**/api/admin/admins', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ admins: [admin] }) }));
-  await page.route('**/api/admin/audit?limit=100', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ audit: [] }) }));
 
-  return { admin, members, memberships, plans, renewBodies, statusBodies, setCustomerMode(value) { customerMode = value; } };
+  await page.route(/\/api\/admin\/customers\/[^/?]+(?:\?.*)?$/, async (route) => {
+    const customerId = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop()); const customer = findCustomer(customerId); if (!customer) return json(route, 404, { error: 'admin_software_not_found' });
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON(); editBodies.push({ customerId, ...body });
+      if (body.phone && customers.some((item) => item.id !== customerId && item.phone === body.phone)) return json(route, 409, { error: 'admin_software_conflict' });
+      Object.assign(customer, { ...(body.displayName !== undefined ? { displayName: body.displayName } : {}), ...(body.phone !== undefined ? { phone: body.phone, phoneVerified: false } : {}), ...(body.status !== undefined ? { status: body.status } : {}) });
+      return json(route, 200, { customer: { ...customer } });
+    }
+    return json(route, 200, customerDetail(customerId));
+  });
+
+  await page.route(/\/api\/admin\/memberships\/[^/]+\/payments$/, async (route) => {
+    const membershipId = decodeURIComponent(new URL(route.request().url()).pathname.split('/').slice(-2)[0]); const membership = findMembership(membershipId); if (!membership) return json(route, 404, { error: 'admin_software_not_found' });
+    const body = route.request().postDataJSON();
+    if (paymentMode === 'error') return json(route, 503, { error: 'temporary_failure' });
+    paymentBodies.push({ membershipId, ...body }); await new Promise((resolve) => setTimeout(resolve, 120));
+    const amount = Number(body.amountPaise || 0); if (amount <= 0) return json(route, 422, { error: 'admin_software_validation', fields: { amountPaidPaise: 'Amount must be greater than zero' } });
+    if (amount > Number(membership.payment.pendingPaise || 0)) return json(route, 409, { error: 'admin_software_conflict' });
+    membership.payment.paidPaise += amount; membership.payment.pendingPaise -= amount; const customer = findCustomer(membership.customerId);
+    const payment = { id: `pay-ledger-${paymentBodies.length}`, membershipId, membershipNumber: membership.membershipNumber, customerId: membership.customerId, customerName: customer?.displayName, amountPaise: amount, currency: membership.currency, method: body.method, note: body.note || null, paidAt: Number(body.paidAt || now), status: 'recorded' }; payments.unshift(payment);
+    return json(route, 201, { payment, summary: { ...membership.payment } });
+  });
+
+  await page.route(/\/api\/admin\/memberships(?:\?.*)?$/, (route) => {
+    const params = new URL(route.request().url()).searchParams; const status = params.get('status') || ''; const planId = params.get('planId') || '';
+    const rows = allMemberships().filter((membership) => (!status || membership.status === status) && (!planId || membership.planId === planId)).map((membership) => { const customer = findCustomer(membership.customerId); return { customer: { id: customer?.id, displayName: customer?.displayName, phone: customer?.phone }, membership }; });
+    return json(route, 200, { memberships: rows });
+  });
+
+  await page.route(/\/api\/admin\/payments(?:\?.*)?$/, (route) => {
+    const params = new URL(route.request().url()).searchParams; const customerId = params.get('customerId'); const membershipId = params.get('membershipId');
+    const rows = payments.filter((item) => (!customerId || item.customerId === customerId) && (!membershipId || item.membershipId === membershipId)); return json(route, 200, { payments: rows });
+  });
+  await page.route(/\/api\/admin\/fees(?:\?.*)?$/, (route) => {
+    const params = new URL(route.request().url()).searchParams; const rows = feeRows(params.get('q') || '', params.get('pendingOnly') === '1');
+    return json(route, 200, { pendingFeesTotalPaise: rows.reduce((sum, item) => sum + Number(item.membership.payment?.pendingPaise || 0), 0), rows });
+  });
+
+  await page.route('**/api/admin/membership/plans', (route) => json(route, 200, { plans }));
+  await page.route('**/api/admin/membership/plans/*', (route) => json(route, 200, { plan: plans[0] }));
+  await page.route('**/api/admin/notifications?limit=100', (route) => json(route, 200, { providerBlockers: { email: 'READY', sms: 'BLOCKED_EXTERNAL_CONFIG', whatsapp: 'BLOCKED_EXTERNAL_CONFIG' }, notifications: [] }));
+  await page.route('**/api/admin/notifications/scan', (route) => json(route, 200, { scan: { created: 0, deduped: 0, suppressedRenewed: 0 }, providerBlockers: {} }));
+  await page.route('**/api/admin/admins', (route) => json(route, 200, { admins: [admin] }));
+  await page.route('**/api/admin/audit?limit=100', (route) => json(route, 200, { audit: [] }));
+
+  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; } };
 }
 
-test('admin login enters the gym management dashboard', async ({ page }) => {
+
+test('admin login enters the operational gym dashboard', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
   await mockAdminSoftware(page, { startUnauthenticated: true });
   await page.setViewportSize({ width: 1366, height: 900 });
@@ -947,79 +1056,65 @@ test('admin login enters the gym management dashboard', async ({ page }) => {
   await page.locator('#username').fill('owner');
   await page.locator('#password').fill('correct-horse-battery-staple');
   await page.getByRole('button', { name: 'Continue securely' }).click();
-  await expect(page.locator('#factorForm')).toBeVisible();
   await expect(page.locator('#factor')).toBeFocused();
   await page.locator('#factor').fill('123456');
   await page.getByRole('button', { name: /Verify/ }).click();
   await expect(page.locator('#app')).toBeVisible();
   await expect(page.locator('#viewTitle')).toHaveText('Dashboard');
-  await expect(page.locator('#stats')).toContainText('Total Customers');
-  await expect(page.locator('#stats')).toContainText('Expiring Soon');
-  await expect(page.locator('#stats')).toContainText('Pending Fees');
+  for (const label of ['Total Customers', 'Active Members', 'Expiring Soon', 'Expired Members', 'Pending Fees', 'New This Month', 'Payments Today', 'Payments This Month']) {
+    await expect(page.locator('#stats')).toContainText(label);
+  }
   await expect(page.locator('#dashboardExpiringBody')).toContainText('Asha Sharma');
+  await expect(page.locator('#dashboardFeesState')).toContainText('Asha Sharma');
+  await expect(page.locator('#recentPayments')).toContainText('Ravi Patel');
   await expect(page.locator('#recentCustomers')).toContainText('Ravi Patel');
-  await expect(page.locator('#dashboardFeesState')).toContainText('Pending fee total unavailable');
   await expectNoOverflow(page);
   expect(runtimeProblems).toEqual([]);
 });
 
-test('customers workspace supports search, status filters and instant profile detail', async ({ page }) => {
+test('customers workspace supports search filters detail history and status changes', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
-  await mockAdminSoftware(page);
+  const fixture = await mockAdminSoftware(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/admin');
   await page.locator('#membersNav').click();
-  await expect(page.locator('#viewTitle')).toHaveText('Customers');
   await page.locator('#memberSearch').fill('Asha');
   await expect(page.locator('#membersBody tr')).toHaveCount(1);
-  await expect(page.locator('#membersBody')).toContainText('Asha Sharma');
+  await expect(page.locator('#membersBody')).toContainText('Pro');
+  await expect(page.locator('#membersBody')).toContainText(/999/);
   await page.locator('#memberSearch').fill('');
+  await page.locator('#customerMembershipFilter').selectOption('none');
   await expect(page.locator('#membersBody')).toContainText('Disabled Member');
-  await page.locator('#customerStatusFilter').selectOption('disabled');
-  await expect(page.locator('#membersBody tr')).toHaveCount(1);
-  await expect(page.locator('#membersBody')).toContainText('Disabled Member');
+  await page.locator('#customerMembershipFilter').selectOption('');
+  await page.locator('#customerPlanFilter').selectOption('plan-pro');
+  await expect(page.locator('#membersBody')).toContainText('Asha Sharma');
+  await page.locator('#customerPlanFilter').selectOption('');
   await page.locator('#customerStatusFilter').selectOption('active');
   await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
-  await expect(page.locator('#customerDrawer')).toBeVisible();
+  const drawer = page.locator('#customerDrawer');
+  await expect(drawer).toBeVisible();
   await expect(page.locator('#customerDrawerName')).toHaveText('Asha Sharma');
-  await expect(page.locator('#customerDrawerBody')).toContainText('Current membership');
-  await expect(page.locator('#customerDrawerBody')).toContainText('GF-2026-ASHA');
-  await expect(page.locator('#customerDrawerBody')).toContainText('Payment summary');
-  await expect(page.locator('#customerDrawerBody')).toContainText('Admin payment history API required');
-  await expect(page.locator('#customerDrawerBody')).toContainText('7-day expiry reminder');
+  await expect(drawer).toContainText('GF-2026-ASHA');
+  await expect(drawer).toContainText('Payment history');
+  await expect(drawer).toContainText('Opening payment');
+  await expect(drawer).toContainText('7-day expiry reminder');
+  await drawer.getByRole('button', { name: 'Edit Customer' }).click();
+  await page.locator('#editCustomerName').fill('Asha Sharma Updated');
+  await page.locator('#submitEditCustomer').click();
+  await expect(page.locator('#editCustomerDialog')).not.toBeVisible();
+  await expect(page.locator('#customerDrawerName')).toHaveText('Asha Sharma Updated');
+  await drawer.getByRole('button', { name: 'Disable account' }).click();
+  await expect(drawer).toContainText('disabled');
+  await drawer.getByRole('button', { name: 'Enable account' }).click();
+  await expect(drawer).toContainText('active');
+  expect(fixture.editBodies.length).toBeGreaterThanOrEqual(3);
   await expectNoSeriousA11yFailures(page);
   expect(runtimeProblems).toEqual([]);
 });
 
-test('customer renewal is server-backed while payment and edit stay fail-closed', async ({ page }) => {
+test('add customer is transactional accessible and rejects duplicate mobile', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page);
-  await page.goto('/admin');
-  await page.locator('#membersNav').click();
-  await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
-  const drawer = page.locator('#customerDrawer');
-  await expect(drawer).toBeVisible();
-  await drawer.getByRole('button', { name: 'Renew Membership' }).click();
-  await expect(page.locator('#renewMembershipDialog')).toBeVisible();
-  await page.locator('#renewPlan').selectOption('plan-basic');
-  await expect(page.locator('#renewFeePreview')).toHaveValue(/999/);
-  await page.locator('#renewMembershipForm').getByRole('button', { name: 'Renew membership', exact: true }).click();
-  await expect(page.locator('#renewMembershipDialog')).not.toBeVisible();
-  await expect.poll(() => fixture.renewBodies.length).toBe(1);
-  expect(fixture.renewBodies[0].customerId).toBe('cust-asha');
-  expect(fixture.renewBodies[0].planId).toBe('plan-basic');
-  await expect(drawer).toContainText('GF-RENEW-1');
-  await drawer.getByRole('button', { name: 'Record Payment' }).click();
-  await expect(page.locator('#recordPaymentDialog')).toContainText('Manual payment API required');
-  await page.locator('#recordPaymentDialog').getByRole('button', { name: 'Close', exact: true }).click();
-  await drawer.getByRole('button', { name: 'Edit Customer' }).click();
-  await expect(page.locator('#flash')).toContainText('Customer editing requires a dedicated admin API.');
-  expect(runtimeProblems).toEqual([]);
-});
-
-test('add customer is a fast accessible workflow but remains backend-gated', async ({ page }) => {
-  const runtimeProblems = watchRuntime(page);
-  await mockAdminSoftware(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/admin');
   const trigger = page.locator('#headerAddCustomer');
@@ -1028,42 +1123,164 @@ test('add customer is a fast accessible workflow but remains backend-gated', asy
   await expect(dialog).toBeVisible();
   await expect(page.locator('#newCustomerName')).toBeFocused();
   await page.locator('#newCustomerName').fill('New Member');
-  await page.locator('#newCustomerMobile').fill('9876543210');
+  await page.locator('#newCustomerMobile').fill('9876500000');
+  await page.locator('#newCustomerReceived').fill('300');
+  await page.locator('#newCustomerPaymentMethod').selectOption('upi');
+  await page.locator('#newCustomerNote').fill('Reception onboarding');
   await expect(page.locator('#newCustomerFee')).toHaveValue(/999/);
-  await expect(page.locator('#newCustomerExpiry')).not.toHaveText('--');
-  await expect(page.locator('#newCustomerReceived')).toBeDisabled();
-  await expect(page.locator('#submitNewCustomer')).toBeDisabled();
-  await expect(dialog).toContainText('Backend action required');
-  await expect(dialog).toContainText('Preview values are non-authoritative');
+  await expect(page.locator('#newCustomerPending')).toContainText(/699/);
+  await expect(dialog).toContainText('Final membership dates and balances are calculated by the server.');
   for (let index = 0; index < 12; index += 1) {
     await page.keyboard.press('Tab');
     expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
   }
+  await page.locator('#submitNewCustomer').click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator('#customerDrawer')).toBeVisible();
+  await expect(page.locator('#customerDrawerName')).toHaveText('New Member');
+  await expect(page.locator('#customerDrawerBody')).toContainText(/699/);
+  expect(fixture.createBodies[0].phone).toBe('+919876500000');
+  expect(fixture.createBodies[0].amountPaidPaise).toBe(30000);
+  await page.locator('#customerDrawer [aria-label="Close customer profile"]').click();
+  await trigger.click();
+  await page.locator('#newCustomerName').fill('Duplicate Asha');
+  await page.locator('#newCustomerMobile').fill('9876543210');
+  await page.locator('#submitNewCustomer').click();
+  await expect(page.locator('#addCustomerError')).toHaveText('A customer with this mobile number already exists.');
+  await expect(dialog).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible();
-  await expect(trigger).toBeFocused();
+  expect(runtimeProblems.filter((problem) => !problem.includes('409 (Conflict)'))).toEqual([]);
+});
+
+test('renewal is server-backed with opening payment and preserved history', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  await page.goto('/admin');
+  await page.locator('#membersNav').click();
+  await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
+  const drawer = page.locator('#customerDrawer');
+  await drawer.getByRole('button', { name: 'Renew Membership' }).click();
+  await page.locator('#renewPlan').selectOption('plan-basic');
+  await page.locator('#renewReceived').fill('250');
+  await page.locator('#renewPaymentMethod').selectOption('cash');
+  await page.locator('#renewNote').fill('Renewal deposit');
+  await expect(page.locator('#renewPendingPreview')).toContainText(/749/);
+  await page.locator('#submitRenewMembership').click();
+  await expect(page.locator('#renewMembershipDialog')).not.toBeVisible();
+  await expect.poll(() => fixture.renewBodies.length).toBe(1);
+  expect(fixture.renewBodies[0].amountPaidPaise).toBe(25000);
+  await expect(drawer).toContainText('GF-RENEW-1');
+  await expect(drawer).toContainText('GF-2026-ASHA');
+  await expect(drawer).toContainText('Renewal deposit');
   expect(runtimeProblems).toEqual([]);
 });
 
-test('memberships and fees prioritize real operations without fake balances', async ({ page }) => {
+test('manual payments support partial multiple full payment and double-submit protection', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  await page.goto('/admin');
+  await page.locator('#membersNav').click();
+  await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
+  const drawer = page.locator('#customerDrawer');
+  await drawer.getByRole('button', { name: 'Record Payment' }).click();
+  await expect(page.locator('#paymentPending')).toContainText(/999/);
+  await page.locator('#paymentAmount').fill('400');
+  await page.locator('#paymentMethod').selectOption('upi');
+  const submit = page.locator('#submitPayment');
+  await submit.click();
+  await expect(submit).toBeDisabled();
+  await expect.poll(() => fixture.paymentBodies.length).toBe(1);
+  await expect(page.locator('#recordPaymentDialog')).not.toBeVisible();
+  await expect(drawer).toContainText(/599/);
+  await drawer.getByRole('button', { name: 'Record Payment' }).click();
+  await expect(page.locator('#paymentPending')).toContainText(/599/);
+  await page.locator('#paymentAmount').fill('599');
+  await page.locator('#submitPayment').click();
+  await expect.poll(() => fixture.paymentBodies.length).toBe(2);
+  await expect(page.locator('#recordPaymentDialog')).not.toBeVisible();
+  await expect(drawer.getByRole('button', { name: 'Record Payment' })).toBeDisabled();
+  await expect(drawer).toContainText('Payment history');
+  await expect(drawer).toContainText('UPI');
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('payment validation handles overpayment and network failure without mutating balance', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  await page.goto('/admin');
+  await page.locator('#membersNav').click();
+  await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
+  const drawer = page.locator('#customerDrawer');
+  await drawer.getByRole('button', { name: 'Record Payment' }).click();
+  await page.locator('#paymentAmount').fill('2000');
+  expect(await page.locator('#paymentAmount').evaluate((node) => node.checkValidity())).toBe(false);
+  await page.locator('#paymentAmount').fill('100');
+  fixture.setPaymentMode('error');
+  await page.locator('#submitPayment').click();
+  await expect(page.locator('#paymentError')).toHaveText('The operation could not be completed. Please retry.');
+  await expect(page.locator('#recordPaymentDialog')).toBeVisible();
+  fixture.setPaymentMode('ok');
+  await page.locator('#paymentAmount').fill('100');
+  await page.locator('#submitPayment').click();
+  await expect(page.locator('#recordPaymentDialog')).not.toBeVisible();
+  await expect(drawer).toContainText(/899/);
+  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
+});
+
+test('fees workspace searches filters and records from the server ledger', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  await mockAdminSoftware(page);
+  await page.goto('/admin');
+  await page.locator('#feesNav').click();
+  await expect(page.locator('#viewTitle')).toHaveText('Fees');
+  await expect(page.locator('#feesPendingTotal')).toContainText(/2,498/);
+  await expect(page.locator('#feesBody')).toContainText('Asha Sharma');
+  await expect(page.locator('#feesBody')).toContainText('GF-RAVI-NEXT');
+  await expect(page.locator('#feesBody')).not.toContainText('GF-2026-RAVI');
+  await page.locator('#feeBalanceFilter').selectOption('all');
+  await expect(page.locator('#feesBody')).toContainText('GF-2026-RAVI');
+  await page.locator('#feeBalanceFilter').selectOption('paid');
+  await expect(page.locator('#feesBody')).toContainText('GF-2026-RAVI');
+  await expect(page.locator('#feesBody')).not.toContainText('GF-RAVI-NEXT');
+  await page.locator('#feeBalanceFilter').selectOption('all');
+  await page.locator('#feeSearch').fill('Asha');
+  await expect(page.locator('#feesBody')).toContainText('Asha Sharma');
+  await expect(page.locator('#feesBody')).not.toContainText('Ravi Patel');
+  await page.locator('#feeSearch').fill('');
+  await page.locator('#feeBalanceFilter').selectOption('pending');
+  await page.locator('#feesBody tr').filter({ hasText: 'Asha Sharma' }).getByRole('button', { name: 'Record Payment' }).click();
+  await expect(page.locator('#recordPaymentDialog')).toBeVisible();
+  await expect(page.locator('#paymentCustomer')).toHaveText('Asha Sharma');
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('memberships workspace filters active scheduled expiring expired cancelled and plan', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
   await mockAdminSoftware(page);
   await page.goto('/admin');
   await page.locator('#membershipsNav').click();
-  await expect(page.locator('#viewTitle')).toHaveText('Memberships');
-  await expect(page.locator('#expiringBody')).toContainText('Asha Sharma');
-  await expect(page.locator('#expiringBody')).toContainText('GF-2026-ASHA');
-  await page.locator('#expiryDays').selectOption('14');
-  await expect(page.locator('#expiringBody')).toContainText('Ravi Patel');
+  await expect(page.locator('#membershipsBody')).toContainText('GF-2026-ASHA');
+  await page.locator('#membershipStatusFilter').selectOption('active');
+  await expect(page.locator('#membershipsBody')).toContainText('GF-2026-RAVI');
+  await page.locator('#membershipStatusFilter').selectOption('expired');
+  await expect(page.locator('#membershipsBody')).toContainText('GF-2026-OLD');
+  await page.locator('#membershipStatusFilter').selectOption('cancelled');
+  await expect(page.locator('#membershipsBody')).toContainText('GF-CANCELLED');
+  await page.locator('#membershipStatusFilter').selectOption('scheduled');
+  await expect(page.locator('#membershipsBody')).toContainText('GF-RAVI-NEXT');
+  await page.locator('#membershipStatusFilter').selectOption('expiring');
+  await page.locator('#expiryDays').selectOption('3');
+  await expect(page.locator('#membershipsBody')).toContainText('Ravi Patel');
+  await expect(page.locator('#membershipsBody')).not.toContainText('Asha Sharma');
+  await page.locator('#membershipStatusFilter').selectOption('');
+  await page.locator('#membershipPlanFilter').selectOption('plan-pro');
+  await expect(page.locator('#membershipsBody')).toContainText('Pro');
   await expect(page.locator('.secondary-panel')).toContainText('Plan catalog');
-  await page.locator('#feesNav').click();
-  await expect(page.locator('#viewTitle')).toHaveText('Fees');
-  await expect(page.locator('#feesView')).toContainText('Fee ledger backend required');
-  await expect(page.locator('#feesView .metric-inline strong')).toHaveText('--');
   expect(runtimeProblems).toEqual([]);
 });
 
-test('admin software stays usable across desktop tablet mobile and 200 percent zoom', async ({ page }, testInfo) => {
+test('admin software stays usable across desktop tablet mobile zoom keyboard and reduced motion', async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   const runtimeProblems = watchRuntime(page);
   await mockAdminSoftware(page);
@@ -1083,7 +1300,7 @@ test('admin software stays usable across desktop tablet mobile and 200 percent z
       await expect(page.locator('#appSidebar')).toBeVisible();
       await expect(page.locator('#sidebarOpen')).not.toBeVisible();
     }
-    if ([390, 1366].includes(width)) await page.screenshot({ path: testInfo.outputPath(`admin-software-${width}.png`), fullPage: true });
+    if ([390, 1366].includes(width)) await page.screenshot({ path: testInfo.outputPath(`admin-software-v1-${width}.png`), fullPage: true });
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/admin');
@@ -1091,12 +1308,22 @@ test('admin software stays usable across desktop tablet mobile and 200 percent z
   await expectNoOverflow(page);
   await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const motion = await page.locator('#appSidebar').evaluate((node) => getComputedStyle(node).transitionDuration);
-  expect(motion).toBe('0s');
+  expect(await page.locator('#appSidebar').evaluate((node) => getComputedStyle(node).transitionDuration)).toBe('0s');
+  await page.locator('#headerAddCustomer').focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.locator('#addCustomerDialog');
+  await expect(dialog).toBeVisible();
+  for (let index = 0; index < 12; index += 1) {
+    await page.keyboard.press('Tab');
+    expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#headerAddCustomer')).toBeFocused();
+  await expectNoSeriousA11yFailures(page);
   expect(runtimeProblems).toEqual([]);
 });
 
-test('admin customer empty and failure states are explicit and console-safe', async ({ page }) => {
+test('admin customer empty and API failure states are explicit and console-safe', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page, { customerMode: 'empty' });
   await page.goto('/admin');
@@ -1105,5 +1332,6 @@ test('admin customer empty and failure states are explicit and console-safe', as
   fixture.setCustomerMode('error');
   await page.locator('#memberSearch').fill('failure');
   await expect(page.locator('#flash')).toBeVisible();
+  await expect(page.locator('#flash')).toContainText('Customer list is temporarily unavailable.');
   expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
 });
