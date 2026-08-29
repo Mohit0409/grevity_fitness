@@ -89,10 +89,11 @@ Chat 3 owns Admin Software workflow QA, backup/recovery validation, performance/
 Current state:
 
 - Branch: `agent/gravity-admin-ops`.
-- Clean handoff head: `ff1225e` (`test: stage admin software reliability coverage`).
+- Clean handoff head: `54c38c3` (`test: validate admin software integration`), rebased onto Chat 1's committed Admin Software backend `27e827f`.
 - Earlier Admin ops commits include `4131635` and handoff documentation `ee4ba10`.
 - Chat 1 must review the branch diff before integrating it into `main`.
 - Chat 3 must not apply migration 010 to the live Gravity database.
+- Migration-010 validation is green on disposable databases: 8/8 Chat 3 atomicity, duplicate-phone, keyed payment/renewal replay, ledger-balance, history, and reminder-suppression tests pass. The refreshed 100/500/1,000/5,000 synthetic benchmark now exercises the actual ledger service. The remaining pre-rollout concern is `list_customers` filtering after a 200-row SQL limit / N+1 membership loading; Chat 1 should address that before relying on those filters at scale.
 
 ## Existing Notification Provider Reality
 
