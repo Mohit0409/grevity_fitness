@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null };
+  const state = { admin: null, requestId: 0 };
 
   function hasPermission(permission) {
     const permissions = state.admin?.permissions || [];
@@ -15,7 +15,12 @@
       headers: { Accept: 'application/json' },
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    if (!response.ok) {
+      if (response.status === 401) await window.GravityAdminCore?.refreshSession?.();
+      const error = new Error(payload.error || `HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
     return payload;
   }
 
@@ -29,6 +34,16 @@
     card.append(small, strong);
     return card;
   }
+  function emptyRow(message) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 3;
+    td.className = 'empty';
+    td.textContent = message;
+    tr.appendChild(td);
+    return tr;
+  }
+
   function row(area, check, ready, detail = '') {
     const tr = document.createElement('tr');
     const areaCell = document.createElement('td');
@@ -95,14 +110,41 @@
     ]);
   }
 
+  function renderFailure(error) {
+    $('readinessSummary').replaceChildren(stat('Production ready', '—'), stat('Status', 'Unavailable'));
+    const forbidden = error?.status === 403;
+    $('readinessBlockers').textContent = forbidden
+      ? 'Your current admin role no longer has access to production readiness data.'
+      : 'Readiness data is temporarily unavailable. Retry when the service recovers.';
+    $('readinessBody').replaceChildren(emptyRow(forbidden ? 'Readiness access denied.' : 'Readiness checks are temporarily unavailable.'));
+    $('refreshReadiness').disabled = forbidden;
+    if (forbidden) $('readinessNav').hidden = true;
+  }
+
   async function renderWorkspace() {
     if (!state.admin) await syncAdmin();
     if (!hasPermission('system.readiness')) return;
-    const payload = await api('/api/admin/readiness');
-    render(payload.readiness || {});
+    const requestId = ++state.requestId;
+    const panel = $('readinessPanel');
+    panel?.setAttribute('aria-busy', 'true');
+    $('refreshReadiness').disabled = true;
+    $('readinessSummary').replaceChildren(stat('Checking readiness', '…'));
+    $('readinessBlockers').textContent = 'Loading current configuration state…';
+    $('readinessBody').replaceChildren(emptyRow('Loading readiness checks…'));
+    try {
+      const payload = await api('/api/admin/readiness');
+      if (requestId !== state.requestId) return;
+      render(payload.readiness || {});
+      $('refreshReadiness').disabled = false;
+    } catch (error) {
+      if (requestId !== state.requestId) return;
+      renderFailure(error);
+    } finally {
+      if (requestId === state.requestId) panel?.setAttribute('aria-busy', 'false');
+    }
   }
 
-  $('refreshReadiness').addEventListener('click', () => renderWorkspace().catch(() => {}));
+  $('refreshReadiness').addEventListener('click', () => renderWorkspace());
 
   window.GravityReadinessAdmin = {
     setAdmin(admin) { state.admin = admin; },

@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null, customers: [], selected: null, detail: null, plans: [], opener: null, paymentTarget: null, renewKey: null, paymentKey: null, listRequestId: 0 };
+  const state = { admin: null, customers: [], selected: null, detail: null, plans: [], opener: null, accessOpener: null, paymentTarget: null, renewKey: null, paymentKey: null, listRequestId: 0 };
   const core = () => window.GravityAdminCore;
 
   function hasPermission(permission) { return core()?.hasPermission(permission) || false; }
@@ -193,7 +193,7 @@
   function renderMembershipHistory(root, memberships) {
     const section = document.createElement('section'); section.className = 'profile-section';
     const h = document.createElement('div'); h.className = 'profile-section-head'; h.innerHTML = '<h4>Membership history</h4>';
-    const wrap = document.createElement('div'); wrap.className = 'tablewrap';
+    const wrap = document.createElement('div'); wrap.className = 'tablewrap'; wrap.tabIndex = 0; wrap.setAttribute('role', 'region'); wrap.setAttribute('aria-label', 'Membership history table');
     const table = document.createElement('table'); table.className = 'software-table compact-table';
     const canReadPayments = hasPermission('payments.read');
     table.innerHTML = canReadPayments ? '<thead><tr><th>Membership</th><th>Plan</th><th>Start</th><th>Expiry</th><th>Status</th><th>Paid / Pending</th></tr></thead>' : '<thead><tr><th>Membership</th><th>Plan</th><th>Start</th><th>Expiry</th><th>Status</th></tr></thead>';
@@ -213,7 +213,7 @@
   function renderPaymentHistory(root, payments) {
     const section = document.createElement('section'); section.className = 'profile-section';
     const h = document.createElement('div'); h.className = 'profile-section-head'; h.innerHTML = '<h4>Payment history</h4>';
-    const wrap = document.createElement('div'); wrap.className = 'tablewrap';
+    const wrap = document.createElement('div'); wrap.className = 'tablewrap'; wrap.tabIndex = 0; wrap.setAttribute('role', 'region'); wrap.setAttribute('aria-label', 'Payment history table');
     const table = document.createElement('table'); table.className = 'software-table compact-table';
     table.innerHTML = '<thead><tr><th>Date</th><th>Membership</th><th>Amount</th><th>Method</th><th>Note</th></tr></thead>';
     const body = document.createElement('tbody');
@@ -274,7 +274,7 @@
     pay.addEventListener('click', () => openRecordPayment(target, member));
     const renew = document.createElement('button'); renew.type = 'button'; renew.textContent = 'Renew Membership'; renew.disabled = !hasPermission('memberships.manage'); renew.addEventListener('click', openRenew);
     const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'ghost'; edit.textContent = 'Edit Customer'; edit.disabled = !hasPermission('members.manage'); edit.addEventListener('click', openEdit);
-    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'ghost'; toggle.textContent = member.status === 'active' ? 'Disable account' : 'Enable account'; toggle.disabled = !hasPermission('members.manage'); toggle.addEventListener('click', toggleStatus);
+    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.id = 'customerAccessToggle'; toggle.className = 'ghost'; toggle.textContent = member.status === 'active' ? 'Disable account' : 'Enable account'; toggle.disabled = !hasPermission('members.manage'); toggle.addEventListener('click', () => toggleStatus(toggle));
     if (hasPermission('payments.record')) actions.appendChild(pay);
     actions.append(renew, edit, toggle); body.appendChild(actions);
 
@@ -303,13 +303,42 @@
 
   function openCustomer(member) { return openCustomerById(member?.id, document.activeElement); }
 
-  async function toggleStatus() {
-    if (!state.selected) return;
-    const next = state.selected.status === 'active' ? 'disabled' : 'active';
+  async function applyCustomerStatus(next, button, errorNode = null) {
+    if (!state.selected) return false;
+    if (errorNode) errorNode.textContent = '';
+    setBusy(button, true, next === 'disabled' ? 'Disabling...' : 'Enabling...');
     try {
       await core().api(`/api/admin/customers/${encodeURIComponent(state.selected.id)}`, { method: 'PATCH', body: { status: next } });
-      core().flash(`Customer ${next}.`); await refreshSelected(); await refreshRelated();
-    } catch (error) { core().flash(errorText(error, 'edit'), 'error'); }
+      core().flash(next === 'disabled' ? 'Customer disabled. Active customer sessions were revoked by the server.' : 'Customer enabled.');
+      await refreshSelected(); await refreshRelated();
+      return true;
+    } catch (error) {
+      const message = errorText(error, 'edit');
+      if (errorNode) errorNode.textContent = message; else core().flash(message, 'error');
+      return false;
+    } finally { setBusy(button, false); }
+  }
+
+  async function toggleStatus(button) {
+    if (!state.selected) return;
+    const next = state.selected.status === 'active' ? 'disabled' : 'active';
+    if (next === 'disabled') {
+      state.accessOpener = button || document.activeElement;
+      $('customerAccessError').textContent = '';
+      $('customerAccessName').textContent = `Disable ${state.selected.displayName || 'this customer'}?`;
+      const dialog = $('customerAccessDialog');
+      if (!dialog.open) dialog.showModal();
+      $('confirmCustomerDisable').focus();
+      return;
+    }
+    await applyCustomerStatus(next, button);
+  }
+
+  async function confirmCustomerDisable(event) {
+    event.preventDefault();
+    const button = $('confirmCustomerDisable');
+    const changed = await applyCustomerStatus('disabled', button, $('customerAccessError'));
+    if (changed) { $('customerAccessDialog').close(); $('customerAccessToggle')?.focus(); }
   }
 
   function previewExpiry(startValue, months) {
@@ -355,10 +384,26 @@
     finally { setBusy(submit, false); }
   }
 
+  function updateEditAccessImpact() {
+    if (!state.selected) return;
+    const phoneChanged = normalizePhoneInput($('editCustomerMobile').value) !== normalizePhoneInput(state.selected.phone || '');
+    const disabling = state.selected.status === 'active' && $('editCustomerStatus').value === 'disabled';
+    const impacts = [];
+    if (disabling) impacts.push('Disabling the account blocks customer login and revokes active customer sessions.');
+    if (phoneChanged) impacts.push('Changing the mobile invalidates previous phone verification and active customer sessions; the new mobile must be verified again.');
+    const warning = $('editCustomerAccessWarning');
+    const acknowledge = $('editCustomerAccessAcknowledge');
+    warning.hidden = impacts.length === 0;
+    $('editCustomerAccessImpact').textContent = impacts.join(' ');
+    acknowledge.required = impacts.length > 0;
+    if (!impacts.length) acknowledge.checked = false;
+  }
+
   function openEdit() {
     if (!state.selected) return;
     state.opener = document.activeElement; $('editCustomerError').textContent = '';
     $('editCustomerName').value = state.selected.displayName || ''; $('editCustomerMobile').value = state.selected.phone || ''; $('editCustomerStatus').value = state.selected.status || 'active';
+    $('editCustomerAccessAcknowledge').checked = false; updateEditAccessImpact();
     const dialog = $('editCustomerDialog'); if (!dialog.open) dialog.showModal(); $('editCustomerName').focus();
   }
 
@@ -443,15 +488,16 @@
       if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
     });
-    dialog.addEventListener('close', () => { if (state.opener && document.contains(state.opener)) state.opener.focus(); });
+    dialog.addEventListener('close', () => { const opener = dialog === $('customerAccessDialog') ? state.accessOpener : state.opener; if (opener && document.contains(opener)) opener.focus(); });
   }
 
   ['customerStatusFilter', 'customerMembershipFilter', 'customerPlanFilter'].forEach((id) => $(id).addEventListener('change', () => renderWorkspace().catch(() => core().flash('Customer list is temporarily unavailable.', 'error'))));
   ['newCustomerPlan', 'newCustomerStart', 'newCustomerReceived'].forEach((id) => $(id).addEventListener('input', updateAddPreview));
   ['renewPlan', 'renewStart', 'renewReceived'].forEach((id) => $(id).addEventListener('input', updateRenewPreview));
-  $('addCustomerForm').addEventListener('submit', addCustomer); $('editCustomerForm').addEventListener('submit', editCustomer); $('renewMembershipForm').addEventListener('submit', renewMembership); $('recordPaymentForm').addEventListener('submit', recordPayment);
+  $('editCustomerMobile').addEventListener('input', updateEditAccessImpact); $('editCustomerStatus').addEventListener('change', updateEditAccessImpact);
+  $('addCustomerForm').addEventListener('submit', addCustomer); $('editCustomerForm').addEventListener('submit', editCustomer); $('customerAccessForm').addEventListener('submit', confirmCustomerDisable); $('renewMembershipForm').addEventListener('submit', renewMembership); $('recordPaymentForm').addEventListener('submit', recordPayment);
   document.querySelectorAll('[data-close-dialog]').forEach((button) => button.addEventListener('click', () => $(button.dataset.closeDialog).close()));
-  [$('customerDrawer'), $('addCustomerDialog'), $('editCustomerDialog'), $('renewMembershipDialog'), $('recordPaymentDialog')].forEach(installDialogA11y);
+  [$('customerDrawer'), $('addCustomerDialog'), $('editCustomerDialog'), $('customerAccessDialog'), $('renewMembershipDialog'), $('recordPaymentDialog')].forEach(installDialogA11y);
 
   window.GravityCustomerAdmin = {
     setAdmin(admin) { state.admin = admin; }, renderWorkspace, openCustomer, openCustomerById, openAddCustomer,

@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null, current: null, timer: null };
+  const state = { admin: null, current: null, timer: null, listRequestId: 0, detailRequestId: 0 };
 
   function hasPermission(permission) {
     const permissions = state.admin?.permissions || [];
@@ -29,6 +29,7 @@
     const response = await fetch(path, request);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (response.status === 401) await window.GravityAdminCore?.refreshSession?.();
       const error = new Error(data.error || `HTTP ${response.status}`);
       error.status = response.status;
       throw error;
@@ -43,6 +44,22 @@
     node.hidden = false;
     window.clearTimeout(node._enquiryTimer);
     node._enquiryTimer = window.setTimeout(() => { node.hidden = true; }, 4500);
+  }
+
+  function setBusy(button, busy, busyLabel) {
+    if (!button) return;
+    if (busy) {
+      button.dataset.idleLabel = button.textContent;
+      button.textContent = busyLabel;
+      button.disabled = true;
+    } else {
+      button.textContent = button.dataset.idleLabel || button.textContent;
+      button.disabled = false;
+    }
+  }
+
+  function setListControlsDisabled(disabled) {
+    ['enquirySearch', 'enquiryStatusFilter', 'enquiryTypeFilter', 'refreshEnquiries'].forEach((id) => { $(id).disabled = disabled; });
   }
 
   function formatTime(value) {
@@ -85,32 +102,49 @@
 
   async function renderList() {
     if (!hasPermission('enquiries.read')) return;
-    const payload = await api(`/api/admin/enquiries?${queryString()}`);
+    const requestId = ++state.listRequestId;
+    const panel = $('enquiriesPanel');
     const body = $('enquiriesBody');
-    body.replaceChildren();
-    for (const enquiry of payload.enquiries || []) {
-      const row = document.createElement('tr');
-      const request = document.createElement('td');
-      const open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'lead-link';
-      open.textContent = enquiry.reference;
-      open.addEventListener('click', () => openDetail(enquiry.id));
-      const name = document.createElement('small');
-      name.textContent = enquiry.name;
-      request.append(open, name);
-      const contact = document.createElement('td');
-      contact.textContent = enquiry.phone || enquiry.email || '—';
-      const type = document.createElement('td');
-      type.textContent = typeLabel(enquiry.type);
-      const status = document.createElement('td');
-      status.appendChild(statusBadge(enquiry.status));
-      const received = document.createElement('td');
-      received.textContent = formatTime(enquiry.createdAt);
-      row.append(request, contact, type, status, received);
-      body.appendChild(row);
+    panel?.setAttribute('aria-busy', 'true');
+    body.replaceChildren(emptyRow('Loading enquiries…'));
+    try {
+      const payload = await api(`/api/admin/enquiries?${queryString()}`);
+      if (requestId !== state.listRequestId) return;
+      setListControlsDisabled(false);
+      body.replaceChildren();
+      for (const enquiry of payload.enquiries || []) {
+        const row = document.createElement('tr');
+        const request = document.createElement('td');
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'lead-link';
+        open.textContent = enquiry.reference;
+        open.addEventListener('click', () => openDetail(enquiry.id));
+        const name = document.createElement('small');
+        name.textContent = enquiry.name;
+        request.append(open, name);
+        const contact = document.createElement('td');
+        contact.textContent = enquiry.phone || enquiry.email || '—';
+        const type = document.createElement('td');
+        type.textContent = typeLabel(enquiry.type);
+        const status = document.createElement('td');
+        status.appendChild(statusBadge(enquiry.status));
+        const received = document.createElement('td');
+        received.textContent = formatTime(enquiry.createdAt);
+        row.append(request, contact, type, status, received);
+        body.appendChild(row);
+      }
+      if (!body.children.length) body.appendChild(emptyRow('No enquiries match these filters.'));
+    } catch (error) {
+      if (requestId !== state.listRequestId) return;
+      state.current = null;
+      $('enquiryDetail').hidden = true;
+      const forbidden = error.status === 403;
+      body.replaceChildren(emptyRow(forbidden ? 'Enquiry access denied.' : 'Enquiries are temporarily unavailable. Retry or change the filters.'));
+      if (forbidden) setListControlsDisabled(true);
+    } finally {
+      if (requestId === state.listRequestId) panel?.setAttribute('aria-busy', 'false');
     }
-    if (!body.children.length) body.appendChild(emptyRow('No enquiries match these filters.'));
   }
 
   function fact(term, value) {
@@ -159,17 +193,26 @@
   }
 
   async function openDetail(id) {
+    const requestId = ++state.detailRequestId;
+    state.current = null;
+    $('enquiryDetail').hidden = true;
     try {
       const payload = await api(`/api/admin/enquiries/${encodeURIComponent(id)}`);
+      if (requestId !== state.detailRequestId) return;
       renderDetail(payload.enquiry);
       $('enquiryDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (error) {
-      flash(error.message, 'error');
+      if (requestId !== state.detailRequestId) return;
+      state.current = null;
+      $('enquiryDetail').hidden = true;
+      flash(error.status === 403 ? 'Your admin role cannot open this enquiry.' : 'Enquiry details are temporarily unavailable.', 'error');
     }
   }
 
   async function saveStatus() {
     if (!state.current || !hasPermission('enquiries.manage')) return;
+    const button = $('saveEnquiryStatus');
+    setBusy(button, true, 'Saving…');
     try {
       const payload = await api(`/api/admin/enquiries/${encodeURIComponent(state.current.id)}/status`, {
         method: 'PATCH', body: { status: $('enquiryDetailStatus').value },
@@ -178,13 +221,17 @@
       await renderList();
       flash('Enquiry status updated.');
     } catch (error) {
-      flash(error.message, 'error');
+      flash(error.status === 403 ? 'Your admin role cannot update enquiries.' : 'Enquiry status could not be updated.', 'error');
+    } finally {
+      setBusy(button, false);
     }
   }
 
   async function addNote(event) {
     event.preventDefault();
     if (!state.current || !hasPermission('enquiries.manage')) return;
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    setBusy(button, true, 'Adding…');
     try {
       const payload = await api(`/api/admin/enquiries/${encodeURIComponent(state.current.id)}/notes`, {
         method: 'POST', body: { note: $('enquiryNote').value },
@@ -193,19 +240,27 @@
       renderDetail(payload.enquiry);
       flash('Private note added.');
     } catch (error) {
-      flash(error.message, 'error');
+      flash(error.status === 403 ? 'Your admin role cannot add enquiry notes.' : 'Private note could not be added.', 'error');
+    } finally {
+      setBusy(button, false);
     }
   }
 
   function scheduleRender() {
     window.clearTimeout(state.timer);
-    state.timer = window.setTimeout(() => renderList().catch((error) => flash(error.message, 'error')), 250);
+    state.timer = window.setTimeout(() => { state.timer = null; renderList(); }, 250);
   }
 
-  $('refreshEnquiries').addEventListener('click', () => renderList().catch((error) => flash(error.message, 'error')));
+  function renderNow() {
+    window.clearTimeout(state.timer);
+    state.timer = null;
+    return renderList();
+  }
+
+  $('refreshEnquiries').addEventListener('click', renderNow);
   $('enquirySearch').addEventListener('input', scheduleRender);
-  $('enquiryStatusFilter').addEventListener('change', scheduleRender);
-  $('enquiryTypeFilter').addEventListener('change', scheduleRender);
+  $('enquiryStatusFilter').addEventListener('change', renderNow);
+  $('enquiryTypeFilter').addEventListener('change', renderNow);
   $('closeEnquiryDetail').addEventListener('click', () => { $('enquiryDetail').hidden = true; state.current = null; });
   $('saveEnquiryStatus').addEventListener('click', saveStatus);
   $('enquiryNoteForm').addEventListener('submit', addNote);
@@ -215,11 +270,6 @@
       state.admin = admin;
       $('enquiriesNav').hidden = !hasPermission('enquiries.read');
     },
-    renderWorkspace() {
-      return renderList().catch((error) => {
-        flash(error.message, 'error');
-        throw error;
-      });
-    },
+    renderWorkspace: renderNow,
   };
 })();

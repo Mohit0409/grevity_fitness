@@ -840,7 +840,9 @@ test('admin notifications handle all providers blocked, empty data and API failu
         providerBlockers: { email: 'BLOCKED_EXTERNAL_CONFIG', sms: 'BLOCKED_ADAPTER_MISSING', whatsapp: 'BLOCKED_EXTERNAL_CONFIG' },
       }),
     }
-    : { status: 503, body: JSON.stringify({ error: 'raw_backend_error_should_not_render' }) });
+    : mode === 'forbidden'
+      ? { status: 403, body: JSON.stringify({ error: 'forbidden_internal_detail' }) }
+      : { status: 503, body: JSON.stringify({ error: 'raw_backend_error_should_not_render' }) });
   await page.goto('/admin');
   await page.locator('#notificationsNav').click();
   await expect(page.locator('.notification-provider--blocked')).toHaveCount(3);
@@ -852,7 +854,14 @@ test('admin notifications handle all providers blocked, empty data and API failu
   await page.evaluate(() => window.GravityNotificationAdmin.renderWorkspace());
   await expect(page.locator('#notificationsList')).toContainText('Notification data is temporarily unavailable. Try again later.');
   await expect(page.locator('#notificationsView')).not.toContainText('raw_backend_error_should_not_render');
-  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
+  mode = 'forbidden';
+  await page.evaluate(() => window.GravityNotificationAdmin.renderWorkspace());
+  await expect(page.locator('#notificationsList')).toContainText('no longer has access to notification operations');
+  await expect(page.locator('#notificationBlockers')).toBeEmpty();
+  await expect(page.locator('#scanNotifications')).toBeDisabled();
+  await expect(page.locator('#notificationsNav')).toBeHidden();
+  await expect(page.locator('#notificationsView')).not.toContainText('forbidden_internal_detail');
+  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)') && !problem.includes('403 (Forbidden)'))).toEqual([]);
 });
 
 
@@ -975,7 +984,12 @@ async function mockAdminSoftware(page, options = {}) {
   await page.route('**/api/admin/login', (route) => json(route, 200, { factorRequired: true }));
   await page.route('**/api/admin/verify', (route) => { authState.authenticated = true; return json(route, 200, { admin }); });
   await page.route('**/api/admin/logout', (route) => { authState.authenticated = false; return json(route, 200, {}); });
-  await page.route(/\/api\/admin\/dashboard(?:\?.*)?$/, (route) => dashboardMode === 'error' ? json(route, 503, { error: 'temporary_failure' }) : json(route, 200, dashboardPayload()));
+  await page.route(/\/api\/admin\/dashboard(?:\?.*)?$/, (route) => {
+    if (dashboardMode === 'error') return json(route, 503, { error: 'temporary_failure' });
+    if (dashboardMode === 'forbidden') return json(route, 403, { error: 'forbidden_internal_detail' });
+    if (dashboardMode === 'unauthorized') return json(route, 401, { error: 'session_expired_internal_detail' });
+    return json(route, 200, dashboardPayload());
+  });
 
   await page.route(/\/api\/admin\/customers(?:\?.*)?$/, async (route) => {
     if (route.request().method() === 'POST') {
@@ -1067,7 +1081,7 @@ async function mockAdminSoftware(page, options = {}) {
   });
   await page.route(/\/api\/admin\/audit(?:\?.*)?$/, (route) => auditMode === 'error' ? json(route, 503, { error: 'temporary_failure' }) : json(route, 200, { audit: auditEvents }));
 
-  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, adminCreateBodies, customerQueries, feeQueries, auditEvents, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; }, setAuditMode(value) { auditMode = value; } };
+  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, adminCreateBodies, customerQueries, feeQueries, auditEvents, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; }, setAuditMode(value) { auditMode = value; }, expireSession() { authState.authenticated = false; dashboardMode = 'unauthorized'; } };
 }
 
 
@@ -1128,11 +1142,44 @@ test('customers workspace supports search filters detail history and status chan
   await page.locator('#submitEditCustomer').click();
   await expect(page.locator('#editCustomerDialog')).not.toBeVisible();
   await expect(page.locator('#customerDrawerName')).toHaveText('Asha Sharma Updated');
+  const editsAfterName = fixture.editBodies.length;
+  await page.setViewportSize({ width: 390, height: 844 });
   await drawer.getByRole('button', { name: 'Disable account' }).click();
+  const accessDialog = page.locator('#customerAccessDialog');
+  await expect(accessDialog).toBeVisible();
+  await expect(accessDialog).toContainText('Disable Asha Sharma Updated?');
+  await expect(accessDialog).toContainText('revokes active customer sessions');
+  await expectNoOverflow(page);
+  await accessDialog.getByRole('button', { name: 'Keep active' }).click();
+  await expect(accessDialog).not.toBeVisible();
+  await expect(drawer.getByRole('button', { name: 'Disable account' })).toBeFocused();
+  expect(fixture.editBodies.length).toBe(editsAfterName);
+  await drawer.getByRole('button', { name: 'Disable account' }).click();
+  await accessDialog.getByRole('button', { name: 'Disable customer' }).click();
+  await expect(accessDialog).not.toBeVisible();
   await expect(drawer).toContainText('disabled');
+  await expect(drawer.getByRole('button', { name: 'Enable account' })).toBeFocused();
   await drawer.getByRole('button', { name: 'Enable account' }).click();
   await expect(drawer).toContainText('active');
-  expect(fixture.editBodies.length).toBeGreaterThanOrEqual(3);
+  await drawer.getByRole('button', { name: 'Edit Customer' }).click();
+  const editDialog = page.locator('#editCustomerDialog');
+  const editsBeforeMobile = fixture.editBodies.length;
+  await page.locator('#editCustomerStatus').selectOption('disabled');
+  await expect(page.locator('#editCustomerAccessWarning')).toBeVisible();
+  await expect(page.locator('#editCustomerAccessImpact')).toContainText('blocks customer login');
+  await page.locator('#editCustomerStatus').selectOption('active');
+  await expect(page.locator('#editCustomerAccessWarning')).toBeHidden();
+  await page.locator('#editCustomerMobile').fill('+919900001234');
+  await expect(page.locator('#editCustomerAccessWarning')).toBeVisible();
+  await expect(page.locator('#editCustomerAccessImpact')).toContainText('new mobile must be verified again');
+  await page.locator('#submitEditCustomer').click();
+  await expect(editDialog).toBeVisible();
+  expect(fixture.editBodies.length).toBe(editsBeforeMobile);
+  await page.locator('#editCustomerAccessAcknowledge').check();
+  await page.locator('#submitEditCustomer').click();
+  await expect(editDialog).not.toBeVisible();
+  await expect(page.locator('#customerDrawerMeta')).toContainText('+919900001234');
+  expect(fixture.editBodies.length).toBeGreaterThanOrEqual(4);
   await expectNoSeriousA11yFailures(page);
   expect(runtimeProblems).toEqual([]);
 });
@@ -1330,6 +1377,33 @@ test('memberships workspace filters active scheduled expiring expired cancelled 
   expect(runtimeProblems).toEqual([]);
 });
 
+test('membership filters ignore stale delayed responses', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  const allMemberships = Object.values(fixture.memberships).flat();
+  await page.route(/\/api\/admin\/memberships(?:\?.*)?$/, async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const status = params.get('status') || '';
+    if (status === 'active') await new Promise((resolve) => setTimeout(resolve, 450));
+    const rows = allMemberships.filter((membership) => !status || membership.status === status).map((membership) => {
+      const customer = fixture.customers.find((item) => item.id === membership.customerId);
+      return { customer: { id: customer?.id, displayName: customer?.displayName, phone: customer?.phone }, membership };
+    });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: rows }) });
+  });
+  await page.goto('/admin');
+  await page.locator('#membershipsNav').click();
+  await page.locator('#membershipStatusFilter').selectOption('active');
+  await expect(page.locator('#membershipsPanel')).toHaveAttribute('aria-busy', 'true');
+  await page.locator('#membershipStatusFilter').selectOption('scheduled');
+  await expect(page.locator('#membershipsBody')).toContainText('GF-RAVI-NEXT');
+  await page.waitForTimeout(550);
+  await expect(page.locator('#membershipsBody')).toContainText('GF-RAVI-NEXT');
+  await expect(page.locator('#membershipsBody')).not.toContainText('GF-2026-ASHA');
+  await expect(page.locator('#membershipsPanel')).toHaveAttribute('aria-busy', 'false');
+  expect(runtimeProblems).toEqual([]);
+});
+
 test('admin software stays usable across desktop tablet mobile zoom keyboard and reduced motion', async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   const runtimeProblems = watchRuntime(page);
@@ -1472,6 +1546,92 @@ test('admin role sees notification coaching readiness and audit surfaces without
   expect(runtimeProblems).toEqual([]);
 });
 
+test('enquiries ignore stale searches and clear privileged data on 403', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  await mockAdminSoftware(page);
+  let mode = 'ok';
+  let slowStarted = false;
+  const enquiries = [
+    { id: 'enq-asha', reference: 'GF-LEAD-1001', name: 'Asha Lead', phone: '+919876500001', email: null, type: 'trial_visit', status: 'new', createdAt: 1787990000 },
+    { id: 'enq-newer', reference: 'GF-LEAD-1002', name: 'Newer Lead', phone: '+919876500002', email: null, type: 'membership', status: 'contacted', createdAt: 1787990100 },
+    { id: 'enq-slow', reference: 'GF-LEAD-1003', name: 'Slow Lead', phone: '+919876500003', email: null, type: 'general', status: 'new', createdAt: 1787990200 },
+  ];
+  await page.route('**/api/admin/enquiries*', async (route) => {
+    if (mode === 'forbidden') return route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'private_forbidden_detail' }) });
+    const q = (new URL(route.request().url()).searchParams.get('q') || '').toLowerCase();
+    if (q === 'slow') { slowStarted = true; await new Promise((resolve) => setTimeout(resolve, 450)); }
+    const rows = enquiries.filter((item) => !q || `${item.reference} ${item.name} ${item.phone}`.toLowerCase().includes(q));
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ enquiries: rows }) });
+  });
+  await page.goto('/admin');
+  await page.locator('#advancedNav summary').click();
+  await page.locator('#enquiriesNav').click();
+  await expect(page.locator('#enquiriesBody')).toContainText('Asha Lead');
+  await page.locator('#enquirySearch').fill('slow');
+  await expect.poll(() => slowStarted).toBe(true);
+  await page.locator('#enquirySearch').fill('newer');
+  await expect(page.locator('#enquiriesBody')).toContainText('Newer Lead');
+  await page.waitForTimeout(550);
+  await expect(page.locator('#enquiriesBody')).toContainText('Newer Lead');
+  await expect(page.locator('#enquiriesBody')).not.toContainText('Slow Lead');
+  mode = 'forbidden';
+  await page.locator('#refreshEnquiries').click();
+  await expect(page.locator('#enquiriesBody')).toContainText('Enquiry access denied.');
+  await expect(page.locator('#enquiriesView')).not.toContainText('Newer Lead');
+  await expect(page.locator('#enquirySearch')).toBeDisabled();
+  await expect(page.locator('#refreshEnquiries')).toBeDisabled();
+  await expect(page.locator('#enquiriesView')).not.toContainText('private_forbidden_detail');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoOverflow(page);
+  await expectNoSeriousA11yFailures(page);
+  expect(runtimeProblems.filter((problem) => !problem.includes('403 (Forbidden)'))).toEqual([]);
+});
+
+test('readiness exposes loading recovery and permission-safe failure states', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  await mockAdminSoftware(page);
+  let mode = 'ok';
+  const report = {
+    productionReady: false,
+    blockers: ['Provider configuration pending'],
+    runtime: { productionMode: true, httpsBaseUrl: true, strongSecret: true },
+    firebase: { clientConfigured: true, backendConfigured: true },
+    razorpay: { checkoutConfigured: true, webhookConfigured: true },
+    business: { identityConfigured: true, gstinConfigured: false, gstinFormatValid: false, taxInvoiceEnabled: false, taxInvoiceIdentityConfigured: false },
+    notifications: { email: { status: 'ready' }, sms: { status: 'blocked_external_config' }, whatsapp: { status: 'blocked_external_config' } },
+    analytics: { googleConfigured: false, metaConfigured: false, networkLoadingEnabled: false },
+  };
+  await page.route('**/api/admin/readiness', (route) => {
+    if (mode === 'error') return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'private_readiness_failure' }) });
+    if (mode === 'forbidden') return route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'private_readiness_forbidden' }) });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ readiness: report }) });
+  });
+  await page.goto('/admin');
+  await page.locator('#advancedNav summary').click();
+  await page.locator('#readinessNav').click();
+  await expect(page.locator('#readinessSummary')).toContainText('Production ready');
+  await expect(page.locator('#readinessBody')).toContainText('Production mode');
+  mode = 'error';
+  await page.locator('#refreshReadiness').click();
+  await expect(page.locator('#readinessBlockers')).toContainText('temporarily unavailable');
+  await expect(page.locator('#readinessBody')).toContainText('temporarily unavailable');
+  await expect(page.locator('#readinessView')).not.toContainText('private_readiness_failure');
+  mode = 'ok';
+  await page.locator('#refreshReadiness').click();
+  await expect(page.locator('#readinessBody')).toContainText('Production mode');
+  mode = 'forbidden';
+  await page.locator('#refreshReadiness').click();
+  await expect(page.locator('#readinessBlockers')).toContainText('no longer has access');
+  await expect(page.locator('#readinessBody')).toContainText('Readiness access denied.');
+  await expect(page.locator('#refreshReadiness')).toBeDisabled();
+  await expect(page.locator('#readinessNav')).toBeHidden();
+  await expect(page.locator('#readinessView')).not.toContainText('private_readiness_forbidden');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoOverflow(page);
+  await expectNoSeriousA11yFailures(page);
+  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)') && !problem.includes('403 (Forbidden)'))).toEqual([]);
+});
+
 test('customer loading state ignores stale search responses and keeps the newest query', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page, { customerDelays: { slow: 1200 } });
@@ -1495,17 +1655,42 @@ test('dashboard failure renders an inline retry state and recovers without navig
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page);
   await page.goto('/admin');
+  await expect(page.locator('#dashboardFeesState')).toContainText('Asha Sharma');
+  await expect(page.locator('#recentPayments')).toContainText('Ravi Patel');
   fixture.setDashboardMode('error');
   await page.evaluate(() => window.GravityAdminDashboard.renderWorkspace());
   await expect(page.locator('#stats')).toContainText('Dashboard unavailable');
   await expect(page.locator('#dashboardExpiringBody')).toContainText('temporarily unavailable');
+  await expect(page.locator('#dashboardFeesState')).toBeEmpty();
+  await expect(page.locator('#recentPayments')).toBeEmpty();
   const retry = page.getByRole('button', { name: 'Retry dashboard' });
   await expect(retry).toBeVisible();
   fixture.setDashboardMode('ok');
   await retry.click();
   await expect(page.locator('#stats')).toContainText('Total Customers');
-  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
+  fixture.setDashboardMode('forbidden');
+  await page.evaluate(() => window.GravityAdminDashboard.renderWorkspace());
+  await expect(page.locator('#stats')).toContainText('Dashboard access denied');
+  await expect(page.locator('#dashboardFeesState')).toBeEmpty();
+  await expect(page.locator('#recentPayments')).toBeEmpty();
+  await expect(page.getByRole('button', { name: 'Retry dashboard' })).toHaveCount(0);
+  await expect(page.locator('#dashboardView')).not.toContainText('forbidden_internal_detail');
+  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)') && !problem.includes('403 (Forbidden)'))).toEqual([]);
 });
+test('expired admin session returns safely to login', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  await page.goto('/admin');
+  await expect(page.locator('#app')).toBeVisible();
+  fixture.expireSession();
+  await page.evaluate(() => window.GravityAdminDashboard.renderWorkspace());
+  await expect(page.locator('#login')).toBeVisible();
+  await expect(page.locator('#app')).toBeHidden();
+  await expect(page.locator('#loginForm')).toBeVisible();
+  await expect(page.locator('#authError')).not.toContainText('session_expired_internal_detail');
+  expect(runtimeProblems.filter((problem) => !problem.includes('401 (Unauthorized)'))).toEqual([]);
+});
+
 test('owner Team access explains least-privilege staff roles before creation', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page);

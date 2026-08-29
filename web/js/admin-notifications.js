@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null, notifications: [], providerBlockers: {}, filter: 'all' };
+  const state = { admin: null, notifications: [], providerBlockers: {}, filter: 'all', requestId: 0 };
   const channels = ['email', 'sms', 'whatsapp'];
 
   function hasPermission(permission) {
@@ -40,6 +40,7 @@
     const response = await fetch(path, request);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (response.status === 401) await window.GravityAdminCore?.refreshSession?.();
       const error = new Error('notification_request_failed');
       error.status = response.status;
       throw error;
@@ -222,17 +223,25 @@
     list.setAttribute('aria-busy', 'false');
   }
 
-  function renderUnavailable() {
+  function renderUnavailable(forbidden = false) {
+    state.notifications = [];
+    state.providerBlockers = {};
     const list = $('notificationsList');
     list.replaceChildren();
     const error = document.createElement('p');
     error.className = 'notification-empty notification-error';
     error.setAttribute('role', 'alert');
-    error.textContent = 'Notification data is temporarily unavailable. Try again later.';
+    error.textContent = forbidden
+      ? 'Your current admin role no longer has access to notification operations.'
+      : 'Notification data is temporarily unavailable. Try again later.';
     list.appendChild(error);
     list.setAttribute('aria-busy', 'false');
-    $('notificationFilterSummary').textContent = 'Notification data unavailable';
+    $('notificationFilterSummary').textContent = forbidden ? 'Notification access denied' : 'Notification data unavailable';
     $('notificationBlockers').replaceChildren();
+    if (forbidden) {
+      $('notificationsNav').hidden = true;
+      $('scanNotifications').disabled = true;
+    }
   }
 
   async function syncAdmin() {
@@ -247,17 +256,20 @@
   async function renderWorkspace() {
     if (!state.admin) await syncAdmin();
     if (!hasPermission('notifications.manage')) return;
+    const requestId = ++state.requestId;
     const list = $('notificationsList');
     list.setAttribute('aria-busy', 'true');
     try {
       const payload = await api('/api/admin/notifications?limit=100');
+      if (requestId !== state.requestId) return;
       state.notifications = (Array.isArray(payload.notifications) ? payload.notifications : [])
         .filter((item) => !item.eventType || item.eventType === 'membership_expiry');
       state.providerBlockers = payload.providerBlockers || {};
       renderProviderState();
       renderList();
-    } catch (_) {
-      renderUnavailable();
+    } catch (error) {
+      if (requestId !== state.requestId) return;
+      renderUnavailable(error.status === 403);
     }
   }
 
@@ -266,16 +278,19 @@
     if (!hasPermission('notifications.manage')) return;
     const daysBefore = Number($('notificationDays').value || 7);
     const button = $('scanNotifications');
+    let forbidden = false;
     button.disabled = true;
     try {
       const payload = await api('/api/admin/notifications/scan', { method: 'POST', body: { daysBefore } });
       const result = payload.scan || {};
       flash(`Scan complete: ${result.created || 0} created, ${result.deduped || 0} already present, ${result.suppressedRenewed || 0} renewed.`);
       await renderWorkspace();
-    } catch (_) {
-      flash('Reminder scan could not be completed. Try again later.', 'error');
+    } catch (error) {
+      forbidden = error.status === 403;
+      if (forbidden) renderUnavailable(true);
+      else flash('Reminder scan could not be completed. Try again later.', 'error');
     } finally {
-      button.disabled = false;
+      button.disabled = forbidden;
     }
   }
 

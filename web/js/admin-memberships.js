@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null, plans: [] };
+  const state = { admin: null, plans: [], membershipRequestId: 0 };
   const core = () => window.GravityAdminCore;
 
   function hasPermission(permission) { return core()?.hasPermission(permission) || false; }
@@ -50,10 +50,12 @@
   }
 
   async function renderMemberships() {
+    const requestId = ++state.membershipRequestId;
     const panel = $('membershipsPanel'); panel?.setAttribute('aria-busy', 'true');
     const body = $('membershipsBody'); body.replaceChildren(emptyRow('Loading memberships...', 8));
     const statusFilter = $('membershipStatusFilter').value;
     const planId = $('membershipPlanFilter').value;
+    const expiryWindow = Number($('expiryDays').value || 7);
     $('expiryDays').disabled = statusFilter !== 'expiring';
     const params = new URLSearchParams();
     if (statusFilter && statusFilter !== 'expiring') params.set('status', statusFilter);
@@ -61,12 +63,17 @@
     if (planId) params.set('planId', planId);
     let payload;
     try { payload = await core().api(`/api/admin/memberships?${params.toString()}`); }
-    catch (error) { body.replaceChildren(emptyRow('Memberships are temporarily unavailable. Retry or change the filters.', 8)); throw error; }
-    finally { panel?.setAttribute('aria-busy', 'false'); }
+    catch (error) {
+      if (requestId !== state.membershipRequestId) return;
+      body.replaceChildren(emptyRow('Memberships are temporarily unavailable. Retry or change the filters.', 8));
+      throw error;
+    } finally {
+      if (requestId === state.membershipRequestId) panel?.setAttribute('aria-busy', 'false');
+    }
+    if (requestId !== state.membershipRequestId) return;
     let rows = Array.isArray(payload.memberships) ? payload.memberships : [];
     if (statusFilter === 'expiring') {
-      const days = Number($('expiryDays').value || 7);
-      rows = rows.filter((item) => Number(item.membership?.daysRemaining ?? Number.POSITIVE_INFINITY) <= days);
+      rows = rows.filter((item) => Number(item.membership?.daysRemaining ?? Number.POSITIVE_INFINITY) <= expiryWindow);
     }
     body.replaceChildren();
     for (const item of rows) {
