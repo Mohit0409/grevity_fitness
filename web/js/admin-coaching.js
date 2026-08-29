@@ -185,6 +185,7 @@
 
   async function createTemplate(event) {
     event.preventDefault();
+    const form = event.currentTarget;
     try {
       await api('/api/admin/coaching/diets', {
         method: 'POST', body: {
@@ -193,7 +194,7 @@
           description: $('dietDescription').value || null,
         },
       });
-      event.currentTarget.reset();
+      form.reset();
       flash('Nutrition template created as an inactive draft.');
       await loadTemplates();
     } catch (error) { flash(error.message, 'error'); }
@@ -201,6 +202,7 @@
 
   async function createVersion(event) {
     event.preventDefault();
+    const form = event.currentTarget;
     const template = selectedTemplate();
     if (!template) return;
     try {
@@ -219,7 +221,7 @@
           },
         },
       });
-      event.currentTarget.reset();
+      form.reset();
       flash('Immutable nutrition-plan version created.');
       await loadTemplates();
     } catch (error) { flash(error.message, 'error'); }

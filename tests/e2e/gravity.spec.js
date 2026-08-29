@@ -1942,3 +1942,71 @@ test('admin advanced workspaces contain long content on low-height mobile and 20
   await expectNoSeriousA11yFailures(page);
   expect(runtimeProblems).toEqual([]);
 });
+
+
+test('admin coaching creates versions and assigns them after async form submission', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+  let templates = []; let versions = []; let assigned = null;
+  await page.route('**/api/admin/members?q=*', (route) => json(route, { members: fixture.customers.filter((item) => item.status === 'active').map((item) => ({ id: item.id, displayName: item.displayName, phone: item.phone })) }));
+  await page.route('**/api/admin/coaching/diets', (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON();
+      templates = [{ id: 'diet-template-1', code: body.code, name: body.name, description: body.description, status: 'inactive', latestVersion: 0 }];
+      return json(route, { template: templates[0] }, 201);
+    }
+    return json(route, { templates });
+  });
+  await page.route(/\/api\/admin\/coaching\/diets\/[^/]+\/versions$/, (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON();
+      versions = [{ id: 'diet-version-1', version: 1, title: body.title, content: body.content }];
+      templates[0].latestVersion = 1;
+      return json(route, { version: versions[0] }, 201);
+    }
+    return json(route, { versions });
+  });
+  await page.route(/\/api\/admin\/coaching\/diets\/[^/]+$/, (route) => {
+    if (route.request().method() === 'PATCH') {
+      templates[0].status = 'active';
+      return json(route, { template: templates[0] });
+    }
+    return json(route, { template: templates[0] });
+  });
+  await page.route(/\/api\/admin\/coaching\/members\/[^/]+\/diet$/, (route) => {
+    assigned = versions[0] || null;
+    return json(route, { assignment: { versionId: assigned?.id } }, 201);
+  });
+  await page.route(/\/api\/admin\/coaching\/members\/[^/]+$/, (route) =>
+    json(route, { coaching: { latestMeasurements: {}, goals: [], currentDiet: assigned ? { plan: { title: assigned.title, version: assigned.version } } : null } })
+  );
+
+  await page.goto('/admin');
+  await expect.poll(() => page.evaluate(() => window.GravityAdminCore?.currentAdmin()?.id || '')).toBe('owner-ui-test');
+  await page.evaluate(() => window.GravityAdminCore.openView('coaching'));
+  await page.locator('#dietCode').fill('balanced-operator');
+  await page.locator('#dietName').fill('Balanced Operator');
+  await page.locator('#dietDescription').fill('General fitness plan');
+  await page.locator('#dietTemplateForm').getByRole('button', { name: 'Create template' }).click();
+  await expect(page.locator('#flash')).toContainText('inactive draft');
+  await expect(page.locator('#dietCode')).toHaveValue('');
+  await expect(page.locator('#dietName')).toHaveValue('');
+  await page.locator('#dietVersionTitle').fill('Balanced v1');
+  await page.locator('#dietBreakfast').fill('Poha, curd');
+  await page.locator('#dietLunch').fill('Dal, rice');
+  await page.locator('#dietDinner').fill('Roti, paneer');
+  await page.locator('#dietNotes').fill('Hydration and consistency');
+  await page.locator('#dietVersionForm').getByRole('button', { name: 'Create immutable version' }).click();
+  await expect(page.locator('#flash')).toContainText('Immutable nutrition-plan version created.');
+  await expect(page.locator('#dietVersionTitle')).toHaveValue('');
+  await expect(page.locator('#dietTemplateStatus')).toContainText('latest version 1');
+  await page.locator('#activateDietTemplate').click();
+  await expect(page.locator('#dietTemplateStatus')).toContainText('ACTIVE');
+  await page.locator('#assignDietVersion').click();
+  await expect(page.locator('#coachingMemberSummary')).toContainText('Balanced v1 v1');
+  expect(templates[0].status).toBe('active');
+  expect(versions).toHaveLength(1);
+  expect(assigned?.id).toBe('diet-version-1');
+  expect(runtimeProblems).toEqual([]);
+});
