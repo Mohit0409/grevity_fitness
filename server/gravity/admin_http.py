@@ -30,6 +30,56 @@ from .admin import (
 ADMIN_JSON_LIMIT = 16_384
 
 
+def _has_permission(session: AdminSessionIdentity, permission: str) -> bool:
+    permissions = session.admin.get("permissions", [])
+    if not isinstance(permissions, (list, tuple, set, frozenset)):
+        return False
+    return "*" in permissions or permission in permissions
+
+
+def _without_membership_payment(value: object) -> object:
+    if not isinstance(value, dict):
+        return value
+    item = dict(value)
+    item.pop("payment", None)
+    return item
+
+
+def _without_customer_payment(value: object) -> object:
+    if not isinstance(value, dict):
+        return value
+    item = dict(value)
+    item["membership"] = _without_membership_payment(item.get("membership"))
+    return item
+
+
+def _redact_customer_detail(detail: dict[str, object], *, payments: bool, notifications: bool) -> dict[str, object]:
+    result = dict(detail)
+    if not payments:
+        result.pop("payments", None)
+        membership = dict(result.get("membership") or {})
+        for key in ("current", "upcoming"):
+            membership[key] = _without_membership_payment(membership.get(key))
+        for key in ("history", "all"):
+            membership[key] = [_without_membership_payment(item) for item in list(membership.get(key) or [])]
+        result["membership"] = membership
+    if not notifications:
+        result.pop("notifications", None)
+    return result
+
+
+def _redact_dashboard_financials(data: dict[str, object]) -> dict[str, object]:
+    result = dict(data)
+    stats = dict(result.get("stats") or {})
+    for key in ("pendingFeesTotalPaise", "paymentsReceivedTodayPaise", "paymentsReceivedThisMonthPaise"):
+        stats.pop(key, None)
+    result["stats"] = stats
+    result.pop("pendingFees", None)
+    result.pop("recentPayments", None)
+    result["recentCustomers"] = [_without_customer_payment(item) for item in list(result.get("recentCustomers") or [])]
+    return result
+
+
 def _cookie_attributes(handler: Any, max_age: int, expires_at: int) -> str:
     attributes = (
         f"Path=/; Max-Age={max(0, max_age)}; "
@@ -269,6 +319,8 @@ def _dashboard(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
         return failure or HTTPStatus.UNAUTHORIZED
     handler.server.admin_service.require_permission(session, "dashboard.view")
     data = handler.server.admin_software_service.dashboard()
+    if not _has_permission(session, "payments.read"):
+        data = _redact_dashboard_financials(data)
     return _json(handler, HTTPStatus.OK, data, request_id, send_body)
 
 def _members(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
@@ -278,6 +330,8 @@ def _members(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
     handler.server.admin_service.require_permission(session, "members.read")
     query = parse_qs(urlsplit(handler.path).query).get("q", [""])[0]
     rows = handler.server.admin_software_service.list_customers(query=query)
+    if not _has_permission(session, "payments.read"):
+        rows = [_without_customer_payment(item) for item in rows]
     return _json(handler, HTTPStatus.OK, {"members": rows}, request_id, send_body)
 
 
@@ -295,6 +349,8 @@ def _customers(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
             plan_id=params.get("planId", [""])[0],
             limit=params.get("limit", ["200"])[0],
         )
+        if not _has_permission(session, "payments.read"):
+            rows = [_without_customer_payment(item) for item in rows]
         return _json(handler, HTTPStatus.OK, {"customers": rows}, request_id, send_body)
     origin_failure = _same_origin(handler, request_id, send_body)
     if origin_failure is not None:
@@ -337,6 +393,11 @@ def _customer_detail(handler: Any, customer_id: str, request_id: str, send_body:
     if handler.command in {"GET", "HEAD"}:
         handler.server.admin_service.require_permission(session, "members.read")
         detail = handler.server.admin_software_service.customer_detail(customer_id)
+        detail = _redact_customer_detail(
+            detail,
+            payments=_has_permission(session, "payments.read"),
+            notifications=_has_permission(session, "notifications.manage"),
+        )
         return _json(handler, HTTPStatus.OK, detail, request_id, send_body)
     origin_failure = _same_origin(handler, request_id, send_body)
     if origin_failure is not None:
@@ -382,6 +443,12 @@ def _memberships(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
         plan_id=params.get("planId", [""])[0],
         limit=params.get("limit", ["300"])[0],
     )
+    if not _has_permission(session, "payments.read"):
+        rows = [
+            {**item, "membership": _without_membership_payment(item.get("membership"))}
+            if isinstance(item, dict) else item
+            for item in rows
+        ]
     return _json(handler, HTTPStatus.OK, {"memberships": rows}, request_id, send_body)
 
 

@@ -223,6 +223,34 @@ class AdminSoftwareHttpTests(unittest.TestCase):
             status, listed = request_json(base, "/api/admin/customers", headers=trainer_headers)
             self.assertEqual(status, 200)
             self.assertEqual(len(listed["customers"]), 1)
+            self.assertNotIn("payment", listed["customers"][0]["membership"])
+            customer_id = created["customer"]["id"]
+            status, trainer_detail = request_json(
+                base, f"/api/admin/customers/{customer_id}", headers=trainer_headers
+            )
+            self.assertEqual(status, 200)
+            self.assertNotIn("payments", trainer_detail)
+            self.assertNotIn("notifications", trainer_detail)
+            self.assertNotIn("payment", trainer_detail["membership"]["current"])
+            status, trainer_memberships = request_json(base, "/api/admin/memberships", headers=trainer_headers)
+            self.assertEqual(status, 200)
+            self.assertNotIn("payment", trainer_memberships["memberships"][0]["membership"])
+            status, trainer_dashboard = request_json(base, "/api/admin/dashboard", headers=trainer_headers)
+            self.assertEqual(status, 200)
+            self.assertNotIn("pendingFeesTotalPaise", trainer_dashboard["stats"])
+            self.assertNotIn("paymentsReceivedTodayPaise", trainer_dashboard["stats"])
+            self.assertNotIn("paymentsReceivedThisMonthPaise", trainer_dashboard["stats"])
+            self.assertNotIn("pendingFees", trainer_dashboard)
+            self.assertNotIn("recentPayments", trainer_dashboard)
+            if trainer_dashboard.get("recentCustomers"):
+                self.assertNotIn("payment", trainer_dashboard["recentCustomers"][0]["membership"])
+            status, denied = request_json(base, "/api/admin/fees", headers=trainer_headers)
+            self.assertEqual((status, denied), (403, {"error": "admin_forbidden"}))
+            status, denied = request_json(base, "/api/admin/payments", headers=trainer_headers)
+            self.assertEqual((status, denied), (403, {"error": "admin_forbidden"}))
+            status, desk_fees = request_json(base, "/api/admin/fees", headers=desk_headers)
+            self.assertEqual(status, 200)
+            self.assertIn("pendingFeesTotalPaise", desk_fees)
             status, denied = request_json(
                 base, "/api/admin/customers", method="POST",
                 body=customer_payload(phone="+919876500002"), headers=trainer_headers,
