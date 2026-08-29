@@ -317,6 +317,22 @@ class BackupManager:
                 connection = sqlite3.connect(target)
                 customer_count = connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
                 membership_count = connection.execute("SELECT COUNT(*) FROM memberships").fetchone()[0]
+                payment_count = connection.execute("SELECT COUNT(*) FROM payment_intents").fetchone()[0]
+                paid_payment_count = connection.execute(
+                    "SELECT COUNT(*) FROM payment_intents WHERE status='paid'"
+                ).fetchone()[0]
+                payment_amount_paise = connection.execute(
+                    "SELECT COALESCE(SUM(amount_paise),0) FROM payment_intents"
+                ).fetchone()[0]
+                paid_payment_amount_paise = connection.execute(
+                    "SELECT COALESCE(SUM(amount_paise),0) FROM payment_intents WHERE status='paid'"
+                ).fetchone()[0]
+                reminder_count = connection.execute(
+                    "SELECT COUNT(*) FROM notification_reminders"
+                ).fetchone()[0]
+                delivery_count = connection.execute(
+                    "SELECT COUNT(*) FROM notification_deliveries"
+                ).fetchone()[0]
                 active_owner_count = connection.execute(
                     "SELECT COUNT(*) FROM admin_users WHERE role='owner' AND status='active'"
                 ).fetchone()[0]
@@ -335,6 +351,12 @@ class BackupManager:
             "schemaStage": inspection["schemaStage"],
             "customerRows": int(customer_count),
             "membershipRows": int(membership_count),
+            "paymentRows": int(payment_count),
+            "paidPaymentRows": int(paid_payment_count),
+            "paymentAmountPaise": int(payment_amount_paise),
+            "paidPaymentAmountPaise": int(paid_payment_amount_paise),
+            "notificationReminderRows": int(reminder_count),
+            "notificationDeliveryRows": int(delivery_count),
             "activeOwnerRows": int(active_owner_count),
             "activePlanRows": int(active_plan_count),
             "databaseSha256": restored["databaseSha256"],

@@ -1,6 +1,6 @@
 # Gravity Fitness Operations Runbook
 
-Last updated: 2026-08-28
+Last updated: 2026-08-29
 
 This runbook covers safe backup, verification, recovery, rollback, and portable Windows/Linux/Termux operation. It does not change Gravity's localhost-first security boundary.
 
@@ -74,6 +74,28 @@ Before installing tasks after a code or Python-runtime change, run the isolated 
 ```powershell
 .\scripts\test-ops-lifecycle.ps1
 ```
+
+## Daily admin operation on the gym PC
+
+Normal boot should require no command window: Windows starts `GravityFitness-Watchdog`, the watchdog starts the loopback backend (and the explicitly configured tunnel when applicable), `GravityFitness-Notifications` starts its hourly cycle, and the owner opens the bookmarked HTTPS admin URL in a full-screen browser window.
+
+At opening time, run this PII-free status command from a normal PowerShell window:
+
+```powershell
+.\scripts\admin-health-check.ps1 -ConfigPath C:\ProgramData\GravityFitness\gravity.env
+```
+
+Exit code `0` means the backend health contract, SQLite integrity, migration inventory, latest verified/recovery-drilled backup, scheduler freshness, and at least one notification provider are ready. Any non-zero result is a no-go for recording operational data until the named blocker is understood. The JSON report contains only statuses, aggregate counts, ages, and backup archive names; it does not contain customer contacts, tokens, provider credentials, or database paths.
+
+Daily operator sequence:
+
+1. Run `status-gravity.ps1`, `admin-health-check.ps1`, and `status-notifications.ps1` with the protected config path.
+2. Confirm Task Scheduler shows `GravityFitness-Watchdog`, `GravityFitness-DailyBackup`, and `GravityFitness-Notifications` enabled with recent successful runs.
+3. Open the bookmarked HTTPS `/admin` URL. Confirm the authenticated dashboard and Readiness view load; never use the loopback backend URL from another device.
+4. Before closing, confirm payments/renewals entered that day are visible in the member history and that no scheduler failure count is increasing.
+5. Confirm the latest `gravity-daily-*.zip` was verified and recovery-drilled. Do not inspect or email the archive; it contains sensitive member data.
+
+If a check fails, stop data entry, keep the browser closed, and preserve `.gravity/operations.log`, `notification-state.json`, and the latest verified backup for diagnosis. Do not copy the live SQLite/WAL files, retry a payment by repeatedly clicking, edit the database manually, or restore over production while Gravity is running.
 
 ## Membership expiry notification automation
 
@@ -250,3 +272,24 @@ Linux / Termux:
 ```
 
 Do not treat a blocked launch check as an error to bypass; it is the intended no-go signal until the named production dependency has been verified.
+
+## Admin Software V1 production checklist
+
+- [ ] The admin add-customer, membership, fee/payment, pending-balance, renewal, and history contracts are integrated and their temporary-database acceptance matrix is green.
+- [ ] Customer creation, manual payment recording, and renewal accept an idempotency key; duplicate clicks/retries return the original result rather than inserting a second record.
+- [ ] Payment state, membership activation, invoice/receipt, and audit event commit in one recoverable transaction or a tested compensating workflow.
+- [ ] `PRAGMA quick_check`, `PRAGMA foreign_key_check`, and the full migration checksum inventory pass.
+- [ ] The latest backup passes checksum, schema, exact customer/membership/payment/notification counts, paid-amount totals, and temporary restore acceptance.
+- [ ] The 100/500/1,000/5,000-customer synthetic performance audit is reviewed; required indexes are applied by the backend owner through a forward-only migration.
+- [ ] Admin authentication, RBAC, CSRF, origin validation, session expiry, `Cache-Control: no-store` APIs, customer/admin separation, and secret/PII log scans pass.
+- [ ] Browser refresh, back/forward, slow/failing/interrupted API, reload, and double-submit tests pass for every money or renewal mutation.
+- [ ] Windows lifecycle, crash watchdog, backup, notification scheduler, and tunnel recovery drills pass from the exact production checkout/config.
+- [ ] `admin-health-check.ps1`, `launch-check.ps1`, and the production URL smoke test all exit `0`.
+- [ ] Task Scheduler actions contain only script/config paths—never tokens, passwords, Firebase JSON, or provider credentials.
+- [ ] Recovery roles are assigned, the owner knows the stop/restore/start sequence, and a recent off-device encrypted backup is available.
+
+The current readiness evidence and open blockers are maintained in `docs/ADMIN_V1_QA_REPORT.md`. A checked box must represent observed evidence from the release commit, not an assumption.
+
+## Installable admin direction after V1
+
+V1 remains the backend plus full-screen web admin. Do not add a native Windows wrapper or enable offline mutation. A future PWA may use a dedicated admin manifest and installed-window shell only after Chat 1 approves the core V1 transaction/idempotency contracts. Any service worker must never cache admin API responses, authenticated HTML, CSRF/session material, customer PII, mutation requests, or a stale data-entry UI; navigation should fail closed to an online-required screen. The existing public-site manifest is not an admin installation contract.
