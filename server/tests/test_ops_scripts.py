@@ -107,6 +107,15 @@ class OperationsScriptTests(unittest.TestCase):
         self.assertIn("-NgrokConfigPath C:\\ProgramData\\GravityFitness\\ngrok.yml", runbook)
         self.assertIn("-NgrokExecutablePath 'C:\\Program Files\\ngrok\\ngrok.exe'", runbook)
 
+    def test_windows_ngrok_refuses_duplicate_unmanaged_loopback_tunnel(self) -> None:
+        tunnel = (ROOT / "scripts" / "start-ngrok.ps1").read_text(encoding="utf-8")
+        selector = '[string]$_.config.addr -eq "http://127.0.0.1:$($context.Port)"'
+        refusal = "Refusing to start a second ngrok process"
+        launcher = "Start-Process -FilePath $ngrokExe"
+        self.assertIn(selector, tunnel)
+        self.assertIn(refusal, tunnel)
+        self.assertLess(tunnel.index(refusal), tunnel.index(launcher))
+
     def test_notification_scheduler_is_isolated_from_lifecycle_tasks(self) -> None:
         installer = (ROOT / "scripts" / "install-gravity-tasks.ps1").read_text(
             encoding="utf-8"

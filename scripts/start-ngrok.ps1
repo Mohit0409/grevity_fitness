@@ -57,7 +57,7 @@ function Test-ManagedNgrok([int]$ProcessId) {
 function Get-NgrokPublicUrl {
   try {
     $tunnels = Invoke-RestMethod -Uri 'http://127.0.0.1:4040/api/tunnels' -TimeoutSec 2
-    $match = @($tunnels.tunnels | Where-Object { $_.public_url -like 'https://*' }) | Select-Object -First 1
+    $match = @($tunnels.tunnels | Where-Object { $_.public_url -like 'https://*' -and [string]$_.config.addr -eq "http://127.0.0.1:$($context.Port)" }) | Select-Object -First 1
     if ($match) { return $match.public_url.TrimEnd('/') }
   } catch { }
   return $null
@@ -87,6 +87,10 @@ if (Test-Path -LiteralPath $pidFile) {
 }
 
 if (-not $process) {
+  $unmanagedPublicUrl = Get-NgrokPublicUrl
+  if ($unmanagedPublicUrl) {
+    throw "Refusing to start a second ngrok process because an unmanaged tunnel already targets http://127.0.0.1:$($context.Port). Stop or adopt the existing tunnel first."
+  }
   $ngrokExe = Resolve-Ngrok -ExplicitPath $NgrokExecutablePath
   Rotate-GravityLog -Path $stdoutLog
   Rotate-GravityLog -Path $stderrLog
