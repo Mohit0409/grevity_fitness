@@ -900,6 +900,8 @@ async function mockAdminSoftware(page, options = {}) {
   let dashboardMode = options.dashboardMode || 'ok';
   const customerDelays = options.customerDelays || {};
   const customerQueries = [];
+  const feeDelays = options.feeDelays || {};
+  const feeQueries = [];
 
   const findCustomer = (id) => customers.find((item) => item.id === id);
   const allMemberships = () => Object.values(memberships).flat();
@@ -1038,8 +1040,11 @@ async function mockAdminSoftware(page, options = {}) {
     const params = new URL(route.request().url()).searchParams; const customerId = params.get('customerId'); const membershipId = params.get('membershipId');
     const rows = payments.filter((item) => (!customerId || item.customerId === customerId) && (!membershipId || item.membershipId === membershipId)); return json(route, 200, { payments: rows });
   });
-  await page.route(/\/api\/admin\/fees(?:\?.*)?$/, (route) => {
-    const params = new URL(route.request().url()).searchParams; const rows = feeRows(params.get('q') || '', params.get('pendingOnly') === '1');
+  await page.route(/\/api\/admin\/fees(?:\?.*)?$/, async (route) => {
+    const params = new URL(route.request().url()).searchParams; const q = (params.get('q') || '').toLowerCase(); const pendingOnly = params.get('pendingOnly') === '1';
+    feeQueries.push({ q, pendingOnly });
+    const delay = Number(feeDelays[q] || 0); if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+    const rows = feeRows(q, pendingOnly);
     return json(route, 200, { pendingFeesTotalPaise: rows.reduce((sum, item) => sum + Number(item.membership.payment?.pendingPaise || 0), 0), rows });
   });
 
@@ -1056,7 +1061,7 @@ async function mockAdminSoftware(page, options = {}) {
   });
   await page.route('**/api/admin/audit?limit=100', (route) => json(route, 200, { audit: [] }));
 
-  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, adminCreateBodies, customerQueries, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; } };
+  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, adminCreateBodies, customerQueries, feeQueries, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; } };
 }
 
 
@@ -1270,6 +1275,27 @@ test('fees workspace searches filters and records from the server ledger', async
   await page.locator('#feesBody tr').filter({ hasText: 'Asha Sharma' }).getByRole('button', { name: 'Record Payment' }).click();
   await expect(page.locator('#recordPaymentDialog')).toBeVisible();
   await expect(page.locator('#paymentCustomer')).toHaveText('Asha Sharma');
+  expect(runtimeProblems).toEqual([]);
+});
+
+
+test('fees workspace ignores stale search responses when filters change', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page, { feeDelays: { asha: 450 } });
+  await page.goto('/admin');
+  await page.locator('#feesNav').click();
+  await page.locator('#feeBalanceFilter').selectOption('all');
+  await page.locator('#feeSearch').fill('Asha');
+  await expect.poll(() => fixture.feeQueries.filter((item) => item.q === 'asha').length).toBeGreaterThan(0);
+  await page.locator('#feeSearch').fill('');
+  await page.locator('#feeBalanceFilter').selectOption('pending');
+  await expect(page.locator('#feesBody')).toContainText('GF-RAVI-NEXT');
+  await expect(page.locator('#feesBody')).not.toContainText('GF-2026-RAVI');
+  await expect(page.locator('#feesBody tr').filter({ hasText: 'Asha Sharma' }).getByRole('button', { name: 'Record Payment' })).toHaveCount(1);
+  await page.waitForTimeout(550);
+  await expect(page.locator('#feesBody')).toContainText('GF-RAVI-NEXT');
+  await expect(page.locator('#feesBody tr').filter({ hasText: 'Asha Sharma' }).getByRole('button', { name: 'Record Payment' })).toHaveCount(1);
+  await expect(page.locator('#feesPanel')).toHaveAttribute('aria-busy', 'false');
   expect(runtimeProblems).toEqual([]);
 });
 

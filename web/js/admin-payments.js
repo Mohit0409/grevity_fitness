@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null, timer: null };
+  const state = { admin: null, timer: null, requestId: 0 };
   const core = () => window.GravityAdminCore;
 
   function hasPermission(permission) { return core()?.hasPermission(permission) || false; }
@@ -11,14 +11,17 @@
   function emptyRow(message, colspan) { const row = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = colspan; cell.className = 'empty'; cell.textContent = message; row.appendChild(cell); return row; }
 
   async function renderWorkspace() {
+    const requestId = ++state.requestId;
     const body = $('feesBody'); const panel = $('feesPanel'); panel?.setAttribute('aria-busy', 'true'); body.replaceChildren(emptyRow('Loading fee balances...', 8));
-    if (!hasPermission('payments.read')) { body.appendChild(emptyRow('You do not have permission to view fee balances.', 8)); $('feesPendingTotal').textContent = '--'; return; }
+    if (!hasPermission('payments.read')) { body.replaceChildren(emptyRow('You do not have permission to view fee balances.', 8)); $('feesPendingTotal').textContent = '--'; panel?.setAttribute('aria-busy', 'false'); return; }
     const query = $('feeSearch').value.trim(); const mode = $('feeBalanceFilter').value;
     const params = new URLSearchParams(); if (query) params.set('q', query); if (mode === 'pending') params.set('pendingOnly', '1');
     let result;
     try { result = await core().api(`/api/admin/fees?${params.toString()}`); }
-    catch (error) { body.replaceChildren(emptyRow('Fee balances are temporarily unavailable. Retry or change the filters.', 8)); $('feesPendingTotal').textContent = '--'; throw error; }
-    finally { panel?.setAttribute('aria-busy', 'false'); }
+    catch (error) { if (requestId !== state.requestId) return; body.replaceChildren(emptyRow('Fee balances are temporarily unavailable. Retry or change the filters.', 8)); $('feesPendingTotal').textContent = '--'; throw error; }
+    finally { if (requestId === state.requestId) panel?.setAttribute('aria-busy', 'false'); }
+    if (requestId !== state.requestId) return;
+    body.replaceChildren();
     $('feesPendingTotal').textContent = moneyPaise(result.pendingFeesTotalPaise);
     let rows = Array.isArray(result.rows) ? result.rows : [];
     if (mode === 'paid') rows = rows.filter((item) => Number(item.membership?.payment?.pendingPaise || 0) === 0);
@@ -47,9 +50,15 @@
     state.timer = window.setTimeout(() => renderWorkspace().catch(() => core().flash('Fee balances are temporarily unavailable.', 'error')), 220);
   }
 
+  function renderNow() {
+    window.clearTimeout(state.timer);
+    state.timer = null;
+    return renderWorkspace().catch(() => core().flash('Fee balances are temporarily unavailable.', 'error'));
+  }
+
   $('feeSearch').addEventListener('input', scheduleRender);
-  $('feeBalanceFilter').addEventListener('change', () => renderWorkspace().catch(() => core().flash('Fee balances are temporarily unavailable.', 'error')));
-  $('refreshFees').addEventListener('click', () => renderWorkspace().catch(() => core().flash('Fee balances are temporarily unavailable.', 'error')));
+  $('feeBalanceFilter').addEventListener('change', renderNow);
+  $('refreshFees').addEventListener('click', renderNow);
 
   window.GravityPaymentAdmin = { setAdmin(admin) { state.admin = admin; }, renderWorkspace };
 })();
