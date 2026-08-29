@@ -155,3 +155,11 @@ Chat 1 audited the repository for an already-approved production hostname, reser
 Production ingress is therefore explicitly **NO-GO** until the operator supplies and verifies a durable production hostname/tunnel that ordinary browsers can use without the free-tier warning page. The accepted topology is HTTPS on that verified hostname through an explicitly trusted proxy/tunnel to loopback `127.0.0.1:8787`.
 
 No production URL has been invented or frozen. Because ingress is unresolved, the complete deployment tuple cannot yet be finalized and the protected/elevated lifecycle window must not begin. Migration 010 remains prohibited.
+
+## Independent acceptance / operator ingress gate update - 2026-08-29 20:04 IST
+
+- Chat 3 exact final-RC lifecycle acceptance is complete: `c4f2219a77f0a1248497c15c5eef6bc5389dd476`, `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`, detached and clean, focused ngrok/task/post-reboot suite **37/37 PASS**, with no production mutation. Branch-local documentation evidence is `3560923`; it is not part of the runtime.
+- Chat 2 exact-`c4f2219` frontend acceptance remains outstanding and is required before final release disposition.
+- Ingress remains **NO-GO pending operator-supplied verified identity**. The unblock checklist is: durable HTTPS hostname; DNS/TLS ownership/control; approved tunnel/proxy provider and identity; stable SYSTEM-accessible executable/config paths; upstream `127.0.0.1:8787`; ordinary-browser root rendering without warning/interstitial; public health behavior; and a documented rollback/disable method.
+- Do not place tunnel credentials, tokens, config contents, provider secrets, or recipient data in this document. Identity/path/ownership evidence only.
+- Protected deployment, lifecycle installation, reboot acceptance, fresh pre-admin-v1 backup, migration 010, and cutover remain blocked until their ordered gates are satisfied.

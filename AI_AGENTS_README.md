@@ -635,3 +635,12 @@ Success: Chat 3 stays frozen until the protected tuple exists, then proves non-m
 12. On critical failure: rollback to the fresh migration-009 backup plus pinned v9; no ad-hoc SQLite/migration edits.
 
 Until step 10 explicitly records GO, production must remain on pinned v9 / migration 009. Frozen runtime SHA is `c4f2219a77f0a1248497c15c5eef6bc5389dd476`. Operator-provided production ingress is now the principal external release blocker after Chat 2 completes its exact-RC sign-off.
+
+## CHAT 1 STATUS - 2026-08-29 after 20:04 queue review
+
+- Chat 1 re-read the authoritative `NEW TASK ASSIGNMENTS - 2026-08-29 20:04 IST` queue and preserves frozen runtime SHA `c4f2219a77f0a1248497c15c5eef6bc5389dd476` and immutable RC `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`.
+- Chat 3 independent exact-RC lifecycle evidence is canonically accepted: exact SHA/path verified, detached HEAD and clean tree, focused ngrok/task/post-reboot modules **37/37 PASS**, production nonmutation; branch-local evidence commit `3560923` is not required in the runtime and must not be cherry-picked merely for documentation.
+- Chat 2 independent exact-`c4f2219` frontend sign-off remains the only outstanding independent exact-RC acceptance.
+- Production ingress remains explicitly **NO-GO pending operator input**. Required operator ingress-unblock facts: intended durable HTTPS hostname; DNS/TLS ownership/control; approved tunnel/proxy provider and identity; stable SYSTEM-accessible executable/config locations; loopback upstream `127.0.0.1:8787`; ordinary-browser root behavior without interstitial; public health behavior; and rollback/disable method. Record identities/paths only, never secrets.
+- No protected deployment files, tunnel transition, SYSTEM tasks, reboot, fresh live backup, migration 010, or cutover may proceed until the required dependencies in the 20:04 queue are satisfied.
+- Production remains pinned v9 / migration 009. No runtime/product/ops code was changed by this status update.
