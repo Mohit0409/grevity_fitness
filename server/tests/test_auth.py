@@ -13,6 +13,7 @@ import sqlite3
 import time
 import unittest
 
+from server.gravity.auth import normalize_email, normalize_phone
 from server.gravity.config import Settings
 from server.gravity.firebase_auth import (
     FirebaseAdminVerifier,
@@ -189,6 +190,69 @@ def running_auth_server(
             thread.join(timeout=5)
 
 
+def provision_customer(
+    app: AuthHarness,
+    *,
+    customer_id: str,
+    email: str | None = None,
+    email_verified: bool = False,
+    phone: str | None = None,
+    phone_verified: bool = False,
+    display_name: str = "Gravity Member",
+) -> str:
+    normalized_email = normalize_email(email) if email and email_verified else None
+    normalized_phone = normalize_phone(phone) if phone else None
+    now = app.clock.value
+    with app.server.database.session() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            "INSERT INTO customers(id,status,display_name,email,normalized_email,email_verified,phone_e164,"
+            "phone_verified,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (
+                customer_id, "active", display_name, email if normalized_email else None, normalized_email,
+                1 if normalized_email else 0, normalized_phone, 1 if phone_verified else 0, now, now,
+            ),
+        )
+        connection.execute(
+            "INSERT INTO customer_profiles(customer_id,updated_at) VALUES (?,?)", (customer_id, now)
+        )
+        connection.commit()
+    return customer_id
+
+
+def provision_linked_identity(app: AuthHarness, token: str, *, customer_id: str | None = None) -> str:
+    verifier = app.server.auth_service.verifier
+    assert isinstance(verifier, FakeVerifier)
+    verified = verifier.identities[token]
+    customer_id = customer_id or f"customer-{verified.uid}"
+    provision_customer(
+        app,
+        customer_id=customer_id,
+        email=verified.email,
+        email_verified=verified.email_verified,
+        phone=verified.phone_number,
+        phone_verified=bool(verified.phone_number),
+        display_name=verified.display_name or "Gravity Member",
+    )
+    now = app.clock.value
+    with app.server.database.session() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            "INSERT INTO firebase_identities(project_id,firebase_uid,customer_id,last_sign_in_provider,"
+            "created_at,last_seen_at) VALUES (?,?,?,?,?,?)",
+            (verified.project_id, verified.uid, customer_id, verified.sign_in_provider, now, now),
+        )
+        connection.execute(
+            "INSERT INTO firebase_provider_identities(project_id,sign_in_provider,provider_subject,"
+            "firebase_uid,created_at,last_seen_at) VALUES (?,?,?,?,?,?)",
+            (
+                verified.project_id, verified.sign_in_provider, verified.provider_subject, verified.uid, now, now
+            ),
+        )
+        connection.commit()
+    return customer_id
+
+
 class CustomerAuthHttpTests(unittest.TestCase):
     def test_registration_session_persistence_and_hash_only_storage(self):
         clock = MutableClock()
@@ -196,6 +260,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
             {"token-alice": identity(clock, "uid-alice", email="Alice@Example.COM", subject="alice-sub")}
         )
         with running_auth_server(verifier, clock) as app:
+            provision_linked_identity(app, "token-alice")
             status, _headers, config = app.request("GET", "/api/auth/config")
             self.assertEqual(status, 200)
             self.assertTrue(config["enabled"])
@@ -239,34 +304,32 @@ class CustomerAuthHttpTests(unittest.TestCase):
                 self.assertNotIn(cookies["gravity_csrf"], dump)
                 self.assertNotIn("token-alice", dump)
 
-    def test_duplicate_verified_email_phone_and_provider_are_rejected(self):
+    def test_owner_provisioned_phone_attaches_and_unknown_phone_cannot_register(self):
         clock = MutableClock()
         verifier = FakeVerifier(
             {
-                "email-a": identity(clock, "uid-email-a", email="Member@Example.com", subject="sub-a"),
-                "email-b": identity(clock, "uid-email-b", email="member@example.COM", subject="sub-b"),
-                "phone-a": identity(
-                    clock, "uid-phone-a", provider="phone", phone="+919876543210", subject="+919876543210"
+                "provisioned": identity(
+                    clock, "uid-provisioned", provider="phone", phone="+919876543210", subject="+919876543210"
                 ),
-                "phone-b": identity(
-                    clock,
-                    "uid-phone-b",
-                    provider="google.com",
-                    email="other@example.com",
-                    phone="+919876543210",
-                    subject="google-other",
+                "unknown": identity(
+                    clock, "uid-unknown", provider="phone", phone="+919111111111", subject="+919111111111"
                 ),
             }
         )
         with running_auth_server(verifier, clock) as app:
-            self.assertEqual(app.exchange("email-a")[0], 200)
-            status, _headers, body = app.exchange("email-b")
-            self.assertEqual((status, body["error"]), (409, "account_link_required"))
-            self.assertEqual(app.exchange("phone-a")[0], 200)
-            status, _headers, body = app.exchange("phone-b")
-            self.assertEqual((status, body["error"]), (409, "account_link_required"))
+            provision_customer(
+                app, customer_id="customer-provisioned", phone="+919876543210", phone_verified=False
+            )
+            status, _headers, body = app.exchange("provisioned")
+            self.assertEqual(status, 200)
+            self.assertTrue(body["authenticated"])
+            self.assertEqual(body["user"]["phone"], "+919876543210")
+            status, _headers, body = app.exchange("unknown")
+            self.assertEqual((status, body["error"]), (403, "account_not_provisioned"))
             with closing(sqlite3.connect(app.settings.database_path)) as connection:
-                self.assertEqual(connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0], 2)
+                self.assertEqual(connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0], 1)
+                self.assertEqual(connection.execute("SELECT COUNT(*) FROM firebase_identities").fetchone()[0], 1)
+                self.assertEqual(connection.execute("SELECT phone_verified FROM customers").fetchone()[0], 1)
 
     def test_unverified_identifier_never_auto_links_or_blocks(self):
         clock = MutableClock()
@@ -285,6 +348,10 @@ class CustomerAuthHttpTests(unittest.TestCase):
             }
         )
         with running_auth_server(verifier, clock) as app:
+            provision_linked_identity(app, "verified")
+            provision_customer(
+                app, customer_id="customer-unverified", phone="+919999999999", phone_verified=False
+            )
             self.assertEqual(app.exchange("verified")[0], 200)
             self.assertEqual(app.exchange("unverified")[0], 200)
             with closing(sqlite3.connect(app.settings.database_path)) as connection:
@@ -297,6 +364,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
         clock = MutableClock()
         verifier = FakeVerifier({"member": identity(clock, "uid-member", email="member@example.com")})
         with running_auth_server(verifier, clock) as app:
+            provision_linked_identity(app, "member")
             _, headers, login = app.exchange("member")
             cookies = cookies_from(headers)
             common = {
@@ -343,6 +411,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
         clock = MutableClock()
         verifier = FakeVerifier({"member": identity(clock, "uid-member", email="member@example.com")})
         with running_auth_server(verifier, clock) as app:
+            provision_linked_identity(app, "member")
             _, headers, _payload = app.exchange("member")
             cookies = cookies_from(headers)
             base_headers = {
@@ -380,6 +449,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
         clock = MutableClock()
         verifier = FakeVerifier({"member": identity(clock, "uid-member", email="member@example.com")})
         with running_auth_server(verifier, clock) as app:
+            provision_linked_identity(app, "member")
             _, first_headers, _payload = app.exchange("member")
             first = cookies_from(first_headers)
             _, second_headers, _payload = app.exchange("member", cookie=cookie_header(first))
@@ -407,6 +477,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
         clock = MutableClock()
         verifier = FakeVerifier({"member": identity(clock, "uid-member", email="member@example.com")})
         with running_auth_server(verifier, clock) as app:
+            provision_linked_identity(app, "member")
             issued = []
             for _index in range(6):
                 status, headers, _payload = app.exchange("member")
@@ -451,15 +522,20 @@ class CustomerAuthHttpTests(unittest.TestCase):
                 app.request("GET", "/api/me", headers={"Cookie": cookie_header(issued[4])})[0], 401
             )
 
-    def test_concurrent_normalized_identifier_collision_creates_one_customer(self):
+    def test_concurrent_phone_identity_collision_attaches_only_once(self):
         clock = MutableClock()
         verifier = FakeVerifier(
             {
-                "one": identity(clock, "uid-one", email="Member@Example.com", subject="subject-one"),
-                "two": identity(clock, "uid-two", email="member@example.COM", subject="subject-two"),
+                "one": identity(
+                    clock, "uid-one", provider="phone", phone="+919876543210", subject="+919876543210"
+                ),
+                "two": identity(
+                    clock, "uid-two", provider="phone", phone="+919876543210", subject="+919876543210"
+                ),
             }
         )
         with running_auth_server(verifier, clock) as app:
+            provision_customer(app, customer_id="customer-phone", phone="+919876543210")
             barrier = Barrier(3)
             result_lock = Lock()
             statuses: list[int] = []
@@ -480,6 +556,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
             with closing(sqlite3.connect(app.settings.database_path)) as connection:
                 self.assertEqual(connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0], 1)
                 self.assertEqual(connection.execute("SELECT COUNT(*) FROM firebase_identities").fetchone()[0], 1)
+                self.assertEqual(connection.execute("SELECT COUNT(*) FROM firebase_provider_identities").fetchone()[0], 1)
 
     def test_explicit_identity_link_rotates_session_and_prevents_cross_account_merge(self):
         clock = MutableClock()
@@ -492,6 +569,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
             }
         )
         with running_auth_server(verifier, clock) as app:
+            provision_linked_identity(app, "email")
             _, email_headers, _payload = app.exchange("email")
             email_cookies = cookies_from(email_headers)
             link_headers = {
@@ -529,6 +607,8 @@ class CustomerAuthHttpTests(unittest.TestCase):
             }
         )
         with running_auth_server(verifier, clock) as app:
+            provision_linked_identity(app, "first")
+            provision_linked_identity(app, "second")
             _, first_headers, _ = app.exchange("first")
             app.exchange("second")
             first_cookies = cookies_from(first_headers)
@@ -605,6 +685,7 @@ class CustomerAuthHttpTests(unittest.TestCase):
         clock = MutableClock()
         verifier = FakeVerifier({"member": identity(clock, "uid-member", email="member@example.com")})
         with running_auth_server(verifier, clock, production=True) as app:
+            provision_linked_identity(app, "member")
             status, headers, _payload = app.exchange("member")
             self.assertEqual(status, 200)
             cookie_headers = [value for name, value in headers if name.lower() == "set-cookie"]

@@ -1,0 +1,791 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Mapping
+from uuid import uuid4
+import sqlite3
+import time
+
+from .admin import AdminService
+from .auth import normalize_phone
+from .database import Database
+from .membership import MembershipService
+
+
+PAYMENT_METHODS = {"cash", "upi", "card", "bank_transfer", "other"}
+CUSTOMER_STATUSES = {"active", "disabled"}
+
+
+class AdminSoftwareError(Exception):
+    pass
+
+
+class AdminSoftwareNotFound(AdminSoftwareError):
+    pass
+
+
+class AdminSoftwareConflict(AdminSoftwareError):
+    pass
+
+class AdminSoftwareValidationError(AdminSoftwareError):
+    def __init__(self, fields: Mapping[str, str]) -> None:
+        super().__init__("Admin software validation failed")
+        self.fields = dict(fields)
+
+
+def _clean_name(value: object) -> str:
+    if not isinstance(value, str):
+        raise ValueError("Name is required")
+    normalized = " ".join(value.strip().split())
+    if not 2 <= len(normalized) <= 80 or "\x00" in normalized:
+        raise ValueError("Name must be 2-80 characters")
+    return normalized
+
+
+def _clean_note(value: object) -> str | None:
+    if value in (None, ""):
+        return None
+    if not isinstance(value, str):
+        raise ValueError("Note must be text")
+    cleaned = " ".join(value.strip().split())
+    if not cleaned or len(cleaned) > 500 or "\x00" in cleaned:
+        raise ValueError("Note must be 1-500 characters")
+    return cleaned
+
+
+def _bounded_limit(value: object, default: int = 100) -> int:
+    try:
+        return min(max(int(value), 1), 500)
+    except (TypeError, ValueError):
+        return default
+
+
+def _clean_idempotency_key(value: object) -> str | None:
+    if value in (None, ""):
+        return None
+    if not isinstance(value, str):
+        raise AdminSoftwareValidationError({"idempotencyKey": "Idempotency key must be text"})
+    cleaned = value.strip()
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._:")
+    if not 8 <= len(cleaned) <= 128 or any(character not in allowed for character in cleaned):
+        raise AdminSoftwareValidationError(
+            {"idempotencyKey": "Use 8-128 letters, numbers, dots, dashes, underscores, or colons"}
+        )
+    return cleaned
+
+
+class AdminSoftwareService:
+    def __init__(
+        self,
+        database: Database,
+        membership_service: MembershipService,
+        admin_service: AdminService,
+        notification_service,
+        *,
+        clock=time.time,
+    ) -> None:
+        self.database = database
+        self.membership_service = membership_service
+        self.admin_service = admin_service
+        self.notification_service = notification_service
+        self.clock = clock
+
+    def _now(self) -> int:
+        return int(self.clock())
+
+    @staticmethod
+    def _safe_customer(row) -> dict[str, object]:
+        return {
+            "id": row["id"],
+            "displayName": row["display_name"],
+            "phone": row["phone_e164"],
+            "phoneVerified": bool(row["phone_verified"]),
+            "email": row["email"],
+            "status": row["status"],
+            "createdAt": int(row["created_at"]),
+            "lastLoginAt": row["last_login_at"],
+        }
+
+    @staticmethod
+    def _safe_payment(row) -> dict[str, object]:
+        return {
+            "id": row["id"],
+            "membershipId": row["membership_id"],
+            "amountPaise": int(row["amount_paise"]),
+            "currency": row["currency"],
+            "method": row["method"],
+            "note": row["note"],
+            "paidAt": int(row["paid_at"]),
+            "status": row["status"],
+            "createdAt": int(row["created_at"]),
+        }
+
+    @staticmethod
+    def _payment_summary(connection, membership_row) -> dict[str, int]:
+        recorded = int(connection.execute(
+            "SELECT COALESCE(SUM(amount_paise),0) FROM membership_payments "
+            "WHERE membership_id=? AND status='recorded'",
+            (membership_row["id"],),
+        ).fetchone()[0])
+        gateway_paid = 0
+        if membership_row["source"] == "payment" and membership_row["payment_reference"]:
+            gateway_paid = int(membership_row["plan_price_paise_snapshot"])
+        total = int(membership_row["plan_price_paise_snapshot"])
+        paid = min(total, recorded + gateway_paid)
+        return {"totalPaise": total, "paidPaise": paid, "pendingPaise": max(0, total - paid)}
+
+    def _membership_payload(self, connection, row) -> dict[str, object]:
+        item = self.membership_service._safe_membership(row, now=self._now())
+        item["payment"] = self._payment_summary(connection, row)
+        return item
+
+    @staticmethod
+    def _customer_row(connection, customer_id: str):
+        row = connection.execute(
+            "SELECT id,status,display_name,email,phone_e164,phone_verified,created_at,last_login_at "
+            "FROM customers WHERE id=? AND status!='deleted'",
+            (customer_id,),
+        ).fetchone()
+        if row is None:
+            raise AdminSoftwareNotFound("Customer not found")
+        return row
+
+    def _current_membership_row(self, connection, customer_id: str):
+        self.membership_service._reconcile_connection(connection, customer_id=customer_id)
+        return connection.execute(
+            "SELECT * FROM memberships WHERE customer_id=? AND status='active' "
+            "ORDER BY ends_at ASC LIMIT 1",
+            (customer_id,),
+        ).fetchone()
+
+    def _record_payment_connection(
+        self,
+        connection,
+        membership_id: str,
+        *,
+        amount_paise: int,
+        method: str,
+        paid_at: int,
+        note: str | None,
+        actor_admin_user_id: str,
+        idempotency_key: str | None = None,
+    ) -> dict[str, object]:
+        membership = connection.execute("SELECT * FROM memberships WHERE id=?", (membership_id,)).fetchone()
+        if membership is None:
+            raise AdminSoftwareNotFound("Membership not found")
+        if membership["status"] == "cancelled":
+            raise AdminSoftwareConflict("Cannot record payment against a cancelled membership")
+        if idempotency_key:
+            existing = connection.execute(
+                "SELECT * FROM membership_payments WHERE recorded_by_admin_user_id=? AND idempotency_key=?",
+                (actor_admin_user_id, idempotency_key),
+            ).fetchone()
+            if existing is not None:
+                if (
+                    existing["membership_id"] != membership_id
+                    or int(existing["amount_paise"]) != amount_paise
+                    or existing["method"] != method
+                    or existing["note"] != note
+                    or existing["status"] != "recorded"
+                ):
+                    raise AdminSoftwareConflict("Idempotency key was already used for a different payment")
+                return self._safe_payment(existing)
+        summary = self._payment_summary(connection, membership)
+        if amount_paise <= 0:
+            raise AdminSoftwareValidationError({"amountPaidPaise": "Amount must be greater than zero"})
+        if amount_paise > summary["pendingPaise"]:
+            raise AdminSoftwareConflict("Payment exceeds pending membership balance")
+        payment_id = uuid4().hex
+        now = self._now()
+        connection.execute(
+            "INSERT INTO membership_payments(id,membership_id,amount_paise,currency,method,note,paid_at,"
+            "status,recorded_by_admin_user_id,idempotency_key,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (payment_id, membership_id, amount_paise, membership["currency_snapshot"], method,
+             note, paid_at, "recorded", actor_admin_user_id, idempotency_key, now),
+        )
+        self.admin_service._audit(
+            connection,
+            actor_admin_user_id,
+            "membership_payment_recorded",
+            target_type="membership_payment",
+            target_id=payment_id,
+            metadata={"membershipId": membership_id, "amountPaise": amount_paise, "method": method},
+        )
+        row = connection.execute("SELECT * FROM membership_payments WHERE id=?", (payment_id,)).fetchone()
+        return self._safe_payment(row)
+
+    def _validated_payment(self, payload: Mapping[str, object], *, allow_zero: bool = False) -> tuple[int, str, int, str | None]:
+        errors: dict[str, str] = {}
+        try:
+            amount = int(payload.get("amountPaidPaise", payload.get("amountPaise", 0)))
+            if amount < 0 or (amount == 0 and not allow_zero):
+                raise ValueError
+        except (TypeError, ValueError):
+            amount = 0
+            errors["amountPaidPaise"] = "Amount must be a positive integer in paise"
+        method = str(payload.get("paymentMethod", payload.get("method", ""))).strip().casefold()
+        if amount > 0 and method not in PAYMENT_METHODS:
+            errors["paymentMethod"] = "Select cash, UPI, card, bank transfer, or other"
+        try:
+            paid_at = int(payload.get("paidAt", self._now()))
+            if paid_at < 0 or paid_at > self._now() + 86400:
+                raise ValueError
+        except (TypeError, ValueError):
+            paid_at = self._now()
+            errors["paidAt"] = "Payment date is invalid"
+        try:
+            note = _clean_note(payload.get("note"))
+        except ValueError as error:
+            note = None
+            errors["note"] = str(error)
+        if errors:
+            raise AdminSoftwareValidationError(errors)
+        return amount, method if amount > 0 else "cash", paid_at, note
+
+    def record_payment(
+        self,
+        membership_id: str,
+        payload: Mapping[str, object],
+        *,
+        actor_admin_user_id: str,
+        idempotency_key: object = None,
+    ) -> dict[str, object]:
+        amount, method, paid_at, note = self._validated_payment(payload)
+        key = _clean_idempotency_key(idempotency_key)
+        with self.database.session() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            payment = self._record_payment_connection(
+                connection,
+                membership_id,
+                amount_paise=amount,
+                method=method,
+                paid_at=paid_at,
+                note=note,
+                actor_admin_user_id=actor_admin_user_id,
+                idempotency_key=key,
+            )
+            membership = connection.execute("SELECT * FROM memberships WHERE id=?", (membership_id,)).fetchone()
+            summary = self._payment_summary(connection, membership)
+            connection.commit()
+        return {"payment": payment, "summary": summary}
+
+    def create_customer_bundle(
+        self,
+        payload: Mapping[str, object],
+        *,
+        actor_admin_user_id: str,
+    ) -> dict[str, object]:
+        errors: dict[str, str] = {}
+        try:
+            name = _clean_name(payload.get("displayName", payload.get("name")))
+        except ValueError as error:
+            name = ""
+            errors["displayName"] = str(error)
+        try:
+            phone = normalize_phone(str(payload.get("phone", "")))
+        except ValueError:
+            phone = ""
+            errors["phone"] = "Use an international mobile number such as +919876543210"
+        plan_id = str(payload.get("planId", "")).strip()
+        if not plan_id:
+            errors["planId"] = "Membership plan is required"
+        if errors:
+            raise AdminSoftwareValidationError(errors)
+        amount, method, paid_at, note = self._validated_payment(payload, allow_zero=True)
+        customer_id = uuid4().hex
+        now = self._now()
+        try:
+            with self.database.session() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    "INSERT INTO customers(id,status,display_name,phone_e164,phone_verified,created_at,updated_at,"
+                    "created_by_admin_user_id) VALUES (?,?,?,?,?,?,?,?)",
+                    (customer_id, "active", name, phone, 0, now, now, actor_admin_user_id),
+                )
+                connection.execute(
+                    "INSERT INTO customer_profiles(customer_id,updated_at) VALUES (?,?)",
+                    (customer_id, now),
+                )
+                membership = self.membership_service._create_membership_connection(
+                    connection,
+                    customer_id,
+                    plan_id,
+                    actor_admin_user_id=actor_admin_user_id,
+                    starts_at=payload.get("startsAt"),
+                    source="admin_manual",
+                )
+                payment = None
+                if amount > 0:
+                    payment = self._record_payment_connection(
+                        connection,
+                        str(membership["id"]),
+                        amount_paise=amount,
+                        method=method,
+                        paid_at=paid_at,
+                        note=note,
+                        actor_admin_user_id=actor_admin_user_id,
+                    )
+                self.admin_service._audit(
+                    connection,
+                    actor_admin_user_id,
+                    "customer_created",
+                    target_type="customer",
+                    target_id=customer_id,
+                    metadata={"initialMembership": True},
+                )
+                row = self._customer_row(connection, customer_id)
+                membership_row = connection.execute("SELECT * FROM memberships WHERE id=?", (membership["id"],)).fetchone()
+                summary = self._payment_summary(connection, membership_row)
+                connection.commit()
+        except sqlite3.IntegrityError as error:
+            if "phone" in str(error).casefold() or "uq_customers_owner_managed_phone" in str(error):
+                raise AdminSoftwareConflict("A customer with this mobile number already exists") from error
+            raise
+        return {
+            "customer": self._safe_customer(row),
+            "membership": membership,
+            "payment": payment,
+            "paymentSummary": summary,
+        }
+
+    def update_customer(
+        self,
+        customer_id: str,
+        payload: Mapping[str, object],
+        *,
+        actor_admin_user_id: str,
+    ) -> dict[str, object]:
+        unexpected = sorted(set(payload) - {"displayName", "phone", "status"})
+        if unexpected:
+            raise AdminSoftwareValidationError({field: "Unexpected field" for field in unexpected})
+        with self.database.session() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = self._customer_row(connection, customer_id)
+            name = current["display_name"]
+            phone = current["phone_e164"]
+            status = current["status"]
+            if "displayName" in payload:
+                try:
+                    name = _clean_name(payload["displayName"])
+                except ValueError as error:
+                    raise AdminSoftwareValidationError({"displayName": str(error)}) from error
+            phone_changed = False
+            if "phone" in payload:
+                try:
+                    phone = normalize_phone(str(payload["phone"]))
+                except ValueError as error:
+                    raise AdminSoftwareValidationError(
+                        {"phone": "Use an international mobile number such as +919876543210"}
+                    ) from error
+                phone_changed = phone != current["phone_e164"]
+            if "status" in payload:
+                status = str(payload["status"]).strip().casefold()
+                if status not in CUSTOMER_STATUSES:
+                    raise AdminSoftwareValidationError({"status": "Status must be active or disabled"})
+            try:
+                connection.execute(
+                    "UPDATE customers SET display_name=?,phone_e164=?,phone_verified=?,status=?,updated_at=? WHERE id=?",
+                    (name, phone, 0 if phone_changed else current["phone_verified"], status, self._now(), customer_id),
+                )
+            except sqlite3.IntegrityError as error:
+                raise AdminSoftwareConflict("A customer with this mobile number already exists") from error
+            if phone_changed or status == "disabled":
+                reason = "admin_phone_changed" if phone_changed else "admin_disabled"
+                connection.execute(
+                    "UPDATE customer_sessions SET revoked_at=?,revoke_reason=? "
+                    "WHERE customer_id=? AND revoked_at IS NULL",
+                    (self._now(), reason, customer_id),
+                )
+            self.admin_service._audit(
+                connection,
+                actor_admin_user_id,
+                "customer_updated",
+                target_type="customer",
+                target_id=customer_id,
+                metadata={"fields": sorted(payload)},
+            )
+            row = self._customer_row(connection, customer_id)
+            connection.commit()
+        return self._safe_customer(row)
+
+    def list_payments(
+        self,
+        *,
+        customer_id: str | None = None,
+        membership_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, object]]:
+        clauses = ["p.status='recorded'"]
+        params: list[object] = []
+        if customer_id:
+            clauses.append("m.customer_id=?")
+            params.append(customer_id)
+        if membership_id:
+            clauses.append("p.membership_id=?")
+            params.append(membership_id)
+        params.append(_bounded_limit(limit))
+        with self.database.session() as connection:
+            rows = connection.execute(
+                "SELECT p.*,m.customer_id,m.membership_number,c.display_name FROM membership_payments p "
+                "JOIN memberships m ON m.id=p.membership_id JOIN customers c ON c.id=m.customer_id "
+                f"WHERE {' AND '.join(clauses)} ORDER BY p.paid_at DESC,p.created_at DESC LIMIT ?",
+                params,
+            ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "membershipId": row["membership_id"],
+                "membershipNumber": row["membership_number"],
+                "customerId": row["customer_id"],
+                "customerName": row["display_name"],
+                "amountPaise": int(row["amount_paise"]),
+                "currency": row["currency"],
+                "method": row["method"],
+                "note": row["note"],
+                "paidAt": int(row["paid_at"]),
+                "status": row["status"],
+            }
+            for row in rows
+        ]
+
+    def customer_detail(self, customer_id: str) -> dict[str, object]:
+        with self.database.session() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self.membership_service._reconcile_connection(connection, customer_id=customer_id)
+            customer = self._customer_row(connection, customer_id)
+            memberships = connection.execute(
+                "SELECT * FROM memberships WHERE customer_id=? ORDER BY starts_at DESC,created_at DESC",
+                (customer_id,),
+            ).fetchall()
+            reminders = connection.execute(
+                "SELECT id,membership_id,state,trigger_days,created_at,updated_at "
+                "FROM notification_reminders WHERE customer_id=? ORDER BY created_at DESC LIMIT 20",
+                (customer_id,),
+            ).fetchall()
+            items = [self._membership_payload(connection, row) for row in memberships]
+            connection.commit()
+        current = next((item for item in items if item["status"] == "active"), None)
+        upcoming = next((item for item in reversed(items) if item["status"] == "scheduled"), None)
+        history = [item for item in items if item["status"] in {"expired", "cancelled"}]
+        return {
+            "customer": self._safe_customer(customer),
+            "membership": {"current": current, "upcoming": upcoming, "history": history, "all": items},
+            "payments": self.list_payments(customer_id=customer_id, limit=100),
+            "notifications": [
+                {
+                    "id": row["id"],
+                    "membershipId": row["membership_id"],
+                    "state": row["state"],
+                    "triggerDays": int(row["trigger_days"]),
+                    "createdAt": int(row["created_at"]),
+                    "suppressedAt": int(row["updated_at"]) if row["state"] == "suppressed" else None,
+                }
+                for row in reminders
+            ],
+        }
+
+    def list_customers(
+        self,
+        *,
+        query: str = "",
+        customer_status: str = "",
+        membership_status: str = "",
+        plan_id: str = "",
+        limit: int = 200,
+    ) -> list[dict[str, object]]:
+        needle = query.strip().casefold()[:100]
+        if customer_status and customer_status not in CUSTOMER_STATUSES:
+            raise AdminSoftwareValidationError({"status": "Invalid customer status filter"})
+        allowed_membership = {"", "active", "scheduled", "expired", "cancelled", "none"}
+        if membership_status not in allowed_membership:
+            raise AdminSoftwareValidationError({"membershipStatus": "Invalid membership status filter"})
+        with self.database.session() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self.membership_service._reconcile_connection(connection)
+            pattern = f"%{needle}%"
+            rows = connection.execute(
+                "SELECT id,status,display_name,email,phone_e164,phone_verified,created_at,last_login_at "
+                "FROM customers WHERE status!='deleted' AND (?='' OR status=?) "
+                "AND (?='' OR lower(COALESCE(display_name,'')) LIKE ? OR COALESCE(phone_e164,'') LIKE ?) "
+                "ORDER BY display_name COLLATE NOCASE,id LIMIT ?",
+                (customer_status, customer_status, needle, pattern, pattern, _bounded_limit(limit, 200)),
+            ).fetchall()
+            result: list[dict[str, object]] = []
+            for row in rows:
+                membership = connection.execute(
+                    "SELECT * FROM memberships WHERE customer_id=? "
+                    "ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'scheduled' THEN 1 WHEN 'expired' THEN 2 ELSE 3 END,"
+                    "ends_at DESC LIMIT 1",
+                    (row["id"],),
+                ).fetchone()
+                if plan_id and (membership is None or membership["plan_id"] != plan_id):
+                    continue
+                actual_status = membership["status"] if membership is not None else "none"
+                if membership_status and actual_status != membership_status:
+                    continue
+                item = self._safe_customer(row)
+                item["membership"] = self._membership_payload(connection, membership) if membership else None
+                result.append(item)
+            connection.commit()
+        return result
+
+    def fees(self, *, query: str = "", pending_only: bool = False, limit: int = 300) -> dict[str, object]:
+        needle = query.strip().casefold()[:100]
+        with self.database.session() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self.membership_service._reconcile_connection(connection)
+            memberships = connection.execute(
+                "SELECT m.*,c.display_name,c.phone_e164 FROM memberships m JOIN customers c ON c.id=m.customer_id "
+                "WHERE c.status!='deleted' AND m.status!='cancelled' "
+                "AND (?='' OR lower(COALESCE(c.display_name,'')) LIKE ? OR COALESCE(c.phone_e164,'') LIKE ?) "
+                "ORDER BY m.ends_at ASC LIMIT ?",
+                (needle, f"%{needle}%", f"%{needle}%", _bounded_limit(limit, 300)),
+            ).fetchall()
+            rows: list[dict[str, object]] = []
+            pending_total = 0
+            for membership in memberships:
+                summary = self._payment_summary(connection, membership)
+                if pending_only and summary["pendingPaise"] <= 0:
+                    continue
+                pending_total += summary["pendingPaise"]
+                rows.append({
+                    "customerId": membership["customer_id"],
+                    "customerName": membership["display_name"],
+                    "phone": membership["phone_e164"],
+                    "membership": self._membership_payload(connection, membership),
+                })
+            connection.commit()
+        rows.sort(key=lambda item: int(item["membership"]["payment"]["pendingPaise"]), reverse=True)
+        return {"pendingFeesTotalPaise": pending_total, "rows": rows}
+
+    def renew_membership(
+        self,
+        customer_id: str,
+        payload: Mapping[str, object],
+        *,
+        actor_admin_user_id: str,
+        idempotency_key: object = None,
+    ) -> dict[str, object]:
+        plan_id = str(payload.get("planId", "")).strip()
+        if not plan_id:
+            raise AdminSoftwareValidationError({"planId": "Membership plan is required"})
+        amount, method, paid_at, note = self._validated_payment(payload, allow_zero=True)
+        key = _clean_idempotency_key(idempotency_key)
+        with self.database.session() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._customer_row(connection, customer_id)
+            if key:
+                existing = connection.execute(
+                    "SELECT * FROM memberships WHERE created_by_admin_user_id=? AND admin_idempotency_key=?",
+                    (actor_admin_user_id, key),
+                ).fetchone()
+                if existing is not None:
+                    if existing["customer_id"] != customer_id or existing["plan_id"] != plan_id:
+                        raise AdminSoftwareConflict("Idempotency key was already used for a different renewal")
+                    if payload.get("startsAt") not in (None, ""):
+                        try:
+                            requested_start = int(payload["startsAt"])
+                        except (TypeError, ValueError) as error:
+                            raise AdminSoftwareValidationError({"startsAt": "Start time must be a Unix timestamp"}) from error
+                        if int(existing["starts_at"]) != requested_start:
+                            raise AdminSoftwareConflict("Idempotency key was already used for a different renewal")
+                    existing_payment = connection.execute(
+                        "SELECT * FROM membership_payments WHERE recorded_by_admin_user_id=? AND idempotency_key=?",
+                        (actor_admin_user_id, key),
+                    ).fetchone()
+                    if amount > 0:
+                        if (
+                            existing_payment is None
+                            or existing_payment["membership_id"] != existing["id"]
+                            or int(existing_payment["amount_paise"]) != amount
+                            or existing_payment["method"] != method
+                            or existing_payment["note"] != note
+                        ):
+                            raise AdminSoftwareConflict("Idempotency key was already used for a different renewal")
+                    elif existing_payment is not None:
+                        raise AdminSoftwareConflict("Idempotency key was already used for a different renewal")
+                    membership = self.membership_service._safe_membership(existing, now=self._now())
+                    payment = self._safe_payment(existing_payment) if existing_payment is not None else None
+                    summary = self._payment_summary(connection, existing)
+                    connection.commit()
+                    return {"membership": membership, "payment": payment, "paymentSummary": summary}
+            membership = self.membership_service._create_membership_connection(
+                connection,
+                customer_id,
+                plan_id,
+                actor_admin_user_id=actor_admin_user_id,
+                starts_at=payload.get("startsAt"),
+                source="admin_manual",
+                admin_idempotency_key=key,
+            )
+            payment = None
+            if amount > 0:
+                payment = self._record_payment_connection(
+                    connection,
+                    str(membership["id"]),
+                    amount_paise=amount,
+                    method=method,
+                    paid_at=paid_at,
+                    note=note,
+                    actor_admin_user_id=actor_admin_user_id,
+                    idempotency_key=key,
+                )
+            now = self._now()
+            connection.execute(
+                "UPDATE notification_reminders SET state='suppressed',updated_at=? "
+                "WHERE customer_id=? AND state='pending' AND membership_id IN ("
+                "SELECT id FROM memberships WHERE customer_id=? AND id!=? AND ends_at<=?)",
+                (now, customer_id, customer_id, membership["id"], int(membership["startsAt"])),
+            )
+            self.admin_service._audit(
+                connection,
+                actor_admin_user_id,
+                "membership_renewed",
+                target_type="membership",
+                target_id=str(membership["id"]),
+                metadata={"customerId": customer_id, "planId": plan_id},
+            )
+            membership_row = connection.execute("SELECT * FROM memberships WHERE id=?", (membership["id"],)).fetchone()
+            summary = self._payment_summary(connection, membership_row)
+            connection.commit()
+        return {"membership": membership, "payment": payment, "paymentSummary": summary}
+
+    def dashboard(self) -> dict[str, object]:
+        now = self._now()
+        day = 86400
+        current = datetime.fromtimestamp(now, tz=timezone.utc)
+        month_start = int(current.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+        with self.database.session() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self.membership_service._reconcile_connection(connection)
+            total_customers = int(connection.execute(
+                "SELECT COUNT(*) FROM customers WHERE status!='deleted'"
+            ).fetchone()[0])
+            active_members = int(connection.execute(
+                "SELECT COUNT(DISTINCT customer_id) FROM memberships WHERE status='active'"
+            ).fetchone()[0])
+            expiring_soon = int(connection.execute(
+                "SELECT COUNT(*) FROM memberships WHERE status='active' AND ends_at>? AND ends_at<=?",
+                (now, now + 7 * day),
+            ).fetchone()[0])
+            expired_members = int(connection.execute(
+                "SELECT COUNT(*) FROM customers c WHERE c.status!='deleted' "
+                "AND EXISTS(SELECT 1 FROM memberships e WHERE e.customer_id=c.id AND e.status='expired') "
+                "AND NOT EXISTS(SELECT 1 FROM memberships l WHERE l.customer_id=c.id AND l.status IN ('active','scheduled'))"
+            ).fetchone()[0])
+            new_this_month = int(connection.execute(
+                "SELECT COUNT(*) FROM customers WHERE status!='deleted' AND created_at>=?",
+                (month_start,),
+            ).fetchone()[0])
+            manual_today = int(connection.execute(
+                "SELECT COALESCE(SUM(amount_paise),0) FROM membership_payments "
+                "WHERE status='recorded' AND paid_at>?",
+                (now - day,),
+            ).fetchone()[0])
+            manual_month = int(connection.execute(
+                "SELECT COALESCE(SUM(amount_paise),0) FROM membership_payments "
+                "WHERE status='recorded' AND paid_at>=?",
+                (month_start,),
+            ).fetchone()[0])
+            gateway_today = int(connection.execute(
+                "SELECT COALESCE(SUM(amount_paise),0) FROM payment_intents "
+                "WHERE status='paid' AND paid_at>?",
+                (now - day,),
+            ).fetchone()[0])
+            gateway_month = int(connection.execute(
+                "SELECT COALESCE(SUM(amount_paise),0) FROM payment_intents "
+                "WHERE status='paid' AND paid_at>=?",
+                (month_start,),
+            ).fetchone()[0])
+            pending_total = 0
+            pending_rows = []
+            for row in connection.execute(
+                "SELECT m.*,c.display_name FROM memberships m JOIN customers c ON c.id=m.customer_id "
+                "WHERE c.status!='deleted' AND m.status!='cancelled'"
+            ).fetchall():
+                summary = self._payment_summary(connection, row)
+                if summary["pendingPaise"] > 0:
+                    pending_total += summary["pendingPaise"]
+                    pending_rows.append({
+                        "customerId": row["customer_id"],
+                        "customerName": row["display_name"],
+                        "membershipId": row["id"],
+                        "membershipNumber": row["membership_number"],
+                        "planName": row["plan_name_snapshot"],
+                        "endsAt": int(row["ends_at"]),
+                        **summary,
+                    })
+            expiry_rows = connection.execute(
+                "SELECT m.*,c.display_name FROM memberships m JOIN customers c ON c.id=m.customer_id "
+                "WHERE c.status!='deleted' AND ((m.status='active' AND m.ends_at>? AND m.ends_at<=?) "
+                "OR (m.status='expired' AND m.ends_at>?)) ORDER BY m.ends_at ASC",
+                (now, now + 7 * day, now - day),
+            ).fetchall()
+            connection.commit()
+        expiry = {"today": [], "tomorrow": [], "threeDays": [], "sevenDays": []}
+        for row in expiry_rows:
+            if row["status"] == "expired":
+                key = "today"
+            else:
+                remaining = int(row["ends_at"]) - now
+                if remaining <= day:
+                    key = "tomorrow"
+                elif remaining <= 3 * day:
+                    key = "threeDays"
+                else:
+                    key = "sevenDays"
+            expiry[key].append({
+                "customerId": row["customer_id"],
+                "customerName": row["display_name"],
+                "membershipId": row["id"],
+                "membershipNumber": row["membership_number"],
+                "planName": row["plan_name_snapshot"],
+                "endsAt": int(row["ends_at"]),
+                "status": row["status"],
+            })
+        pending_rows.sort(key=lambda item: int(item["pendingPaise"]), reverse=True)
+        recent_customers = self.list_customers(limit=8)
+        return {
+            "stats": {
+                "totalCustomers": total_customers,
+                "activeMembers": active_members,
+                "expiringSoon": expiring_soon,
+                "expiredMembers": expired_members,
+                "pendingFeesTotalPaise": pending_total,
+                "newCustomersThisMonth": new_this_month,
+                "paymentsReceivedTodayPaise": manual_today + gateway_today,
+                "paymentsReceivedThisMonthPaise": manual_month + gateway_month,
+            },
+            "expiring": expiry,
+            "pendingFees": pending_rows[:12],
+            "recentPayments": self.list_payments(limit=8),
+            "recentCustomers": recent_customers[:8],
+        }
+
+    def list_memberships(
+        self,
+        *,
+        status: str = "",
+        plan_id: str = "",
+        limit: int = 300,
+    ) -> list[dict[str, object]]:
+        if status and status not in {"scheduled", "active", "expired", "cancelled"}:
+            raise AdminSoftwareValidationError({"status": "Invalid membership status"})
+        with self.database.session() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self.membership_service._reconcile_connection(connection)
+            rows = connection.execute(
+                "SELECT m.*,c.display_name,c.phone_e164 FROM memberships m "
+                "JOIN customers c ON c.id=m.customer_id WHERE c.status!='deleted' "
+                "AND (?='' OR m.status=?) AND (?='' OR m.plan_id=?) "
+                "ORDER BY m.ends_at ASC LIMIT ?",
+                (status, status, plan_id, plan_id, _bounded_limit(limit, 300)),
+            ).fetchall()
+            result = []
+            for row in rows:
+                result.append({
+                    "customer": {"id": row["customer_id"], "displayName": row["display_name"], "phone": row["phone_e164"]},
+                    "membership": self._membership_payload(connection, row),
+                })
+            connection.commit()
+        return result

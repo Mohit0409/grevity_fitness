@@ -398,6 +398,85 @@ class MembershipService:
             raise MembershipNotFound("Customer not found")
         if row["status"] != "active":
             raise MembershipConflict("Customer account is not active")
+    def _create_membership_connection(
+        self,
+        connection,
+        customer_id: str,
+        plan_id: str,
+        *,
+        actor_admin_user_id: str | None = None,
+        starts_at: int | None = None,
+        source: str = "admin_manual",
+        payment_reference: str | None = None,
+        admin_idempotency_key: str | None = None,
+    ) -> dict[str, object]:
+        now = self._now()
+        if source not in {"admin_manual", "payment", "import"}:
+            raise MembershipValidationError({"source": "Invalid membership source"})
+        if source == "admin_manual" and not actor_admin_user_id:
+            raise MembershipValidationError({"actor": "Administrator is required"})
+        if source == "payment" and not payment_reference:
+            raise MembershipValidationError({"paymentReference": "Verified payment reference is required"})
+        self._reconcile_connection(connection, customer_id=customer_id)
+        self._customer_exists(connection, customer_id)
+        if payment_reference and connection.execute(
+            "SELECT 1 FROM memberships WHERE payment_reference=? LIMIT 1", (payment_reference,)
+        ).fetchone():
+            raise MembershipConflict("Payment reference has already been used")
+        plan = self._plan_row(connection, plan_id)
+        live = connection.execute(
+            "SELECT starts_at,ends_at FROM memberships WHERE customer_id=? "
+            "AND status IN ('scheduled','active') ORDER BY ends_at DESC",
+            (customer_id,),
+        ).fetchall()
+        if starts_at is None:
+            start = max([now, *(int(row["ends_at"]) for row in live)])
+        else:
+            try:
+                start = int(starts_at)
+            except (TypeError, ValueError) as error:
+                raise MembershipValidationError({"startsAt": "Start time must be a Unix timestamp"}) from error
+            if start < now - 86400:
+                raise MembershipValidationError({"startsAt": "Start time cannot be more than one day in the past"})
+        end = _add_months(start, int(plan["duration_months"]))
+        if connection.execute(
+            "SELECT 1 FROM memberships WHERE customer_id=? AND status IN ('scheduled','active') "
+            "AND starts_at < ? AND ends_at > ? LIMIT 1",
+            (customer_id, end, start),
+        ).fetchone():
+            raise MembershipConflict("Membership period overlaps an existing live membership")
+        membership_id = uuid4().hex
+        status = "active" if start <= now < end else "scheduled"
+        number = _membership_number(now)
+        connection.execute(
+            "INSERT INTO memberships(id,membership_number,customer_id,plan_id,plan_name_snapshot,"
+            "plan_price_paise_snapshot,currency_snapshot,duration_months_snapshot,status,starts_at,"
+            "ends_at,source,payment_reference,created_by_admin_user_id,admin_idempotency_key,created_at,updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                membership_id, number, customer_id, plan["id"], plan["name"], plan["price_paise"],
+                plan["currency"], plan["duration_months"], status, start, end, source,
+                payment_reference, actor_admin_user_id, admin_idempotency_key, now, now,
+            ),
+        )
+        self._event(
+            connection,
+            membership_id,
+            "created",
+            actor_admin_user_id=actor_admin_user_id,
+            metadata={"source": source, "planId": plan["id"]},
+        )
+        if status == "active":
+            self._event(
+                connection,
+                membership_id,
+                "activated",
+                actor_admin_user_id=actor_admin_user_id,
+                metadata={"automatic": False},
+            )
+        row = connection.execute("SELECT * FROM memberships WHERE id=?", (membership_id,)).fetchone()
+        return self._safe_membership(row, now=now)
+
     def create_membership(
         self,
         customer_id: str,
@@ -407,87 +486,22 @@ class MembershipService:
         starts_at: int | None = None,
         source: str = "admin_manual",
         payment_reference: str | None = None,
+        admin_idempotency_key: str | None = None,
     ) -> dict[str, object]:
-        now = self._now()
-        if source not in {"admin_manual", "payment", "import"}:
-            raise MembershipValidationError({"source": "Invalid membership source"})
-        if source == "admin_manual" and not actor_admin_user_id:
-            raise MembershipValidationError({"actor": "Administrator is required"})
-        if source == "payment" and not payment_reference:
-            raise MembershipValidationError({"paymentReference": "Verified payment reference is required"})
         with self.database.session() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            self._reconcile_connection(connection, customer_id=customer_id)
-            self._customer_exists(connection, customer_id)
-            if payment_reference:
-                duplicate_payment = connection.execute(
-                    "SELECT 1 FROM memberships WHERE payment_reference=? LIMIT 1",
-                    (payment_reference,),
-                ).fetchone()
-                if duplicate_payment:
-                    connection.rollback()
-                    raise MembershipConflict("Payment reference has already been used")
-            plan = self._plan_row(connection, plan_id)
-            live = connection.execute(
-                "SELECT starts_at,ends_at FROM memberships WHERE customer_id=? "
-                "AND status IN ('scheduled','active') ORDER BY ends_at DESC",
-                (customer_id,),
-            ).fetchall()
-            if starts_at is None:
-                start = max([now, *(int(row["ends_at"]) for row in live)])
-            else:
-                try:
-                    start = int(starts_at)
-                except (TypeError, ValueError):
-                    connection.rollback()
-                    raise MembershipValidationError({"startsAt": "Start time must be a Unix timestamp"})
-                if start < now - 86400:
-                    connection.rollback()
-                    raise MembershipValidationError({"startsAt": "Start time cannot be more than one day in the past"})
-            end = _add_months(start, int(plan["duration_months"]))
-            overlap = connection.execute(
-                "SELECT 1 FROM memberships WHERE customer_id=? AND status IN ('scheduled','active') "
-                "AND starts_at < ? AND ends_at > ? LIMIT 1",
-                (customer_id, end, start),
-            ).fetchone()
-            if overlap:
-                connection.rollback()
-                raise MembershipConflict("Membership period overlaps an existing live membership")
-            membership_id = uuid4().hex
-            status = "active" if start <= now < end else "scheduled"
-            number = _membership_number(now)
-            connection.execute(
-                "INSERT INTO memberships(id,membership_number,customer_id,plan_id,plan_name_snapshot,"
-                "plan_price_paise_snapshot,currency_snapshot,duration_months_snapshot,status,starts_at,"
-                "ends_at,source,payment_reference,created_by_admin_user_id,created_at,updated_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (
-                    membership_id, number, customer_id, plan["id"], plan["name"], plan["price_paise"],
-                    plan["currency"], plan["duration_months"], status, start, end, source,
-                    payment_reference, actor_admin_user_id, now, now,
-                ),
-            )
-            self._event(
+            membership = self._create_membership_connection(
                 connection,
-                membership_id,
-                "created",
+                customer_id,
+                plan_id,
                 actor_admin_user_id=actor_admin_user_id,
-                metadata={"source": source, "planId": plan["id"]},
+                starts_at=starts_at,
+                source=source,
+                payment_reference=payment_reference,
+                admin_idempotency_key=admin_idempotency_key,
             )
-            if status == "active":
-                self._event(
-                    connection,
-                    membership_id,
-                    "activated",
-                    actor_admin_user_id=actor_admin_user_id,
-                    metadata={"automatic": False},
-                )
-            row = connection.execute(
-                "SELECT * FROM memberships WHERE id=?",
-                (membership_id,),
-            ).fetchone()
             connection.commit()
-        return self._safe_membership(row, now=now)
+        return membership
 
     def cancel_membership(
         self,

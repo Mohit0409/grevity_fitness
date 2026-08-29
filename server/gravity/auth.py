@@ -53,6 +53,10 @@ class IdentityConflict(AuthenticationError):
     pass
 
 
+class AccountNotProvisioned(AuthenticationError):
+    pass
+
+
 class InvalidCsrf(AuthenticationError):
     pass
 
@@ -218,7 +222,7 @@ class AuthService:
                     "SELECT customer_id FROM firebase_identities WHERE project_id = ? AND firebase_uid = ?",
                     (identity.project_id, identity.uid),
                 ).fetchone()
-                created = existing is None
+                attached = False
                 if existing:
                     customer_id = existing["customer_id"]
                     self._validate_existing_customer(
@@ -229,28 +233,22 @@ class AuthService:
                     )
                     self._update_existing_identity(connection, customer_id, identity, now)
                 else:
-                    self._assert_identity_available(connection, identity, normalized_email, normalized_phone)
-                    connection.execute(
-                        "INSERT INTO customers(id, display_name, email, normalized_email, email_verified, "
-                        "phone_e164, phone_verified, photo_url, created_at, updated_at, last_login_at) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        (
-                            customer_id,
-                            identity.display_name,
-                            identity.email if normalized_email else None,
-                            normalized_email,
-                            1 if normalized_email else 0,
-                            normalized_phone,
-                            1 if normalized_phone else 0,
-                            identity.photo_url,
-                            now,
-                            now,
-                            now,
-                        ),
-                    )
-                    connection.execute(
-                        "INSERT INTO customer_profiles(customer_id, updated_at) VALUES (?, ?)",
-                        (customer_id, now),
+                    if not normalized_phone:
+                        raise AccountNotProvisioned("Customer must be created by Gravity Fitness before login")
+                    provisioned = connection.execute(
+                        "SELECT id,status FROM customers WHERE phone_e164=? AND status!='deleted'",
+                        (normalized_phone,),
+                    ).fetchone()
+                    if provisioned is None:
+                        raise AccountNotProvisioned("Customer must be created by Gravity Fitness before login")
+                    if provisioned["status"] != "active":
+                        raise AccountDisabled("Customer account is disabled")
+                    customer_id = str(provisioned["id"])
+                    self._validate_existing_customer(
+                        connection,
+                        customer_id,
+                        normalized_email=normalized_email,
+                        normalized_phone=normalized_phone,
                     )
                     connection.execute(
                         "INSERT INTO firebase_identities(project_id, firebase_uid, customer_id, "
@@ -264,7 +262,8 @@ class AuthService:
                             now,
                         ),
                     )
-                    self._upsert_provider_identity(connection, identity, now)
+                    self._update_existing_identity(connection, customer_id, identity, now)
+                    attached = True
 
                 if prior_session_token:
                     connection.execute(
@@ -289,7 +288,7 @@ class AuthService:
                 self._audit(
                     connection,
                     actor_id=customer_id,
-                    action="customer_registered" if created else "customer_login",
+                    action="customer_identity_attached" if attached else "customer_login",
                     request_id=request_id,
                     metadata={"provider": identity.sign_in_provider},
                 )
@@ -440,10 +439,14 @@ class AuthService:
         normalized_phone: str | None,
     ) -> None:
         customer = connection.execute(
-            "SELECT status FROM customers WHERE id = ?", (customer_id,)
+            "SELECT status,normalized_email,phone_e164 FROM customers WHERE id = ?", (customer_id,)
         ).fetchone()
         if not customer or customer["status"] != "active":
             raise AccountDisabled("Customer account is disabled")
+        if normalized_email and customer["normalized_email"] not in (None, normalized_email):
+            raise IdentityConflict("Verified email differs from the provisioned customer account")
+        if normalized_phone and customer["phone_e164"] not in (None, normalized_phone):
+            raise IdentityConflict("Verified phone differs from the provisioned customer account")
         if normalized_email:
             owner = connection.execute(
                 "SELECT id FROM customers WHERE normalized_email = ? AND email_verified = 1 "

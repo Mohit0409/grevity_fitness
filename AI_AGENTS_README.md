@@ -1,8 +1,21 @@
-# Gravity Fitness â€” AI Agent Coordination
+# Gravity Fitness ? AI Agent Coordination
 
-Last updated: 28 August 2026
+Last updated: 29 August 2026
 
-This is the canonical ownership map for every AI chat working on Gravity Fitness. Read it before editing any repository file. Copies in agent worktrees should match this file.
+This is the canonical ownership map for every AI chat working on Gravity Fitness. Read it before editing any repository file.
+
+## Product Priority
+
+Gravity Fitness Admin Software is the primary V1 product.
+
+Core rule:
+
+- Owner manages the gym.
+- Customer sees their membership.
+- System handles reminders.
+
+Primary Admin V1 navigation: Dashboard, Customers, Memberships, Fees / Payments, Notifications, then Settings / Advanced.
+Public website polishing is secondary unless required for a release regression.
 
 ## Repositories / Worktrees
 
@@ -10,84 +23,93 @@ Primary integration repo: `C:\movieXsuggestion\MyProject\grevity_fitness`
 
 | Chat | Role | Status | Branch / worktree |
 | --- | --- | --- | --- |
-| **Chat 1** | **Firebase/Auth + integration lead** | **Active** | `main` / `C:\movieXsuggestion\MyProject\grevity_fitness` |
-| **Chat 2** | **Public website UI/UX** | **Active** | `agent/gravity-public-ui` / `C:\movieXsuggestion\MyProject\grevity_fitness-public-ui` |
-| **Chat 3** | **Hosting, reliability, backups, notification scheduler and future Android/Termux deployment** | **Active** | `agent/gravity-notification-ops` / `C:\Users\91896\AppData\Local\Temp\gravity-notification-ops` |
+| **Chat 1** | **Admin backend + business logic + final integration lead** | **Active** | `main` / primary repo |
+| **Chat 2** | **Admin Software frontend + product UX** | **Active** | `agent/gravity-public-ui` / `C:\movieXsuggestion\MyProject\grevity_fitness-public-ui` |
+| **Chat 3** | **Admin reliability + QA + operations** | **Handoff ready; integration pending** | `agent/gravity-admin-ops` / `C:\Users\91896\AppData\Local\Temp\gravity-admin-ops` |
 
-## Chat 1 â€” Firebase/Auth + Integration Lead
+## Current Integration Baseline
 
-Chat 1 owns Google login, Mobile OTP, Firebase token verification, Gravity first-party sessions, identity linking, duplicate-account prevention, auth CSP/security and final integration of approved agent commits.
+- Local `main` baseline before the Chat 1 Admin V1 commit: `49529c9`.
+- Local `main` also contains reviewed notification / ops integrations including `d482460`, `145fb37`, `bcb3034`, and notification backend `aadfc6f`.
+- `origin/main` remains at `aadfc6f` until final Admin Software release gates are complete.
+- Live Gravity remains on migration 009. Migration 010 must not be applied live until Chat 2 and Chat 3 are integrated and final release gates pass.
 
-Chat 1 owns these files while auth work is active:
+## Chat 1 ? Admin Backend / Integration Lead
 
-- `server/gravity/auth.py`
-- `server/gravity/firebase_auth.py`
-- `server/gravity/http.py`
-- `web/js/account-page.js`
-- `web/pages/account.html`
-- `server/tests/test_auth.py`
+Chat 1 owns Admin Software domain logic, customer provisioning, membership lifecycle, manual reception payments, fees, dashboard aggregates, admin API contracts, authentication provisioning policy, database migrations, and final integration.
 
-`server/tests/test_foundation.py` is a shared hotspot. Chat 1 currently owns its auth/security-header assertions. Other chats may edit unrelated tests only after checking the diff first.
+Current Admin Software Backend V1 state:
 
-Current Chat 1 state:
+- New migration: `010_admin_software_v1.sql`.
+- Fresh database applies 10/10 migrations and reports schema stage `admin_software_v1`.
+- Migration 009 ? 010 preservation regression covers customers, Firebase identities, sessions, memberships, notifications, admins, and existing Razorpay payment intents.
+- Customers are owner-created and mobile numbers are normalized / unique for non-deleted accounts.
+- First mobile OTP login attaches Firebase identity to the existing owner-created customer.
+- Unknown verified phones fail closed with `account_not_provisioned`; customer self-registration is disabled.
+- Existing linked identities remain supported.
+- Add Customer can atomically create customer + initial membership + optional initial manual payment.
+- Manual payment ledger supports cash, UPI, card, bank transfer, and other; pending balance is derived from membership snapshot price minus recorded payments.
+- Payment and renewal operations support `Idempotency-Key` replay protection.
+- Renewal preserves membership history and suppresses obsolete expiry reminders.
+- Customer disable / owner phone change revoke active customer sessions.
+- Admin dashboard values are server-calculated and do not double-count membership history.
+- Admin Software targeted suite: 15/15 PASS.
+- Auth suite under owner-provisioned model: 15/15 PASS.
+- Cross-domain Admin/Auth/Membership/Payment/Notification gate: 65/65 PASS.
+- Full backend release suite: 146/146 PASS.
 
-- Latest pushed auth hardening commit: `76a054b` (`feat: validate firebase auth policy canary`).
-- Real Google login and real Mobile OTP are working on the public Gravity URL; reCAPTCHA remains enabled and fail closed.
-- The verified active customer has both `google.com` and `phone` identities linked to the same Gravity customer, with email and phone both verified; Gravity first-party session creation is confirmed.
-- Duplicate-account, cross-account merge, session rotation/revocation and collision protections pass the 15/15 auth regression suite.
-- The read-only Firebase provider canary now verifies Google enabled, Phone enabled, and India (`IN`) present in the SMS-region allowlist; the live canary passes.
-- Full backend release suite after Chat 3 integration: 111/111 tests passed.
-- Firebase providers intentionally exposed by Gravity: `google.com` and `phone`.
-- Chat 1 auth validation is complete. Chat 3 is integrated; remaining Chat 1 work is controlled integration of Chat 2 followed by final release gates.
-- Chat 1 membership-expiry backend now supports non-overlapping 7/3/1/0-day reminder windows and six-way customer/owner fan-out across email, SMS and WhatsApp while resolving contacts only at send time.
-- SMTP is the only bundled production delivery provider. StyleDash has no SMS/WhatsApp vendor implementation, so Gravity exposes tested provider boundaries and keeps those channels fail-closed until an external provider is selected/configured.
-- Chat 1 may integrate approved Chat 2 / Chat 3 commits into `main` only after reviewing conflicts and running the full release gates.
+Primary Admin V1 routes:
 
-## Chat 2 â€” Public UI/UX
+- `GET /api/admin/dashboard`
+- `GET|POST /api/admin/customers`
+- `GET|PATCH /api/admin/customers/{customerId}`
+- `POST /api/admin/customers/{customerId}/renew`
+- `GET /api/admin/memberships`
+- `GET /api/admin/payments`
+- `GET /api/admin/fees`
+- `POST /api/admin/memberships/{membershipId}/payments`
+- existing plan and notification routes remain available.
 
-Chat 2 owns homepage/public layout, trainers/coaching public pages, gallery, membership presentation, mobile navigation, responsive behavior, visual consistency, public accessibility, public performance and public SEO/metadata where auth code is not involved.
+## Chat 2 ? Admin Software Frontend
 
-Chat 2 must not modify Chat 1 auth-owned files. If a UI task requires `account.html`, `account-page.js` or `http.py`, stop and coordinate with Chat 1.
+Chat 2 owns the software-style Admin application shell and V1 owner workflows: Dashboard, Customers, customer detail, Add Customer, Memberships, Renew Membership, Record Payment, Fees, Notifications, responsive behavior, accessibility, and browser E2E.
 
-Current Chat 2 state:
+Current state:
 
-- Branch: `agent/gravity-public-ui`
-- Worktree: `C:\movieXsuggestion\MyProject\grevity_fitness-public-ui`
-- Responsive UI commit: `bcc18a1` (`Polish Gravity public responsive UI`).
-- Coordination-file commit: `3ca6845`.
-- Phase 2 performance/accessibility commit: `54cd4a7` (`Harden Gravity public performance and accessibility`).
-- Chat 2 public work is green: 16/16 Playwright and 102/102 Python tests passed.
-- Chat 2 must not merge into `main`; report the commit SHA to Chat 1/user for integration.
+- Branch: `agent/gravity-public-ui`.
+- Latest committed Admin workspace baseline: `25f92cf` (`Build Gravity admin management workspace`).
+- Additional Admin Software UI work is currently uncommitted in the Chat 2 worktree; Chat 1 must not integrate until Chat 2 provides a clean handoff SHA.
+- Chat 2 must consume Chat 1 server-owned calculations and must not fake persistent customer/payment state client-side.
+- `account_not_provisioned` must be presented as a contact-the-gym/reception state, not customer self-registration.
 
-## Chat 3 â€” Hosting / Reliability / Mobile Deployment
+## Chat 3 ? Admin Reliability / QA / Operations
 
-Chat 3 owns Windows lifecycle scripts, runtime/process safety, health/restart automation, backups/recovery, logging/monitoring, tunnel/proxy operations, migration tooling and the future Android/Termux deployment path.
+Chat 3 owns Admin Software workflow QA, backup/recovery validation, performance/index analysis, operational health checks, Windows/Termux safety, crash/retry testing, and security acceptance tests.
 
-Chat 3 must not modify Chat 1 auth files or Chat 2 public UI files unless the user explicitly reassigns ownership.
+Current state:
 
-Current Chat 3 state:
+- Branch: `agent/gravity-admin-ops`.
+- Clean handoff head: `ff1225e` (`test: stage admin software reliability coverage`).
+- Earlier Admin ops commits include `4131635` and handoff documentation `ee4ba10`.
+- Chat 1 must review the branch diff before integrating it into `main`.
+- Chat 3 must not apply migration 010 to the live Gravity database.
 
-- Branch: `agent/gravity-ops-mobile`
-- Worktree: `C:\Users\91896\AppData\Local\Temp\gravity-ops-mobile`
-- Handoff commit: `ce50dc0` (`feat: harden operations and add Termux migration`).
-- Integrated into `main` as `1968fba`; ownership review found no Chat 1 auth or Chat 2 public-UI files changed.
-- Integrated validation: 111/111 Python tests, Windows lifecycle drill, 8/8 browser E2E, launch gate, and Firebase provider canary all passed.
-- Live laptop process was migrated from the legacy PID file to the new managed runtime lease and is healthy under the deterministic lifecycle scripts.
-- Termux installer/runbook safeguards were integrated as `a76d748` after the `agent/gravity-ops-followup` review.
-- Deterministic SYSTEM-task ngrok recovery handoff `1cee6b1` was integrated into `main` as `bcb3034`.
-- Notification scheduler handoff `39c517e` from `agent/gravity-notification-ops` is under Chat 1 integration review. It adds safe Windows/Termux scheduling, retry/locking, monitoring, provider-readiness reporting and notification operations runbooks without changing notification business logic or delivery adapters.
-- Chat 1 backend `aadfc6f` already supports the required expiry-day CLI invocation `--scan-notifications 0`.
-- Remaining deployment-only items: elevated Task Scheduler registration on Windows, and later Android/Termux + Cloudflare Tunnel provisioning/burn-in on the actual phone.
+## Existing Notification Provider Reality
+
+- Membership expiry reminders support 7 / 3 / 1 / 0-day windows and customer + owner fan-out across email, SMS, and WhatsApp delivery records.
+- SMTP is the only bundled real delivery adapter.
+- SMS and WhatsApp remain fail-closed until a real external provider is selected and configured.
+- Never claim SMS / WhatsApp production delivery is enabled solely because credentials exist.
 
 ## Coordination Rules
 
 1. Read this file and run `git status --short --branch` before editing.
-2. Never switch another worktree's branch.
-3. Never use `git reset --hard`, `git clean`, checkout-overwrite or equivalent against another chat's work.
-4. Do not edit another active chat's owned files without explicit coordination.
-5. Keep secrets, Firebase Admin JSON, `.env`, runtime DBs, logs and backups outside Git.
-6. Run relevant targeted tests before committing; run broader tests for cross-cutting changes.
-7. Chat 2 and Chat 3 do not merge into `main`.
-8. Chat 1 is the integration lead: review diffs, resolve conflicts deliberately, integrate approved commits and run final release gates.
-9. Every handoff must report branch, commit SHA, changed files, tests run and blockers.
-10. Update this coordination file whenever ownership or worktree/branch assignments change.
+2. Never switch or reset another chat's worktree.
+3. Never use `git reset --hard`, `git clean`, checkout-overwrite, or equivalent against another chat's work.
+4. Do not edit another active chat's owned files without coordination.
+5. Keep secrets, Firebase Admin JSON, `.env`, runtime DBs, logs, and backups outside Git.
+6. Use temporary databases for destructive Admin Software tests.
+7. Chat 2 and Chat 3 do not merge into `main`; Chat 1 reviews and integrates handoffs deliberately.
+8. Every handoff reports branch, commit SHA, changed files, tests, and blockers.
+9. Migration 010 stays off the live database until final integrated release gates pass and a fresh verified pre-migration backup exists.
+10. Update this file when ownership, handoff SHA, or rollout state changes.

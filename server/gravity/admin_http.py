@@ -6,6 +6,11 @@ from urllib.parse import parse_qs, urlsplit
 from typing import Any
 
 from .membership import MembershipConflict, MembershipNotFound, MembershipValidationError
+from .admin_software import (
+    AdminSoftwareConflict,
+    AdminSoftwareNotFound,
+    AdminSoftwareValidationError,
+)
 from .notification import NotificationConflict, NotificationNotFound, NotificationValidationError
 from .admin import (
     AdminChallengeExpired,
@@ -101,6 +106,15 @@ def _require_csrf(handler: Any, session: AdminSessionIdentity) -> None:
     handler.server.admin_service.verify_csrf(session, values[0], cookie)
 
 
+def _idempotency_key(handler: Any) -> str | None:
+    values = handler.headers.get_all("Idempotency-Key", [])
+    if not values:
+        return None
+    if len(values) != 1:
+        raise AdminSoftwareValidationError({"idempotencyKey": "Provide one Idempotency-Key header"})
+    return values[0]
+
+
 def _error_response(handler: Any, error: Exception, request_id: str, send_body: bool) -> HTTPStatus:
     if isinstance(error, AdminRateLimitExceeded):
         return _json(
@@ -144,6 +158,18 @@ def _error_response(handler: Any, error: Exception, request_id: str, send_body: 
         return _json(handler, HTTPStatus.CONFLICT, {"error": "notification_conflict"}, request_id, send_body)
     if isinstance(error, NotificationValidationError):
         return _json(handler, HTTPStatus.UNPROCESSABLE_ENTITY, {"error": "notification_validation"}, request_id, send_body)
+    if isinstance(error, AdminSoftwareNotFound):
+        return _json(handler, HTTPStatus.NOT_FOUND, {"error": "admin_software_not_found"}, request_id, send_body)
+    if isinstance(error, AdminSoftwareConflict):
+        return _json(handler, HTTPStatus.CONFLICT, {"error": "admin_software_conflict"}, request_id, send_body)
+    if isinstance(error, AdminSoftwareValidationError):
+        return _json(
+            handler,
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            {"error": "admin_software_validation", "fields": error.fields},
+            request_id,
+            send_body,
+        )
     if isinstance(error, AdminConflict):
         return _json(handler, HTTPStatus.CONFLICT, {"error": "admin_conflict"}, request_id, send_body)
     if isinstance(error, AdminValidationError):
@@ -241,16 +267,48 @@ def _dashboard(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
     session, failure = _authenticated(handler, request_id, send_body)
     if session is None:
         return failure or HTTPStatus.UNAUTHORIZED
-    data = handler.server.admin_service.dashboard(session)
+    handler.server.admin_service.require_permission(session, "dashboard.view")
+    data = handler.server.admin_software_service.dashboard()
     return _json(handler, HTTPStatus.OK, data, request_id, send_body)
 
 def _members(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
     session, failure = _authenticated(handler, request_id, send_body)
     if session is None:
         return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "members.read")
     query = parse_qs(urlsplit(handler.path).query).get("q", [""])[0]
-    rows = handler.server.admin_service.list_customers(session, query)
+    rows = handler.server.admin_software_service.list_customers(query=query)
     return _json(handler, HTTPStatus.OK, {"members": rows}, request_id, send_body)
+
+
+def _customers(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    if handler.command in {"GET", "HEAD"}:
+        handler.server.admin_service.require_permission(session, "members.read")
+        params = parse_qs(urlsplit(handler.path).query)
+        rows = handler.server.admin_software_service.list_customers(
+            query=params.get("q", [""])[0],
+            customer_status=params.get("status", [""])[0],
+            membership_status=params.get("membershipStatus", [""])[0],
+            plan_id=params.get("planId", [""])[0],
+            limit=params.get("limit", ["200"])[0],
+        )
+        return _json(handler, HTTPStatus.OK, {"customers": rows}, request_id, send_body)
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    handler.server.admin_service.require_permission(session, "members.manage")
+    handler.server.admin_service.require_permission(session, "memberships.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    if payload.get("amountPaidPaise") not in (None, "", 0, "0"):
+        handler.server.admin_service.require_permission(session, "payments.record")
+    result = handler.server.admin_software_service.create_customer_bundle(
+        payload, actor_admin_user_id=session.admin_user_id
+    )
+    return _json(handler, HTTPStatus.CREATED, result, request_id, send_body)
 
 
 def _member_status(handler: Any, customer_id: str, request_id: str, send_body: bool) -> HTTPStatus:
@@ -270,6 +328,110 @@ def _member_status(handler: Any, customer_id: str, request_id: str, send_body: b
         request_id=request_id,
     )
     return _json(handler, HTTPStatus.OK, {"member": member}, request_id, send_body)
+
+
+def _customer_detail(handler: Any, customer_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    if handler.command in {"GET", "HEAD"}:
+        handler.server.admin_service.require_permission(session, "members.read")
+        detail = handler.server.admin_software_service.customer_detail(customer_id)
+        return _json(handler, HTTPStatus.OK, detail, request_id, send_body)
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    handler.server.admin_service.require_permission(session, "members.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    customer = handler.server.admin_software_service.update_customer(
+        customer_id, payload, actor_admin_user_id=session.admin_user_id
+    )
+    return _json(handler, HTTPStatus.OK, {"customer": customer}, request_id, send_body)
+
+
+def _customer_renew(handler: Any, customer_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "memberships.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    if payload.get("amountPaidPaise") not in (None, "", 0, "0"):
+        handler.server.admin_service.require_permission(session, "payments.record")
+    result = handler.server.admin_software_service.renew_membership(
+        customer_id,
+        payload,
+        actor_admin_user_id=session.admin_user_id,
+        idempotency_key=_idempotency_key(handler),
+    )
+    return _json(handler, HTTPStatus.CREATED, result, request_id, send_body)
+
+
+def _memberships(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "members.read")
+    params = parse_qs(urlsplit(handler.path).query)
+    rows = handler.server.admin_software_service.list_memberships(
+        status=params.get("status", [""])[0],
+        plan_id=params.get("planId", [""])[0],
+        limit=params.get("limit", ["300"])[0],
+    )
+    return _json(handler, HTTPStatus.OK, {"memberships": rows}, request_id, send_body)
+
+
+def _payments(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "payments.read")
+    params = parse_qs(urlsplit(handler.path).query)
+    rows = handler.server.admin_software_service.list_payments(
+        customer_id=params.get("customerId", [None])[0],
+        membership_id=params.get("membershipId", [None])[0],
+        limit=params.get("limit", ["100"])[0],
+    )
+    return _json(handler, HTTPStatus.OK, {"payments": rows}, request_id, send_body)
+
+
+def _record_membership_payment(handler: Any, membership_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "payments.record")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    result = handler.server.admin_software_service.record_payment(
+        membership_id,
+        payload,
+        actor_admin_user_id=session.admin_user_id,
+        idempotency_key=_idempotency_key(handler),
+    )
+    return _json(handler, HTTPStatus.CREATED, result, request_id, send_body)
+
+
+def _fees(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "payments.read")
+    params = parse_qs(urlsplit(handler.path).query)
+    pending_only = params.get("pendingOnly", ["0"])[0].strip().casefold() in {"1", "true", "yes"}
+    result = handler.server.admin_software_service.fees(
+        query=params.get("q", [""])[0],
+        pending_only=pending_only,
+        limit=params.get("limit", ["300"])[0],
+    )
+    return _json(handler, HTTPStatus.OK, result, request_id, send_body)
+
 
 def _admins(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
     session, failure = _authenticated(handler, request_id, send_body)
@@ -358,6 +520,40 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
             return _readiness(handler, request_id, send_body)
         if path == "/api/admin/members" and handler.command in {"GET", "HEAD"}:
             return _members(handler, request_id, send_body)
+        if path == "/api/admin/customers":
+            if handler.command in {"GET", "HEAD", "POST"}:
+                return _customers(handler, request_id, send_body)
+            return handler._method_not_allowed({"GET", "HEAD", "POST"}, request_id, send_body)
+        if path.startswith("/api/admin/customers/") and path.endswith("/renew"):
+            customer_id = path.removeprefix("/api/admin/customers/").removesuffix("/renew").strip("/")
+            if customer_id and "/" not in customer_id:
+                if handler.command == "POST":
+                    return _customer_renew(handler, customer_id, request_id, send_body)
+                return handler._method_not_allowed({"POST"}, request_id, send_body)
+        if path.startswith("/api/admin/customers/"):
+            customer_id = path.removeprefix("/api/admin/customers/").strip("/")
+            if customer_id and "/" not in customer_id:
+                if handler.command in {"GET", "HEAD", "PATCH"}:
+                    return _customer_detail(handler, customer_id, request_id, send_body)
+                return handler._method_not_allowed({"GET", "HEAD", "PATCH"}, request_id, send_body)
+        if path == "/api/admin/memberships":
+            if handler.command in {"GET", "HEAD"}:
+                return _memberships(handler, request_id, send_body)
+            return handler._method_not_allowed({"GET", "HEAD"}, request_id, send_body)
+        if path == "/api/admin/payments":
+            if handler.command in {"GET", "HEAD"}:
+                return _payments(handler, request_id, send_body)
+            return handler._method_not_allowed({"GET", "HEAD"}, request_id, send_body)
+        if path == "/api/admin/fees":
+            if handler.command in {"GET", "HEAD"}:
+                return _fees(handler, request_id, send_body)
+            return handler._method_not_allowed({"GET", "HEAD"}, request_id, send_body)
+        if path.startswith("/api/admin/memberships/") and path.endswith("/payments"):
+            membership_id = path.removeprefix("/api/admin/memberships/").removesuffix("/payments").strip("/")
+            if membership_id and "/" not in membership_id:
+                if handler.command == "POST":
+                    return _record_membership_payment(handler, membership_id, request_id, send_body)
+                return handler._method_not_allowed({"POST"}, request_id, send_body)
         if path == "/api/admin/membership/plans":
             if handler.command in {"GET", "HEAD", "POST"}:
                 return _membership_plans(handler, request_id, send_body)
@@ -433,6 +629,9 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
         AdminConflict,
         AdminValidationError,
         AdminRateLimitExceeded,
+        AdminSoftwareNotFound,
+        AdminSoftwareConflict,
+        AdminSoftwareValidationError,
         MembershipNotFound,
         MembershipConflict,
         MembershipValidationError,

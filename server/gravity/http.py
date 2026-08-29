@@ -18,6 +18,7 @@ import sys
 
 from .auth import (
     AccountDisabled,
+    AccountNotProvisioned,
     AuthService,
     AuthenticationError,
     AuthenticationUnavailable,
@@ -30,6 +31,7 @@ from .auth import (
     SessionIssue,
 )
 from .admin import AdminService
+from .admin_software import AdminSoftwareService
 from .admin_http import handle_admin_request
 from .config import Settings
 from .database import Database
@@ -103,6 +105,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         database: Database,
         auth_service: AuthService,
         admin_service: AdminService,
+        admin_software_service: AdminSoftwareService,
         membership_service: MembershipService,
         notification_service: NotificationService,
         payment_service: PaymentService,
@@ -115,6 +118,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         self.database = database
         self.auth_service = auth_service
         self.admin_service = admin_service
+        self.admin_software_service = admin_software_service
         self.membership_service = membership_service
         self.notification_service = notification_service
         self.payment_service = payment_service
@@ -420,6 +424,13 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
                 request_id=request_id,
             )
             return HTTPStatus.CONFLICT
+        except AccountNotProvisioned:
+            self._json_response(
+                HTTPStatus.FORBIDDEN,
+                {"error": "account_not_provisioned"},
+                request_id=request_id,
+            )
+            return HTTPStatus.FORBIDDEN
         except (InvalidFirebaseToken, FirebaseIdentityUnverified, AuthenticationError, ValueError):
             self._json_response(
                 HTTPStatus.UNAUTHORIZED,
@@ -957,6 +968,13 @@ def create_server(
     admin_service = AdminService(database, configured, **({"clock": clock} if clock else {}))
     membership_service = MembershipService(database, **({"clock": clock} if clock else {}))
     notification_service = NotificationService(database, membership_service, configured, **({"clock": clock} if clock else {}))
+    admin_software_service = AdminSoftwareService(
+        database,
+        membership_service,
+        admin_service,
+        notification_service,
+        **({"clock": clock} if clock else {}),
+    )
     payment_service = PaymentService(database, configured, membership_service, **({"clock": clock} if clock else {}))
     coaching_service = CoachingService(database, **({"clock": clock} if clock else {}))
     readiness_service = ReadinessService(configured)
@@ -979,6 +997,7 @@ def create_server(
         database,
         auth_service,
         admin_service,
+        admin_software_service,
         membership_service,
         notification_service,
         payment_service,
