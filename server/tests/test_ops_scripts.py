@@ -171,7 +171,7 @@ class OperationsScriptTests(unittest.TestCase):
             config = Path(temporary) / "gravity.env"
             config.write_text("GRAVITY_HOST=127.0.0.1\nGRAVITY_PORT=8799\n", encoding="utf-8")
             result = subprocess.run(
-                ["powershell", "-NoProfile", "-File", str(installer),
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(installer),
                  "-ConfigPath", str(config), "-PreflightOnly"],
                 cwd=ROOT, capture_output=True, text=True,
             )

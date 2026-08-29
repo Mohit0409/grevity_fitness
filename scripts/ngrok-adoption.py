@@ -4,6 +4,7 @@ import argparse
 import json
 import ntpath
 import os
+import shlex
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -47,6 +48,34 @@ def _matching_tunnels(tunnels: object, target: str) -> list[dict[str, Any]]:
     return matches
 
 
+
+def _command_tokens(command_line: str) -> list[str]:
+    try:
+        raw = shlex.split(command_line, posix=False)
+    except ValueError as error:
+        raise AdoptionError("ngrok command line cannot be parsed") from error
+    tokens: list[str] = []
+    for token in raw:
+        token = token.strip()
+        if len(token) >= 2 and token[0] == token[-1] and token[0] in {"'", '"'}:
+            token = token[1:-1]
+        tokens.append(token)
+    return tokens
+
+
+def _option_values(tokens: list[str], name: str) -> list[str]:
+    values: list[str] = []
+    folded_name = name.casefold()
+    for index, token in enumerate(tokens):
+        folded = token.casefold()
+        if folded == folded_name:
+            if index + 1 >= len(tokens):
+                raise AdoptionError(f"{name} is missing its value")
+            values.append(tokens[index + 1])
+        elif folded.startswith(folded_name + "="):
+            values.append(token.split("=", 1)[1])
+    return values
+
 def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
     pid = int(evidence.get("pid") or 0)
     if pid <= 0 or not evidence.get("processExists", False):
@@ -73,13 +102,14 @@ def validate_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
         raise AdoptionError("invalid Gravity loopback port")
 
     command_line = str(evidence.get("commandLine") or "")
-    normalized_command = _windows_path(command_line)
     lowered_command = command_line.casefold()
     if "--authtoken" in lowered_command or "authtoken=" in lowered_command:
         raise AdoptionError("ngrok command line must not contain an auth token")
-    if target.casefold() not in lowered_command:
+    tokens = _command_tokens(command_line)
+    if not any(token.casefold() == target.casefold() for token in tokens):
         raise AdoptionError("ngrok command line does not target the expected Gravity port")
-    if "--config" not in command_line.casefold() or expected_config not in normalized_command:
+    config_values = _option_values(tokens, "--config")
+    if len(config_values) != 1 or _windows_path(config_values[0]) != expected_config:
         raise AdoptionError("ngrok command line does not use the expected config path")
 
     process_start = _parse_time(evidence.get("processStartedAt"), "process start time")

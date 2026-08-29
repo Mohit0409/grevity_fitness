@@ -62,6 +62,34 @@ class NgrokAdoptionTests(unittest.TestCase):
         with self.assertRaisesRegex(module.AdoptionError, "no HTTPS tunnel"):
             module.validate_evidence(evidence)
 
+    def test_config_path_suffix_collision_is_rejected(self) -> None:
+        evidence = self.evidence()
+        expected = str(evidence["expectedConfig"])
+        evidence["commandLine"] = str(evidence["commandLine"]).replace(
+            f'--config "{expected}"', f'--config "{expected}.unexpected"'
+        )
+        with self.assertRaisesRegex(module.AdoptionError, "expected config path"):
+            module.validate_evidence(evidence)
+
+    def test_config_path_prefix_collision_is_rejected(self) -> None:
+        evidence = self.evidence()
+        expected = str(evidence["expectedConfig"])
+        prefixed = expected.replace("ngrok.yml", "prefix-ngrok.yml")
+        evidence["commandLine"] = str(evidence["commandLine"]).replace(
+            f'--config "{expected}"', f'--config "{prefixed}"'
+        )
+        with self.assertRaisesRegex(module.AdoptionError, "expected config path"):
+            module.validate_evidence(evidence)
+
+    def test_config_equals_syntax_is_accepted_when_exact(self) -> None:
+        evidence = self.evidence()
+        expected = str(evidence["expectedConfig"])
+        evidence["commandLine"] = str(evidence["commandLine"]).replace(
+            f'--config "{expected}"', f'--config="{expected}"'
+        )
+        report = module.validate_evidence(evidence)
+        self.assertTrue(report["ready"])
+
     def test_mismatched_executable_path_is_rejected(self) -> None:
         evidence = self.evidence()
         evidence["processExecutable"] = r"C:\Temp\ngrok.exe"
