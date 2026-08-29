@@ -142,6 +142,12 @@ class AdminWorkflowAcceptanceTests(unittest.TestCase):
 
         with self.database.session() as connection:
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+            connection.execute(
+                "INSERT INTO membership_payments(id,membership_id,amount_paise,currency,method,paid_at,status,"
+                "recorded_by_admin_user_id,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                ("manual-admin-workflow-001", first["id"], 12300, "INR", "cash", self.clock.value,
+                 "recorded", "admin-qa", self.clock.value),
+            )
 
         manager = BackupManager(self.settings, self.database)
         archive = Path(manager.create_backup("admin-acceptance")["path"])
@@ -153,6 +159,10 @@ class AdminWorkflowAcceptanceTests(unittest.TestCase):
             "paidPaymentRows": 1,
             "paymentAmountPaise": 99900,
             "paidPaymentAmountPaise": 99900,
+            "manualPaymentRows": 1,
+            "recordedManualPaymentRows": 1,
+            "manualPaymentAmountPaise": 12300,
+            "recordedManualPaymentAmountPaise": 12300,
             "notificationReminderRows": 1,
             "notificationDeliveryRows": 6,
         }
@@ -167,13 +177,18 @@ class AdminWorkflowAcceptanceTests(unittest.TestCase):
                 "customers": connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0],
                 "memberships": connection.execute("SELECT COUNT(*) FROM memberships").fetchone()[0],
                 "payments": connection.execute("SELECT COUNT(*) FROM payment_intents").fetchone()[0],
+                "manualPayments": connection.execute("SELECT COUNT(*) FROM membership_payments").fetchone()[0],
                 "reminders": connection.execute("SELECT COUNT(*) FROM notification_reminders").fetchone()[0],
             }
+            manual_balance = connection.execute(
+                "SELECT COALESCE(SUM(amount_paise),0) FROM membership_payments WHERE status='recorded'"
+            ).fetchone()[0]
             paid_balance = connection.execute(
                 "SELECT COALESCE(SUM(amount_paise),0) FROM payment_intents WHERE status='paid'"
             ).fetchone()[0]
-        self.assertEqual(counts, {"customers": 1, "memberships": 2, "payments": 1, "reminders": 1})
+        self.assertEqual(counts, {"customers": 1, "memberships": 2, "payments": 1, "manualPayments": 1, "reminders": 1})
         self.assertEqual(paid_balance, 99900)
+        self.assertEqual(manual_balance, 12300)
 
     def test_membership_and_renewal_failures_roll_back_partial_rows(self):
         with mock.patch.object(self.memberships, "_event", side_effect=RuntimeError("synthetic fault")):

@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+﻿const { test, expect } = require('@playwright/test');
 
 
 function adminIdentity(permissions = ['*']) {
@@ -30,7 +30,7 @@ test('admin refresh, history navigation, and expired session fail safely', async
 
   await page.goto('/admin');
   await expect(page.locator('#app')).toBeVisible();
-  await expect(page.locator('#viewTitle')).toHaveText('Overview');
+  await expect(page.locator('#viewTitle')).toHaveText('Dashboard');
 
   await page.reload();
   await expect(page.locator('#app')).toBeVisible();

@@ -327,6 +327,27 @@ class BackupManager:
                 paid_payment_amount_paise = connection.execute(
                     "SELECT COALESCE(SUM(amount_paise),0) FROM payment_intents WHERE status='paid'"
                 ).fetchone()[0]
+                has_manual_ledger = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='membership_payments'"
+                ).fetchone() is not None
+                if has_manual_ledger:
+                    manual_payment_count = connection.execute(
+                        "SELECT COUNT(*) FROM membership_payments"
+                    ).fetchone()[0]
+                    recorded_manual_payment_count = connection.execute(
+                        "SELECT COUNT(*) FROM membership_payments WHERE status='recorded'"
+                    ).fetchone()[0]
+                    manual_payment_amount_paise = connection.execute(
+                        "SELECT COALESCE(SUM(amount_paise),0) FROM membership_payments"
+                    ).fetchone()[0]
+                    recorded_manual_payment_amount_paise = connection.execute(
+                        "SELECT COALESCE(SUM(amount_paise),0) FROM membership_payments WHERE status='recorded'"
+                    ).fetchone()[0]
+                else:
+                    manual_payment_count = 0
+                    recorded_manual_payment_count = 0
+                    manual_payment_amount_paise = 0
+                    recorded_manual_payment_amount_paise = 0
                 reminder_count = connection.execute(
                     "SELECT COUNT(*) FROM notification_reminders"
                 ).fetchone()[0]
@@ -355,6 +376,10 @@ class BackupManager:
             "paidPaymentRows": int(paid_payment_count),
             "paymentAmountPaise": int(payment_amount_paise),
             "paidPaymentAmountPaise": int(paid_payment_amount_paise),
+            "manualPaymentRows": int(manual_payment_count),
+            "recordedManualPaymentRows": int(recorded_manual_payment_count),
+            "manualPaymentAmountPaise": int(manual_payment_amount_paise),
+            "recordedManualPaymentAmountPaise": int(recorded_manual_payment_amount_paise),
             "notificationReminderRows": int(reminder_count),
             "notificationDeliveryRows": int(delivery_count),
             "activeOwnerRows": int(active_owner_count),

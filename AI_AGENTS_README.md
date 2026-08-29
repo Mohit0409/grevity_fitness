@@ -80,6 +80,7 @@ Current state:
 - Chat 2 Admin Software UI handoff was reviewed and integrated into local `main` as `6523989`, `fc19d7f`, and `c91ce85`.
 - Integrated UI covers the software shell, dashboard, customers, customer detail, memberships, fees, renewal, manual payment, notification views, responsive behavior, accessibility, and stable payment/renewal idempotency keys.
 - Chat 2 must consume Chat 1 server-owned calculations and must not fake persistent customer/payment state client-side.
+- Chat 2 next slice is actively owned in its worktree: role-aware payment/notification visibility, loading/error states, and stale-request/race hardening across Admin frontend files. Chat 1 must not edit those frontend files while that work is uncommitted.
 - Chat 1 customer auth UI now maps `account_not_provisioned` to clear contact-the-gym/reception guidance; customer self-registration remains disabled server-side.
 
 ## Chat 3 - Admin Reliability / QA / Operations
@@ -89,8 +90,9 @@ Chat 3 owns Admin Software workflow QA, backup/recovery validation, performance/
 Current state:
 
 - Branch: `agent/gravity-admin-ops`.
-- Last clean Admin reliability handoff recorded: `ff1225e` (`test: stage admin software reliability coverage`), with earlier Admin ops commits including `4131635` and `ee4ba10`.
-- Chat 3 is actively syncing against the new Admin backend and its current worktree is not clean; Chat 1 must not integrate until Chat 3 resolves its coordination conflict and reports a clean committed SHA.
+- Admin reliability/ops handoff commits `eb73cfe`, `42107ab`, and `54c38c3` were reviewed and integrated into local `main` as `a61a684`, `51865fd`, and `2d2b0a3`.
+- Chat 3 added boundary-regression commit `017080e` after that integration. Its expected-failure marker is now obsolete because Chat 1 fixed filter-before-limit correctness and N+1 hydration in `2ea3b38`; on next sync Chat 3 should convert that check to a normal passing regression instead of carrying an expected failure.
+- Chat 3 may continue reliability/performance work in its branch but must not modify Chat 1 backend or Chat 2 active frontend files without coordination.
 - Chat 3 must not apply migration 010 to the live Gravity database.
 
 ## Existing Notification Provider Reality
