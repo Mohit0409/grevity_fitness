@@ -561,6 +561,12 @@ async function mockNotificationAdmin(page, responder, onScan = null) {
   await page.route('**/api/admin/dashboard', (route) => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ customers: { total: 0, active: 0, disabled: 0 }, admins: { active: 1 }, recentAudit: [] }),
   }));
+  await page.route('**/api/admin/members?q=*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ members: [] }),
+  }));
+  await page.route('**/api/admin/memberships/expiring?days=7', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: [] }),
+  }));
   await page.route('**/api/admin/notifications?limit=100', async (route) => {
     const response = typeof responder === 'function' ? responder() : responder;
     await route.fulfill({ contentType: 'application/json', ...response });
@@ -719,6 +725,7 @@ test('admin expiry notifications separate customer and owner delivery truthfully
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/admin');
   await expect(page.locator('#app')).toBeVisible();
+  if (await page.locator('#sidebarOpen').isVisible()) await page.locator('#sidebarOpen').click();
   await page.locator('#notificationsNav').click();
   await expect(page.locator('#notificationsList')).toHaveAttribute('aria-busy', 'false');
   await expect(page.locator('.notification-admin-card')).toHaveCount(5);
@@ -845,5 +852,258 @@ test('admin notifications handle all providers blocked, empty data and API failu
   await page.evaluate(() => window.GravityNotificationAdmin.renderWorkspace());
   await expect(page.locator('#notificationsList')).toContainText('Notification data is temporarily unavailable. Try again later.');
   await expect(page.locator('#notificationsView')).not.toContainText('raw_backend_error_should_not_render');
+  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
+});
+
+
+async function mockAdminSoftware(page, options = {}) {
+  const now = Math.floor(Date.now() / 1000);
+  const admin = { id: 'owner-ui-test', username: 'owner', role: 'owner', permissions: ['*'] };
+  const authState = { authenticated: !options.startUnauthenticated };
+  const plans = [
+    { id: 'plan-basic', code: 'basic', name: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'active', sortOrder: 1 },
+    { id: 'plan-pro', code: 'pro', name: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'active', sortOrder: 2 },
+  ];
+  const members = [
+    { id: 'cust-asha', displayName: 'Asha Sharma', phone: '+919876543210', email: 'asha@example.com', status: 'active', createdAt: now - 200 * 86400, lastLoginAt: now - 3600 },
+    { id: 'cust-ravi', displayName: 'Ravi Patel', phone: '+919812345678', email: null, status: 'active', createdAt: now - 80 * 86400, lastLoginAt: null },
+    { id: 'cust-disabled', displayName: 'Disabled Member', phone: '+919800001111', email: null, status: 'disabled', createdAt: now - 300 * 86400, lastLoginAt: null },
+  ];
+  const memberships = {
+    'cust-asha': [
+      { id: 'mem-asha-live', membershipNumber: 'GF-2026-ASHA', customerId: 'cust-asha', planId: 'plan-pro', planName: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'active', startsAt: now - 60 * 86400, endsAt: now + 7 * 86400, daysRemaining: 7, source: 'admin_manual', createdAt: now - 60 * 86400 },
+      { id: 'mem-asha-old', membershipNumber: 'GF-2026-OLD', customerId: 'cust-asha', planId: 'plan-basic', planName: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'expired', startsAt: now - 120 * 86400, endsAt: now - 90 * 86400, daysRemaining: 0, source: 'admin_manual', createdAt: now - 120 * 86400 },
+    ],
+    'cust-ravi': [
+      { id: 'mem-ravi-live', membershipNumber: 'GF-2026-RAVI', customerId: 'cust-ravi', planId: 'plan-basic', planName: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'active', startsAt: now - 20 * 86400, endsAt: now + 3 * 86400, daysRemaining: 3, source: 'admin_manual', createdAt: now - 20 * 86400 },
+    ],
+    'cust-disabled': [],
+  };
+  const renewBodies = [];
+  const statusBodies = [];
+  let customerMode = options.customerMode || 'ok';
+
+  await page.route('**/api/admin/session', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ configured: true, bootstrapRequired: false, authenticated: authState.authenticated, admin: authState.authenticated ? admin : undefined }),
+  }));
+  await page.route('**/api/admin/login', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ factorRequired: true }) }));
+  await page.route('**/api/admin/verify', (route) => { authState.authenticated = true; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ admin }) }); });
+  await page.route('**/api/admin/logout', (route) => { authState.authenticated = false; return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+  await page.route('**/api/admin/dashboard', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ customers: { total: members.length, active: 2, disabled: 1, deleted: 0 }, admins: { owner: 1 }, recentAudit: [{ action: 'membership_created', result: 'success', createdAt: now - 600 }] }),
+  }));
+  await page.route('**/api/admin/members?q=*', (route) => {
+    if (customerMode === 'error') return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'temporary_failure' }) });
+    const q = new URL(route.request().url()).searchParams.get('q')?.toLowerCase() || '';
+    const rows = members.filter((m) => !q || `${m.displayName} ${m.phone || ''} ${m.email || ''}`.toLowerCase().includes(q));
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ members: customerMode === 'empty' ? [] : rows }) });
+  });
+  await page.route('**/api/admin/membership/plans', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ plans }) }));
+  await page.route('**/api/admin/membership/plans/*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ plan: plans[0] }) }));
+  await page.route('**/api/admin/memberships/expiring?days=*', (route) => {
+    const days = Number(new URL(route.request().url()).searchParams.get('days') || 7);
+    const rows = Object.values(memberships).flat().filter((m) => m.status === 'active' && m.daysRemaining <= days).map((m) => {
+      const customer = members.find((item) => item.id === m.customerId);
+      return { ...m, customer: { displayName: customer?.displayName, email: customer?.email, phone: customer?.phone } };
+    });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: rows }) });
+  });
+  await page.route('**/api/admin/members/*/memberships', async (route) => {
+    const match = new URL(route.request().url()).pathname.match(/\/api\/admin\/members\/([^/]+)\/memberships$/);
+    const customerId = decodeURIComponent(match?.[1] || '');
+    if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: memberships[customerId] || [] }) });
+    const body = route.request().postDataJSON(); renewBodies.push({ customerId, ...body });
+    const plan = plans.find((item) => item.id === body.planId) || plans[0];
+    const current = (memberships[customerId] || []).find((item) => item.status === 'active');
+    const startsAt = body.startsAt || current?.endsAt || now;
+    const created = { id: `renew-${renewBodies.length}`, membershipNumber: `GF-RENEW-${renewBodies.length}`, customerId, planId: plan.id, planName: plan.name, pricePaise: plan.pricePaise, currency: plan.currency, durationMonths: plan.durationMonths, status: current ? 'scheduled' : 'active', startsAt, endsAt: startsAt + plan.durationMonths * 30 * 86400, daysRemaining: 0, source: 'admin_manual', createdAt: now };
+    memberships[customerId] = [created, ...(memberships[customerId] || [])];
+    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ membership: created }) });
+  });
+  await page.route('**/api/admin/members/*', async (route) => {
+    const customerId = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop());
+    const body = route.request().postDataJSON(); statusBodies.push({ customerId, ...body });
+    const member = members.find((item) => item.id === customerId); if (member) member.status = body.status;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ member: { id: customerId, status: body.status } }) });
+  });
+  await page.route('**/api/admin/notifications?limit=100', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ providerBlockers: { email: 'READY', sms: 'BLOCKED_EXTERNAL_CONFIG', whatsapp: 'BLOCKED_EXTERNAL_CONFIG' }, notifications: [
+      { id: 'n-asha', eventType: 'membership_expiry', customerId: 'cust-asha', membershipId: 'mem-asha-live', triggerDays: 7, state: 'pending', payload: { planName: 'Pro', membershipNumber: 'GF-2026-ASHA', endsAt: now + 7 * 86400 }, customer: { displayName: 'Asha Sharma' }, deliveries: [] },
+    ] }),
+  }));
+  await page.route('**/api/admin/notifications/scan', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ scan: { created: 0, deduped: 0, suppressedRenewed: 0 }, providerBlockers: {} }) }));
+  await page.route('**/api/admin/admins', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ admins: [admin] }) }));
+  await page.route('**/api/admin/audit?limit=100', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ audit: [] }) }));
+
+  return { admin, members, memberships, plans, renewBodies, statusBodies, setCustomerMode(value) { customerMode = value; } };
+}
+
+test('admin login enters the gym management dashboard', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  await mockAdminSoftware(page, { startUnauthenticated: true });
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto('/admin');
+  await expect(page.locator('#login')).toBeVisible();
+  await page.locator('#username').fill('owner');
+  await page.locator('#password').fill('correct-horse-battery-staple');
+  await page.getByRole('button', { name: 'Continue securely' }).click();
+  await expect(page.locator('#factorForm')).toBeVisible();
+  await expect(page.locator('#factor')).toBeFocused();
+  await page.locator('#factor').fill('123456');
+  await page.getByRole('button', { name: /Verify/ }).click();
+  await expect(page.locator('#app')).toBeVisible();
+  await expect(page.locator('#viewTitle')).toHaveText('Dashboard');
+  await expect(page.locator('#stats')).toContainText('Total Customers');
+  await expect(page.locator('#stats')).toContainText('Expiring Soon');
+  await expect(page.locator('#stats')).toContainText('Pending Fees');
+  await expect(page.locator('#dashboardExpiringBody')).toContainText('Asha Sharma');
+  await expect(page.locator('#recentCustomers')).toContainText('Ravi Patel');
+  await expect(page.locator('#dashboardFeesState')).toContainText('Pending fee total unavailable');
+  await expectNoOverflow(page);
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('customers workspace supports search, status filters and instant profile detail', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  await mockAdminSoftware(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/admin');
+  await page.locator('#membersNav').click();
+  await expect(page.locator('#viewTitle')).toHaveText('Customers');
+  await page.locator('#memberSearch').fill('Asha');
+  await expect(page.locator('#membersBody tr')).toHaveCount(1);
+  await expect(page.locator('#membersBody')).toContainText('Asha Sharma');
+  await page.locator('#memberSearch').fill('');
+  await expect(page.locator('#membersBody')).toContainText('Disabled Member');
+  await page.locator('#customerStatusFilter').selectOption('disabled');
+  await expect(page.locator('#membersBody tr')).toHaveCount(1);
+  await expect(page.locator('#membersBody')).toContainText('Disabled Member');
+  await page.locator('#customerStatusFilter').selectOption('active');
+  await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
+  await expect(page.locator('#customerDrawer')).toBeVisible();
+  await expect(page.locator('#customerDrawerName')).toHaveText('Asha Sharma');
+  await expect(page.locator('#customerDrawerBody')).toContainText('Current membership');
+  await expect(page.locator('#customerDrawerBody')).toContainText('GF-2026-ASHA');
+  await expect(page.locator('#customerDrawerBody')).toContainText('Payment summary');
+  await expect(page.locator('#customerDrawerBody')).toContainText('Admin payment history API required');
+  await expect(page.locator('#customerDrawerBody')).toContainText('7-day expiry reminder');
+  await expectNoSeriousA11yFailures(page);
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('customer renewal is server-backed while payment and edit stay fail-closed', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  await page.goto('/admin');
+  await page.locator('#membersNav').click();
+  await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
+  const drawer = page.locator('#customerDrawer');
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('button', { name: 'Renew Membership' }).click();
+  await expect(page.locator('#renewMembershipDialog')).toBeVisible();
+  await page.locator('#renewPlan').selectOption('plan-basic');
+  await expect(page.locator('#renewFeePreview')).toHaveValue(/999/);
+  await page.locator('#renewMembershipForm').getByRole('button', { name: 'Renew membership', exact: true }).click();
+  await expect(page.locator('#renewMembershipDialog')).not.toBeVisible();
+  await expect.poll(() => fixture.renewBodies.length).toBe(1);
+  expect(fixture.renewBodies[0].customerId).toBe('cust-asha');
+  expect(fixture.renewBodies[0].planId).toBe('plan-basic');
+  await expect(drawer).toContainText('GF-RENEW-1');
+  await drawer.getByRole('button', { name: 'Record Payment' }).click();
+  await expect(page.locator('#recordPaymentDialog')).toContainText('Manual payment API required');
+  await page.locator('#recordPaymentDialog').getByRole('button', { name: 'Close', exact: true }).click();
+  await drawer.getByRole('button', { name: 'Edit Customer' }).click();
+  await expect(page.locator('#flash')).toContainText('Customer editing requires a dedicated admin API.');
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('add customer is a fast accessible workflow but remains backend-gated', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  await mockAdminSoftware(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/admin');
+  const trigger = page.locator('#headerAddCustomer');
+  await trigger.click();
+  const dialog = page.locator('#addCustomerDialog');
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('#newCustomerName')).toBeFocused();
+  await page.locator('#newCustomerName').fill('New Member');
+  await page.locator('#newCustomerMobile').fill('9876543210');
+  await expect(page.locator('#newCustomerFee')).toHaveValue(/999/);
+  await expect(page.locator('#newCustomerExpiry')).not.toHaveText('--');
+  await expect(page.locator('#newCustomerReceived')).toBeDisabled();
+  await expect(page.locator('#submitNewCustomer')).toBeDisabled();
+  await expect(dialog).toContainText('Backend action required');
+  await expect(dialog).toContainText('Preview values are non-authoritative');
+  for (let index = 0; index < 12; index += 1) {
+    await page.keyboard.press('Tab');
+    expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('memberships and fees prioritize real operations without fake balances', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  await mockAdminSoftware(page);
+  await page.goto('/admin');
+  await page.locator('#membershipsNav').click();
+  await expect(page.locator('#viewTitle')).toHaveText('Memberships');
+  await expect(page.locator('#expiringBody')).toContainText('Asha Sharma');
+  await expect(page.locator('#expiringBody')).toContainText('GF-2026-ASHA');
+  await page.locator('#expiryDays').selectOption('14');
+  await expect(page.locator('#expiringBody')).toContainText('Ravi Patel');
+  await expect(page.locator('.secondary-panel')).toContainText('Plan catalog');
+  await page.locator('#feesNav').click();
+  await expect(page.locator('#viewTitle')).toHaveText('Fees');
+  await expect(page.locator('#feesView')).toContainText('Fee ledger backend required');
+  await expect(page.locator('#feesView .metric-inline strong')).toHaveText('--');
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('admin software stays usable across desktop tablet mobile and 200 percent zoom', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  const runtimeProblems = watchRuntime(page);
+  await mockAdminSoftware(page);
+  const adminWidths = [320, 360, 375, 390, 430, 768, 1024, 1366, 1440, 1920];
+  for (const width of adminWidths) {
+    await page.setViewportSize({ width, height: width <= 430 ? 844 : 900 });
+    await page.goto('/admin');
+    await expect(page.locator('#app')).toBeVisible();
+    await expectNoOverflow(page);
+    if (width <= 900) {
+      await expect(page.locator('#sidebarOpen')).toBeVisible();
+      await page.locator('#sidebarOpen').click();
+      await expect(page.locator('#appSidebar')).toBeInViewport();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('#sidebarOpen')).toBeFocused();
+    } else {
+      await expect(page.locator('#appSidebar')).toBeVisible();
+      await expect(page.locator('#sidebarOpen')).not.toBeVisible();
+    }
+    if ([390, 1366].includes(width)) await page.screenshot({ path: testInfo.outputPath(`admin-software-${width}.png`), fullPage: true });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/admin');
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  await expectNoOverflow(page);
+  await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const motion = await page.locator('#appSidebar').evaluate((node) => getComputedStyle(node).transitionDuration);
+  expect(motion).toBe('0s');
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('admin customer empty and failure states are explicit and console-safe', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page, { customerMode: 'empty' });
+  await page.goto('/admin');
+  await page.locator('#membersNav').click();
+  await expect(page.locator('#membersBody')).toContainText('No customers match these filters.');
+  fixture.setCustomerMode('error');
+  await page.locator('#memberSearch').fill('failure');
+  await expect(page.locator('#flash')).toBeVisible();
   expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
 });
