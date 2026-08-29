@@ -134,6 +134,34 @@ class OperationsScriptTests(unittest.TestCase):
         self.assertIn("INTERVAL_SECONDS=3600", service)
         self.assertIn("run-notifications.sh", service)
 
+    def test_admin_health_wrappers_are_read_only_and_task_commands_are_secret_free(self) -> None:
+        powershell = (ROOT / "scripts" / "admin-health-check.ps1").read_text(encoding="utf-8")
+        shell = (ROOT / "scripts" / "admin-health-check.sh").read_text(encoding="utf-8")
+        installer = (ROOT / "scripts" / "install-gravity-tasks.ps1").read_text(encoding="utf-8")
+        self.assertIn("admin-health-check.py", powershell)
+        self.assertIn("admin-health-check.py", shell)
+        self.assertIn("--runtime-dir", powershell)
+        self.assertIn("--runtime-dir", shell)
+        forbidden = (
+            "SECRET_KEY=", "SMTP_PASSWORD=", "SMS_API_KEY=", "WHATSAPP_ACCESS_TOKEN=",
+            "RAZORPAY_KEY_SECRET=", "RAZORPAY_WEBHOOK_SECRET=", "FIREBASE_SERVICE_ACCOUNT=",
+        )
+        for text in (powershell, shell, installer):
+            for marker in forbidden:
+                self.assertNotIn(marker, text)
+
+    def test_browser_assets_contain_no_server_secret_configuration_names(self) -> None:
+        forbidden = (
+            "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET", "SMTP_PASSWORD",
+            "WHATSAPP_ACCESS_TOKEN", "SMS_API_KEY", "SECRET_KEY", "session_token",
+        )
+        for path in (ROOT / "web").rglob("*"):
+            if path.suffix not in {".js", ".html"}:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for marker in forbidden:
+                self.assertNotIn(marker, text, path)
+
 
 if __name__ == "__main__":
     unittest.main()
