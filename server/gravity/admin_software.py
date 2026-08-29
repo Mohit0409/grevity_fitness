@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Mapping
 from uuid import uuid4
 import sqlite3
@@ -14,6 +14,7 @@ from .membership import MembershipService
 
 PAYMENT_METHODS = {"cash", "upi", "card", "bank_transfer", "other"}
 CUSTOMER_STATUSES = {"active", "disabled"}
+INDIA_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
 
 
 class AdminSoftwareError(Exception):
@@ -653,7 +654,8 @@ class AdminSoftwareService:
     def dashboard(self) -> dict[str, object]:
         now = self._now()
         day = 86400
-        current = datetime.fromtimestamp(now, tz=timezone.utc)
+        current = datetime.fromtimestamp(now, tz=INDIA_TIMEZONE)
+        day_start = int(current.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
         month_start = int(current.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
         with self.database.session() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -679,8 +681,8 @@ class AdminSoftwareService:
             ).fetchone()[0])
             manual_today = int(connection.execute(
                 "SELECT COALESCE(SUM(amount_paise),0) FROM membership_payments "
-                "WHERE status='recorded' AND paid_at>?",
-                (now - day,),
+                "WHERE status='recorded' AND paid_at>=?",
+                (day_start,),
             ).fetchone()[0])
             manual_month = int(connection.execute(
                 "SELECT COALESCE(SUM(amount_paise),0) FROM membership_payments "
@@ -689,8 +691,8 @@ class AdminSoftwareService:
             ).fetchone()[0])
             gateway_today = int(connection.execute(
                 "SELECT COALESCE(SUM(amount_paise),0) FROM payment_intents "
-                "WHERE status='paid' AND paid_at>?",
-                (now - day,),
+                "WHERE status='paid' AND paid_at>=?",
+                (day_start,),
             ).fetchone()[0])
             gateway_month = int(connection.execute(
                 "SELECT COALESCE(SUM(amount_paise),0) FROM payment_intents "
@@ -717,23 +719,22 @@ class AdminSoftwareService:
                     })
             expiry_rows = connection.execute(
                 "SELECT m.*,c.display_name FROM memberships m JOIN customers c ON c.id=m.customer_id "
-                "WHERE c.status!='deleted' AND ((m.status='active' AND m.ends_at>? AND m.ends_at<=?) "
-                "OR (m.status='expired' AND m.ends_at>?)) ORDER BY m.ends_at ASC",
-                (now, now + 7 * day, now - day),
+                "WHERE c.status!='deleted' AND m.status IN ('active','expired') "
+                "AND m.ends_at>=? AND m.ends_at<? ORDER BY m.ends_at ASC",
+                (day_start, day_start + 8 * day),
             ).fetchall()
             connection.commit()
         expiry = {"today": [], "tomorrow": [], "threeDays": [], "sevenDays": []}
         for row in expiry_rows:
-            if row["status"] == "expired":
+            ends_at = int(row["ends_at"])
+            if ends_at < day_start + day:
                 key = "today"
+            elif ends_at < day_start + 2 * day:
+                key = "tomorrow"
+            elif ends_at < day_start + 4 * day:
+                key = "threeDays"
             else:
-                remaining = int(row["ends_at"]) - now
-                if remaining <= day:
-                    key = "tomorrow"
-                elif remaining <= 3 * day:
-                    key = "threeDays"
-                else:
-                    key = "sevenDays"
+                key = "sevenDays"
             expiry[key].append({
                 "customerId": row["customer_id"],
                 "customerName": row["display_name"],

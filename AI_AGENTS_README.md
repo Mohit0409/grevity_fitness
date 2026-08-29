@@ -1,4 +1,4 @@
-# Gravity Fitness ? AI Agent Coordination
+# Gravity Fitness - AI Agent Coordination
 
 Last updated: 29 August 2026
 
@@ -34,7 +34,7 @@ Primary integration repo: `C:\movieXsuggestion\MyProject\grevity_fitness`
 - `origin/main` remains at `aadfc6f` until final Admin Software release gates are complete.
 - Live Gravity remains on migration 009. Migration 010 must not be applied live until Chat 2 and Chat 3 are integrated and final release gates pass.
 
-## Chat 1 ? Admin Backend / Integration Lead
+## Chat 1 - Admin Backend / Integration Lead
 
 Chat 1 owns Admin Software domain logic, customer provisioning, membership lifecycle, manual reception payments, fees, dashboard aggregates, admin API contracts, authentication provisioning policy, database migrations, and final integration.
 
@@ -42,7 +42,7 @@ Current Admin Software Backend V1 state:
 
 - New migration: `010_admin_software_v1.sql`.
 - Fresh database applies 10/10 migrations and reports schema stage `admin_software_v1`.
-- Migration 009 ? 010 preservation regression covers customers, Firebase identities, sessions, memberships, notifications, admins, and existing Razorpay payment intents.
+- Migration 009 - 010 preservation regression covers customers, Firebase identities, sessions, memberships, notifications, admins, and existing Razorpay payment intents.
 - Customers are owner-created and mobile numbers are normalized / unique for non-deleted accounts.
 - First mobile OTP login attaches Firebase identity to the existing owner-created customer.
 - Unknown verified phones fail closed with `account_not_provisioned`; customer self-registration is disabled.
@@ -52,7 +52,7 @@ Current Admin Software Backend V1 state:
 - Payment and renewal operations support `Idempotency-Key` replay protection.
 - Renewal preserves membership history and suppresses obsolete expiry reminders.
 - Customer disable / owner phone change revoke active customer sessions.
-- Admin dashboard values are server-calculated and do not double-count membership history.
+- Admin dashboard values are server-calculated, use the India business day, and do not double-count membership history.
 - Admin Software targeted suite: 15/15 PASS.
 - Auth suite under owner-provisioned model: 15/15 PASS.
 - Cross-domain Admin/Auth/Membership/Payment/Notification gate: 65/65 PASS.
@@ -70,28 +70,27 @@ Primary Admin V1 routes:
 - `POST /api/admin/memberships/{membershipId}/payments`
 - existing plan and notification routes remain available.
 
-## Chat 2 ? Admin Software Frontend
+## Chat 2 - Admin Software Frontend
 
 Chat 2 owns the software-style Admin application shell and V1 owner workflows: Dashboard, Customers, customer detail, Add Customer, Memberships, Renew Membership, Record Payment, Fees, Notifications, responsive behavior, accessibility, and browser E2E.
 
 Current state:
 
 - Branch: `agent/gravity-public-ui`.
-- Latest committed Admin workspace baseline: `25f92cf` (`Build Gravity admin management workspace`).
-- Additional Admin Software UI work is currently uncommitted in the Chat 2 worktree; Chat 1 must not integrate until Chat 2 provides a clean handoff SHA.
+- Admin Software UI commits now include `25f92cf` (`Build Gravity admin management workspace`), `2054d78` (`Wire admin software V1 workflows`), and `28466ae` (`Harden admin payment idempotency`).
+- Chat 2 code is committed through `28466ae`; its worktree currently has only a coordination-file edit, so Chat 1 must review the code commits deliberately and ignore stale README-only changes during integration.
 - Chat 2 must consume Chat 1 server-owned calculations and must not fake persistent customer/payment state client-side.
 - `account_not_provisioned` must be presented as a contact-the-gym/reception state, not customer self-registration.
 
-## Chat 3 ? Admin Reliability / QA / Operations
+## Chat 3 - Admin Reliability / QA / Operations
 
 Chat 3 owns Admin Software workflow QA, backup/recovery validation, performance/index analysis, operational health checks, Windows/Termux safety, crash/retry testing, and security acceptance tests.
 
 Current state:
 
 - Branch: `agent/gravity-admin-ops`.
-- Clean handoff head: `ff1225e` (`test: stage admin software reliability coverage`).
-- Earlier Admin ops commits include `4131635` and handoff documentation `ee4ba10`.
-- Chat 1 must review the branch diff before integrating it into `main`.
+- Last clean Admin reliability handoff recorded: `ff1225e` (`test: stage admin software reliability coverage`), with earlier Admin ops commits including `4131635` and `ee4ba10`.
+- Chat 3 is actively syncing against the new Admin backend and its current worktree is not clean; Chat 1 must not integrate until Chat 3 resolves its coordination conflict and reports a clean committed SHA.
 - Chat 3 must not apply migration 010 to the live Gravity database.
 
 ## Existing Notification Provider Reality
