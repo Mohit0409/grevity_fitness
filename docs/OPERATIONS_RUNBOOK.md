@@ -128,7 +128,17 @@ From the same elevated detached release checkout, install and verify the task de
 .\scripts\status-notifications.ps1 -ConfigPath $config
 ```
 
-After a planned reboot, rerun `verify-gravity-tasks.ps1`, `status-gravity.ps1`, `admin-health-check.ps1`, and the public `/api/health` check. A missing task, mismatched SHA/path/principal/trigger, unhealthy backend/tunnel, or stale notification scheduler is a release blocker.
+After the deliberate reboot acceptance step, wait for the boot-triggered notification cycle to finish, then run one read-only release check from the exact detached release checkout:
+
+```powershell
+.\scripts\release-lifecycle-check.ps1 `
+  -ConfigPath $config -ExpectedReleaseSha $releaseSha `
+  -NgrokConfigPath $ngrokConfig -NgrokExecutablePath $ngrokExe
+```
+
+Exit `0` with `"ready":true` is the lifecycle pass condition. Exit `2` is a release blocker and the JSON `blockers` array identifies the failed SHA/runtime/PID/listener/health, scheduled-task result/current-boot evidence, managed-ngrok identity/public health, or notification-cycle condition. The command is read-only: it does not start/stop processes, install tasks, adopt ngrok, send notifications, create backups, restore data, or write managed state. Backup/recovery evidence is reported from the existing operations log; stale/missing evidence is a warning unless a recorded backup explicitly lacks a recovery drill.
+
+Use `verify-gravity-tasks.ps1`, `status-gravity.ps1`, `status-notifications.ps1`, and public `/api/health` only as lower-level diagnosis when the lifecycle check fails. Do not proceed to the fresh `pre-admin-v1` backup or migration decision until the single lifecycle check is green.
 
 Before installing tasks after a code or Python-runtime change, run the isolated lifecycle drill. It uses a temporary port/database, tests start/status/backup/recovery/crash-watchdog/stop, and deletes only its verified temporary directory after success:
 

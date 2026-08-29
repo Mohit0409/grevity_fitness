@@ -205,6 +205,33 @@ class OperationsScriptTests(unittest.TestCase):
         self.assertIn("Remove-Item -LiteralPath $temporaryEvidence", adoption)
         self.assertNotIn("authtoken", adoption.casefold())
 
+    def test_release_lifecycle_check_is_read_only_and_secret_safe(self) -> None:
+        script = (ROOT / "scripts" / "release-lifecycle-check.ps1").read_text(encoding="utf-8")
+        self.assertIn("Get-ScheduledTaskInfo", script)
+        self.assertIn("Get-NetTCPConnection", script)
+        self.assertIn("verify-gravity-tasks.ps1", script)
+        self.assertIn("ngrok-skip-browser-warning", script)
+        self.assertNotIn("Register-ScheduledTask", script)
+        self.assertNotIn("Stop-Process", script)
+        self.assertNotIn("Set-Content", script)
+        self.assertNotIn("Remove-Item", script)
+        for marker in ("SECRET_KEY=", "SMTP_PASSWORD=", "SMS_API_KEY=", "WHATSAPP_ACCESS_TOKEN="):
+            self.assertNotIn(marker, script)
+        self.assertIn("--authtoken|authtoken=", script)
+
+    def test_operations_runbook_has_single_post_reboot_acceptance_command(self) -> None:
+        runbook = (ROOT / "docs" / "OPERATIONS_RUNBOOK.md").read_text(encoding="utf-8")
+        self.assertIn("release-lifecycle-check.ps1", runbook)
+        self.assertIn("Exit `0` with `\"ready\":true`", runbook)
+        self.assertIn("does not start/stop processes", runbook)
+        self.assertIn("Do not proceed to the fresh `pre-admin-v1` backup", runbook)
+
+    def test_managed_ngrok_state_pins_config_path_for_reboot_verification(self) -> None:
+        script = (ROOT / "scripts" / "start-ngrok.ps1").read_text(encoding="utf-8")
+        self.assertIn("configPath = $ngrokConfig", script)
+        self.assertIn("$state.configPath", script)
+        self.assertIn("$ngrokConfig", script)
+
     def test_browser_assets_contain_no_server_secret_configuration_names(self) -> None:
         forbidden = (
             "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET", "SMTP_PASSWORD",

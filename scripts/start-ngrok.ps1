@@ -48,6 +48,7 @@ function Test-ManagedNgrok([int]$ProcessId) {
     $state = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
     if ([int]$state.pid -ne $ProcessId -or [int]$state.formatVersion -ne 1) { return $false }
     if ([string]$state.target -ne "http://127.0.0.1:$($context.Port)") { return $false }
+    if (-not $state.PSObject.Properties['configPath'] -or -not [string]::Equals([IO.Path]::GetFullPath([string]$state.configPath), $ngrokConfig, [StringComparison]::OrdinalIgnoreCase)) { return $false }
     if (-not [string]::Equals([IO.Path]::GetFullPath([string]$state.executable), $process.Path, [StringComparison]::OrdinalIgnoreCase)) { return $false }
     $delta = ([DateTimeOffset]::Parse([string]$state.startedAt).UtcDateTime - $process.StartTime.ToUniversalTime()).TotalSeconds
     return $delta -ge 0 -and $delta -le 120
@@ -104,6 +105,7 @@ if (-not $process) {
     formatVersion = 1
     pid = $process.Id
     executable = [IO.Path]::GetFullPath($ngrokExe)
+    configPath = $ngrokConfig
     target = "http://127.0.0.1:$($context.Port)"
     startedAt = $process.StartTime.ToUniversalTime().ToString('o')
   } | ConvertTo-Json | Set-Content -LiteralPath $stateFile -Encoding utf8
