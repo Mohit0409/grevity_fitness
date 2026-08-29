@@ -122,18 +122,18 @@ Current state:
 9. Migration 010 stays off the live database until final integrated release gates pass and a fresh verified pre-migration backup exists.
 10. Update this file when ownership, handoff SHA, or rollout state changes.
 
-## Current coordination - 2026-08-29 20:57 IST
+## Current coordination - 2026-08-29 21:18 IST
 
-- Release decision: **NO-GO; production remains pinned to v9 / migration 009.** Frozen code, final exact-RC validation, isolated migration rehearsal, rollback pairing, and both independent Chat 2/Chat 3 exact-RC sign-offs are green. Remaining blockers are operator-provided production ingress, protected deployment, SYSTEM lifecycle tasks, reboot acceptance, and the fresh pre-cutover backup.
-- Frozen code SHA is `c4f2219a77f0a1248497c15c5eef6bc5389dd476`; immutable detached RC is `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`, detached and clean. Later `main` commits are documentation/coordination only and do not change the frozen runtime.
-- Chat 1 final exact-RC evidence remains green: backend 192/192, Playwright 53/53, Admin/customer 29/29, stress 3/3, accessibility/responsive 9/9, business modules 47/47, ops/reliability 64/64, plus static/security gates. Exact-RC isolated 009 -> 010 rehearsal and separate pinned-v9 migration-009 rollback pairing passed.
-- Chat 2 exact-`c4f2219` frontend sign-off is complete. Branch-local evidence is `7cb2027` with reconfirmation `af1db69`: `web/` tree is identical to `b6b42d7`; corrected deterministic 2/2, stress 3/3, Admin/customer 29/29, responsive/accessibility 4/4, and integration-risk 14/14 passed with no reproducible frontend defect and no production mutation.
-- Chat 3 exact-`c4f2219` lifecycle/ngrok/task sign-off is complete: detached/clean/exact-SHA checks and focused gate 37/37 PASS in branch-local `3560923`. Chat 1 canonically accepted that evidence in `e3f8f14`.
-- Chat 1 production-ingress audit remains an explicit operator-input NO-GO: no verified durable production hostname, reserved production tunnel identity, or approved custom-domain value exists in the repo. The chats must not invent one or promote the free ngrok interstitial to production.
-- Production backend PID `4644` remains on loopback `127.0.0.1:8787`; live DB remains migration 009. Gravity scheduled-task count is 0, the operator session is not elevated, and protected targets `C:\ProgramData\GravityFitness\gravity.env`, `C:\ProgramData\GravityFitness\ngrok.yml`, and `C:\Program Files\ngrok\ngrok.exe` are absent.
-- Internal pre-release code acceptance is complete. Chat 2 should stay frozen until post-cutover read-only UI smoke unless a real release-blocking defect appears. Chat 3 should stay frozen until Chat 1/operator supplies approved ingress and creates the protected deployment tuple, then run the required non-mutating preflight.
-- Use the latest `NEW TASK ASSIGNMENTS` section at the end of this file. No unrelated runtime/product/ops code changes are allowed; any such change invalidates frozen RC `c4f2219` and requires a replacement immutable RC plus affected exact-SHA gates.
-
+- Product priority is corrected by operator direction: **Admin Portal ships first as Windows/local software. Public domain/tunnel deployment is Phase 2 and is not a blocker for Admin Software V1.**
+- Release decision remains **NO-GO for the local Admin V1 cutover only until local lifecycle/backup gates are complete**; production remains pinned v9 / migration 009 meanwhile.
+- Frozen runtime SHA remains `c4f2219a77f0a1248497c15c5eef6bc5389dd476`; immutable detached RC remains `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`, clean and detached. No runtime/product/ops code change is required for the scope correction.
+- Chat 2 exact-RC frontend acceptance is complete (`7cb2027`, reconfirmed `af1db69`). Chat 3 exact-RC lifecycle/ngrok/task code acceptance is complete (37/37 in `3560923`). Chat 1 canonically recorded final exact-RC acceptances in `f33e8e0`.
+- Existing `install-gravity-tasks.ps1` already supports local-only lifecycle: ngrok is optional unless `-EnsureNgrok` is supplied. Therefore Phase 1 must install/verify the three Gravity SYSTEM tasks **without** `-EnsureNgrok`.
+- Existing `release-lifecycle-check.ps1` is tunnel-specific and requires ngrok parameters; do not use it as the Phase-1 local-software acceptance command. Phase 1 uses local read-only reboot checks for exact RC identity, loopback backend, all three tasks, notifications, and backup evidence. Tunnel-aware acceptance is deferred to Phase 2.
+- Current protected local config `C:\ProgramData\GravityFitness\gravity.env` is absent, Gravity scheduled-task count is 0, and the available shell is not elevated. These are the immediate Phase-1 operational blockers. `ngrok.yml`, a SYSTEM ngrok executable, public hostname, and tunnel transition are no longer required for Phase 1.
+- After protected local lifecycle + deliberate reboot acceptance are green, Chat 1 must create/verify/recovery-drill/hash the fresh `pre-admin-v1` migration-009 backup, then make the explicit local Admin Software GO/NO-GO decision. Only GO permits migration 010/local Admin V1 cutover.
+- Public website/domain/tunnel work remains deferred and must not delay the Admin Portal software release.
+- Use the latest `NEW TASK ASSIGNMENTS` section at the end of this file. No unrelated runtime/product/ops changes are allowed; any such code change invalidates frozen RC `c4f2219`.
 
 ## NEW TASK ASSIGNMENTS - 2026-08-29 16:36 IST
 
@@ -741,3 +741,79 @@ Until step 9 explicitly records GO, production must remain on pinned v9 / migrat
 - Both independent exact-RC sign-offs are now fully recorded. Do not ask Chat 2 or Chat 3 to repeat them unless frozen runtime code changes or a reproducible defect appears.
 - The next release dependency is external/operator-provided production ingress. Until a verified durable HTTPS hostname plus approved tunnel/proxy identity and ownership/control facts are supplied, ingress remains **NO-GO** and protected lifecycle work must not begin.
 - Production remains pinned v9 / migration 009. No runtime/product/ops code was changed by this status update.
+
+## NEW TASK ASSIGNMENTS - 2026-08-29 21:18 IST
+
+This is the authoritative remaining-work queue. It supersedes the 20:57 queue where product priority changed by operator direction.
+
+### Release scope override - Admin Software First
+
+- **Phase 1 target:** Gravity Fitness Admin Portal as Windows/local software on the gym/operator machine.
+- **Phase 2 target:** public website/domain/tunnel. Free domain/tunnel work is deferred and must not block Phase 1.
+- Frozen runtime stays `c4f2219a77f0a1248497c15c5eef6bc5389dd476`; immutable RC stays `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`.
+- Both independent exact-RC sign-offs are complete. Do not repeat them unless frozen runtime code changes or a reproducible defect appears.
+- Phase 1 does not require `ngrok.yml`, a SYSTEM ngrok executable, a public hostname, DNS/TLS, or tunnel transition.
+- `install-gravity-tasks.ps1` supports this: install/verify the three SYSTEM tasks without `-EnsureNgrok`.
+- `release-lifecycle-check.ps1` remains tunnel-specific and is deferred to Phase 2; do not change frozen ops code merely to remove ngrok from that script.
+- Production remains pinned v9 / migration 009 until Chat 1 explicitly records local Admin Software GO.
+
+### Chat 1 - Release Lead: Local Admin Software Installation + Cutover
+
+1. Preserve frozen RC `c4f2219`; no new runtime/product/ops code unless a real release-blocking defect is proved.
+2. Record the scope correction in release documentation: Phase 1 is local Admin Software; public ingress is deferred and is not a GO/NO-GO gate for Phase 1.
+3. Prepare the local deployment tuple only: exact RC SHA/path, pinned-v9 rollback SHA/path, live DB path, protected `gravity.env`, project Python/runtime, loopback `127.0.0.1:8787`, three SYSTEM task commands, local reboot checks, backup/off-host targets, rollback commands, and abort criteria.
+4. Enter an elevated/operator-controlled window and create `C:\ProgramData\GravityFitness\gravity.env` with least-privilege ACLs. Do not create/copy ngrok assets for Phase 1 and do not expose secret values.
+5. Before task installation, hand the exact local tuple to Chat 3 for non-mutating config/ACL/task-plan preflight. Any blocker keeps local cutover NO-GO.
+6. While live DB remains migration 009, install `GravityFitness-Watchdog`, `GravityFitness-DailyBackup`, and `GravityFitness-Notifications` from exact RC using `install-gravity-tasks.ps1` **without `-EnsureNgrok`**.
+7. Verify task actions, working directory, SYSTEM/Highest principal, triggers, enabled state, `IgnoreNew`, exact RC identity, protected config path, and secret-free arguments.
+8. Perform one deliberate reboot only after local lifecycle installation is green.
+9. Require Chat 3 local post-reboot acceptance: exact RC identity, detached/clean checkout, healthy backend on loopback `127.0.0.1:8787`, all three task states/results, fresh notification-cycle evidence, no stuck runner lock, and no unexpected failure counters. Do not require public/tunnel evidence for Phase 1.
+10. After reboot acceptance is green and live DB is still migration 009, create the fresh `pre-admin-v1` live backup with pinned v9; verify it, recovery-drill it, hash it, and copy it to protected off-host storage.
+11. Record explicit local Admin Software GO/NO-GO. Only GO permits migration 010 and local Admin V1 cutover.
+12. On GO, perform guarded migration 010/local RC cutover and run local smoke: health, owner TOTP/Admin workspaces, customer management, memberships/fees, notifications, enquiries, readiness, Team Access, Coaching, Audit, approved-customer login, unknown-phone denial, trainer redaction, and payments/renewals.
+13. Ask Chat 2 for read-only UI acceptance and Chat 3 for read-only local lifecycle acceptance after cutover.
+14. On critical failure, restore the fresh migration-009 backup plus pinned-v9 runtime using the documented rollback procedure. Never edit migration rows or live SQLite/WAL files manually.
+15. After successful local software release, update final local runtime/task/backup evidence and release/tag documentation. Keep public domain/tunnel work explicitly deferred to Phase 2.
+
+Success: Admin Portal V1 runs as reliable Windows/local software with reboot recovery, scheduled notifications/backups, verified rollback, and migration 010, without waiting for a public domain or tunnel.
+
+### Chat 2 - Frontend Complete; Local Cutover Smoke Only
+
+1. Exact `c4f2219` frontend sign-off remains COMPLETE; preserve `7cb2027` and `af1db69` branch-local.
+2. Do not rerun acceptance or start new UI work merely because public ingress was deferred.
+3. Keep the Chat 2 branch frozen until Chat 1 completes the local Admin V1 cutover.
+4. After cutover, perform read-only Admin Portal rendering/navigation smoke on representative mobile/desktop widths against the local released runtime.
+5. Confirm all ten Admin workspaces render and remain usable; do not mutate production business data solely for UI smoke.
+6. If a reproducible frontend defect appears, capture deterministic evidence and hand it to Chat 1 before making changes. Any accepted product-code fix reopens the RC process.
+
+Success: Chat 2 stays frozen until local cutover, then confirms the released Admin Portal UI matches the signed-off RC.
+### Chat 3 - Local Lifecycle Preflight + Reboot Acceptance
+
+1. Preserve completed exact-RC code acceptance: `3560923`, 37/37 PASS. Do not rerun it unless frozen SHA changes.
+2. Public ngrok/tunnel preflight is deferred to Phase 2. Do not block Phase 1 because `ngrok.yml`, ngrok executable, hostname, or public URL is absent.
+3. Once Chat 1 creates protected `C:\ProgramData\GravityFitness\gravity.env`, run non-mutating local preflight from exact RC `c4f2219`: SHA/detached cleanliness, Python/runtime identity, loopback target, protected config identity, three SYSTEM task action+trigger plans, working directory, release identity, and secret-free arguments.
+4. Run task preflight/verification without `-EnsureNgrok`; confirm the watchdog plan is loopback-backend-only for Phase 1.
+5. Inspect protected config ACLs read-only. SYSTEM and deployment/operator access must be sufficient and not overbroad. Never print secrets or config contents.
+6. Any missing/mismatched local path, ACL issue, task-plan error, wrong release identity, non-loopback backend target, or secret-bearing argument is a local Admin Software NO-GO.
+7. Perform live task mutations only with explicit Chat 1/operator authorization and elevation.
+8. After deliberate reboot, perform local read-only acceptance: exact RC SHA/detached/clean state, managed backend PID/listener/start metadata, `127.0.0.1:8787` health, all three task states/results, notification scan/delivery freshness, no stuck runner lock, and no unexpected failure counters.
+9. Do not require ngrok/public-health evidence for Phase 1 and do not run the tunnel-specific `release-lifecycle-check.ps1` as the Phase-1 acceptance gate.
+10. Do not create/restore the final pre-migration backup and do not run migration 010; Chat 1 owns those actions.
+11. After local cutover, perform read-only lifecycle confirmation against the released Admin runtime/tasks unless Chat 1 assigns a specific defect investigation.
+
+Success: Chat 3 proves the local Windows lifecycle independently of public ingress and does not mutate business data or migration state.
+
+### Mandatory remaining order - 21:18 queue
+
+1. Public domain/tunnel work is deferred to Phase 2 and removed from the Admin Software V1 critical path.
+2. Chat 1 freezes the local deployment tuple and, with elevation, creates/secures protected `gravity.env` while production remains migration 009.
+3. Chat 3 runs non-mutating local config/ACL/task-plan preflight without ngrok. Any blocker stops the local lifecycle window.
+4. With explicit authorization, install/verify Watchdog, DailyBackup, and Notifications as SYSTEM/Highest without `-EnsureNgrok`.
+5. Perform one deliberate reboot; Chat 3 completes local backend/task/notification acceptance.
+6. Still on migration 009, Chat 1 creates/verifies/recovery-drills/hashes/offsite-copies the fresh `pre-admin-v1` backup.
+7. Chat 1 records local Admin Software GO/NO-GO. Only GO permits migration 010/local RC cutover.
+8. On GO, perform migration/cutover and full local Admin smoke; Chat 2 performs read-only UI acceptance and Chat 3 read-only lifecycle acceptance.
+9. On critical failure, rollback to the fresh migration-009 backup plus pinned v9; no ad-hoc SQLite/migration edits.
+10. After local Admin V1 is stable, start a separate Phase-2 plan for free/public domain/tunnel access if still desired.
+
+Until step 7 explicitly records GO, production remains pinned v9 / migration 009. Public ingress is not a Phase-1 blocker.

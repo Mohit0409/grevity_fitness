@@ -171,3 +171,14 @@ No production URL has been invented or frozen. Because ingress is unresolved, th
 - Chat 3 final lifecycle sign-off remains accepted at **37/37 PASS** for the same exact detached/clean RC, with no production mutation.
 - There is now no remaining internal exact-RC acceptance blocker. Do not repeat already-green Chat 2/3 acceptance unless frozen runtime code changes or a reproducible defect appears.
 - Production ingress remains **NO-GO** until the operator supplies verifiable durable hostname/tunnel/proxy identity and ownership/control facts. Protected deployment, tunnel transition, SYSTEM tasks, reboot, fresh backup, migration 010, and cutover remain gated in that order.
+
+
+## Phase-1 scope correction - Admin Software First - 2026-08-29 21:18 IST
+
+Operator priority is Admin Portal as Windows/local software first. Public domain/tunnel deployment is deferred to Phase 2 and is **not** a Phase-1 GO/NO-GO requirement. The frozen Admin V1 runtime remains `c4f2219a77f0a1248497c15c5eef6bc5389dd476`; this scope correction is documentation-only and does not change runtime/product/ops code.
+
+For Phase 1, the required lifecycle is local loopback `127.0.0.1:8787` plus the three SYSTEM tasks. `install-gravity-tasks.ps1` supports this without `-EnsureNgrok`; no protected ngrok config, SYSTEM ngrok executable, hostname, DNS/TLS, or tunnel transition is required. The tunnel-specific `release-lifecycle-check.ps1` is deferred to Phase 2 rather than modified, preserving the frozen RC.
+
+Phase-1 NO-GO blockers are now: protected local `gravity.env` + least-privilege ACLs, non-mutating local task preflight, installation/verification of Watchdog/DailyBackup/Notifications, deliberate reboot with local backend/task/notification acceptance, and a fresh verified/recovery-drilled/hashed/off-host `pre-admin-v1` migration-009 backup. After those gates pass, Chat 1 may record local Admin Software GO and perform guarded migration 010/local Admin V1 cutover with complete local smoke.
+
+Public website/domain/tunnel work remains a separate Phase-2 project after local Admin V1 is stable.
