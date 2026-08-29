@@ -1,4 +1,4 @@
-# Gravity Fitness ? AI Agent Coordination
+# Gravity Fitness - AI Agent Coordination
 
 Last updated: 29 August 2026
 
@@ -34,7 +34,7 @@ Primary integration repo: `C:\movieXsuggestion\MyProject\grevity_fitness`
 - `origin/main` remains at `aadfc6f` until final Admin Software release gates are complete.
 - Live Gravity remains on migration 009. Migration 010 must not be applied live until Chat 2 and Chat 3 are integrated and final release gates pass.
 
-## Chat 1 ? Admin Backend / Integration Lead
+## Chat 1 - Admin Backend / Integration Lead
 
 Chat 1 owns Admin Software domain logic, customer provisioning, membership lifecycle, manual reception payments, fees, dashboard aggregates, admin API contracts, authentication provisioning policy, database migrations, and final integration.
 
@@ -42,7 +42,7 @@ Current Admin Software Backend V1 state:
 
 - New migration: `010_admin_software_v1.sql`.
 - Fresh database applies 10/10 migrations and reports schema stage `admin_software_v1`.
-- Migration 009 ? 010 preservation regression covers customers, Firebase identities, sessions, memberships, notifications, admins, and existing Razorpay payment intents.
+- Migration 009 - 010 preservation regression covers customers, Firebase identities, sessions, memberships, notifications, admins, and existing Razorpay payment intents.
 - Customers are owner-created and mobile numbers are normalized / unique for non-deleted accounts.
 - First mobile OTP login attaches Firebase identity to the existing owner-created customer.
 - Unknown verified phones fail closed with `account_not_provisioned`; customer self-registration is disabled.
@@ -52,7 +52,7 @@ Current Admin Software Backend V1 state:
 - Payment and renewal operations support `Idempotency-Key` replay protection.
 - Renewal preserves membership history and suppresses obsolete expiry reminders.
 - Customer disable / owner phone change revoke active customer sessions.
-- Admin dashboard values are server-calculated and do not double-count membership history.
+- Admin dashboard values are server-calculated, use the India business day, and do not double-count membership history.
 - Admin Software targeted suite: 15/15 PASS.
 - Auth suite under owner-provisioned model: 15/15 PASS.
 - Cross-domain Admin/Auth/Membership/Payment/Notification gate: 65/65 PASS.
@@ -70,42 +70,40 @@ Primary Admin V1 routes:
 - `POST /api/admin/memberships/{membershipId}/payments`
 - existing plan and notification routes remain available.
 
-## Chat 2 ? Admin Software Frontend
+## Chat 2 - Admin Software Frontend
 
 Chat 2 owns the software-style Admin application shell and V1 owner workflows: Dashboard, Customers, customer detail, Add Customer, Memberships, Renew Membership, Record Payment, Fees, Notifications, responsive behavior, accessibility, and browser E2E.
 
 Current state:
 
 - Branch: `agent/gravity-public-ui`.
-- Admin Software shell baseline: `25f92cf` (`Build Gravity admin management workspace`).
-- Complete Admin Software V1 wiring: `2054d78` (`Wire admin software V1 workflows`).
-- Idempotency hardening: `28466ae` (`Harden admin payment idempotency`); renewal and manual-payment dialogs send stable `Idempotency-Key` values across retries in addition to disabling duplicate submits.
-- Dashboard now consumes Chat 1 server-calculated customer/member/expiry/fee/payment metrics and operational lists.
-- Customers now support server-backed search, customer/membership/plan filters, detail/history, transactional Add Customer, edit, enable/disable, renewal, and manual payment recording.
-- Fees and Memberships consume the V1 ledger/list APIs; no persistent balance, expiry, customer, membership, or payment state is fabricated client-side.
-- Existing customer/owner notification UX remains preserved with safe per-channel delivery statuses.
-- Admin Software browser fixture uses synthetic in-memory test data only; no production customers are modified.
-- Final post-idempotency Playwright suite: 36/36 PASS on dedicated E2E port 8831.
-- Python regression: 102/102 PASS.
-- Read-only verification of Chat 1 current Admin Software backend/service HTTP contract: 15/15 PASS.
-- Responsive/accessibility coverage includes 320/360/375/390/430/768/1024/1366/1440/1920, 200% text resize, reduced motion, keyboard navigation, dialog focus trapping/Escape/focus restore, and no horizontal page overflow.
-- Passing screenshots include `admin-software-v1-390.png`, `admin-software-v1-1366.png`, and the preserved notification screenshot `admin-reminders-390.png`.
-- Frontend contract reference: `docs/ADMIN_SOFTWARE_API_CONTRACT.md`.
-- Chat 2 did not modify Chat 1-owned auth/backend/account files.
-- Remaining cross-chat item: Chat 1-owned customer auth UI must map `account_not_provisioned` to contact-the-gym/reception guidance; Chat 2 did not modify `account-page.js`/`account.html`.
-- Code handoff head before this coordination-only commit: `28466ae`. Ready for deliberate Chat 1 integration; Chat 2 must not merge into `main`.
+- Earlier Admin Software UI was integrated into local `main` as `6523989`, `fc19d7f`, and `c91ce85`.
+- New clean handoff: `0a323dd` (`Harden admin role-aware workflows`).
+- Role-aware UX now distinguishes owner/admin/reception/trainer navigation and actions; trainer does not see fee/payment/notification UI, reception keeps member/membership/payment/enquiry operations, and admin sees notification/coaching/readiness/audit without owner-only Team access.
+- Dashboard, Customers, Memberships, and Fees now expose explicit busy/error/retry behavior instead of blank transitions; customer list requests ignore stale responses so an older search cannot overwrite a newer query.
+- Customer profile and membership views hide payment history/summaries when `payments.read` is absent, and notification history when `notifications.manage` is absent.
+- Final Playwright release matrix: 41/41 PASS on dedicated port 8835 using Python 3.12; focused role/race/retry slice: 6/6 PASS on port 8834.
+- JavaScript syntax checks, `git diff --check`, and protected Chat 1 backend/auth/account diff audit are clean.
+- No persistent customer/payment state is fabricated client-side; server calculations remain authoritative.
+- Cross-chat security contract item for Chat 1: trainer has `members.read` but not `payments.read`, while current customer/membership server payloads can include payment summaries/history. Chat 2 hides these fields in UI, but frontend hiding is not authorization; Chat 1 should decide and test server-side field redaction/least-privilege behavior before release.
+- `0a323dd` is ready for deliberate Chat 1 review/integration; Chat 2 must not merge into `main`.
 
-## Chat 3 ? Admin Reliability / QA / Operations
+## Chat 3 - Admin Reliability / QA / Operations
 
 Chat 3 owns Admin Software workflow QA, backup/recovery validation, performance/index analysis, operational health checks, Windows/Termux safety, crash/retry testing, and security acceptance tests.
 
 Current state:
 
-- Branch: `agent/gravity-admin-ops`.
-- Clean handoff head: `ff1225e` (`test: stage admin software reliability coverage`).
-- Earlier Admin ops commits include `4131635` and handoff documentation `ee4ba10`.
-- Chat 1 must review the branch diff before integrating it into `main`.
-- Chat 3 must not apply migration 010 to the live Gravity database.
+- Branch: `agent/gravity-admin-ops`; clean at `017080e` (`test: capture customer filter page boundary`).
+- Chat 3 reliability/ops code through `54c38c3` was integrated into local `main` as `a61a684`, `51865fd`, and `2d2b0a3`; release-verification follow-up is `f99cd20`.
+- `017080e` marks the old customer-plan page-boundary bug as expected failure. Chat 1 fixed that bug in `2ea3b38`; on the next Chat 3 sync, convert this into a normal passing regression instead of merging the stale expected-failure marker.
+- Chat 3 should continue scale/failure/security validation and must not apply migration 010 to the live Gravity database.
+
+## Admin scale checkpoint
+
+- Chat 1 backend scale work is active after synthetic 5,000-customer QA exposed Admin notification reads above 50 seconds.
+- Current optimized checkpoint: customer list ~150 ms median, pending fees ~282 ms, membership expiry ~811 ms, dashboard ~1.48 s, Admin notifications ~2.16 s on the synthetic 5,000-customer dataset.
+- These are synthetic local QA measurements, not production SLO guarantees. No new performance migration has been added.
 
 ## Existing Notification Provider Reality
 
