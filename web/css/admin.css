@@ -113,7 +113,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 18px; padding:
 .compact-control { grid-template-columns: auto 120px; align-items: center; gap: 8px; }
 .compact-control select { min-height: 38px; }
 td small { color: var(--muted); font-size: .72rem; }
-.lead-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(320px, .8fr); gap: 18px; align-items: start; }
+.lead-grid { min-width: 0; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(320px, .8fr); gap: 18px; align-items: start; }
+.lead-grid > *, .lead-head > *, .lead-filters > * { min-width: 0; }
 .lead-head { align-items: flex-start; }
 .lead-head p { margin: 7px 0 0; }
 .lead-filters { display: grid; grid-template-columns: 1.4fr repeat(2,minmax(140px,.6fr)); gap: 10px; margin-bottom: 18px; }
@@ -425,3 +426,12 @@ button:disabled { cursor: not-allowed; opacity: .52; filter: none; }
   .audit-detail-facts dd,
   .audit-metadata dd { margin-bottom: 8px; }
 }
+
+
+/* Customer access-impact safeguards */
+.access-impact { margin-top: 14px; }
+.impact-ack { display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 10px; align-items: start; margin-top: 8px; color: #e8d6b1; font-size: .7rem; line-height: 1.45; }
+.impact-ack input { width: 18px; min-height: 18px; margin: 1px 0 0; accent-color: var(--accent); }
+.danger-action { border: 1px solid rgba(255,91,107,.45); background: #3a171d; color: #ffb3bb; }
+.danger-action:hover { background: #4b1b23; }
+.access-confirm-dialog { width: min(520px, calc(100vw - 32px)); }

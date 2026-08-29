@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null };
+  const state = { admin: null, requestId: 0 };
   const core = () => window.GravityAdminCore;
   function hasPermission(permission) { return core()?.hasPermission(permission) || false; }
 
@@ -83,7 +83,7 @@
       const row = document.createElement('button'); row.type = 'button'; row.className = 'activity-row';
       const text = document.createElement('span');
       const strong = document.createElement('strong'); strong.textContent = item.customerName || 'Customer';
-      const small = document.createElement('small'); small.textContent = `${item.membershipNumber || '--'} ? ${item.planName || '--'}`;
+      const small = document.createElement('small'); small.textContent = `${item.membershipNumber || '--'} | ${item.planName || '--'}`;
       text.append(strong, small);
       const amount = document.createElement('strong'); amount.textContent = moneyPaise(item.pendingPaise);
       row.append(text, amount); row.addEventListener('click', () => core()?.openView('fees')); root.appendChild(row);
@@ -111,7 +111,7 @@
       const button = document.createElement('button'); button.type = 'button'; button.className = 'activity-row';
       const text = document.createElement('span');
       const strong = document.createElement('strong'); strong.textContent = item.customerName || 'Customer';
-      const small = document.createElement('small'); small.textContent = `${String(item.method || 'payment').replaceAll('_', ' ')} ? ${formatDate(item.paidAt)}`;
+      const small = document.createElement('small'); small.textContent = `${String(item.method || 'payment').replaceAll('_', ' ')} | ${formatDate(item.paidAt)}`;
       text.append(strong, small);
       const amount = document.createElement('strong'); amount.textContent = moneyPaise(item.amountPaise, item.currency || 'INR');
       button.append(text, amount); button.addEventListener('click', () => window.GravityCustomerAdmin?.openCustomerById(item.customerId)); root.appendChild(button);
@@ -122,6 +122,7 @@
   async function renderWorkspace() {
     const api = core()?.api;
     if (!api) return;
+    const requestId = ++state.requestId;
     const canReadPayments = hasPermission('payments.read');
     $('dashboardFeesPanel').hidden = !canReadPayments;
     $('dashboardPaymentsPanel').hidden = !canReadPayments;
@@ -130,6 +131,7 @@
     $('dashboardExpiringBody').replaceChildren(emptyRow('Loading memberships...', 5));
     try {
       const dashboard = await api('/api/admin/dashboard');
+      if (requestId !== state.requestId) return;
       renderStats(dashboard.stats || {});
       renderExpiring(dashboard.expiring || {});
       if (canReadPayments) {
@@ -137,12 +139,23 @@
         renderRecentPayments(Array.isArray(dashboard.recentPayments) ? dashboard.recentPayments : []);
       }
       renderRecentCustomers(Array.isArray(dashboard.recentCustomers) ? dashboard.recentCustomers : []);
-    } catch (_) {
-      $('stats').replaceChildren(stat('Dashboard unavailable', '--', 'Retry to refresh operational data'));
-      $('dashboardExpiringBody').replaceChildren(emptyRow('Dashboard data is temporarily unavailable.', 5));
-      const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'ghost'; retry.textContent = 'Retry dashboard'; retry.addEventListener('click', () => renderWorkspace());
-      $('recentCustomers').replaceChildren(retry);
-    } finally { $('stats').setAttribute('aria-busy', 'false'); }
+    } catch (error) {
+      if (requestId !== state.requestId) return;
+      const forbidden = error?.status === 403;
+      $('stats').replaceChildren(stat(forbidden ? 'Dashboard access denied' : 'Dashboard unavailable', '--', forbidden ? 'Your current role cannot load this workspace' : 'Retry to refresh operational data'));
+      $('dashboardExpiringBody').replaceChildren(emptyRow(forbidden ? 'Dashboard access denied.' : 'Dashboard data is temporarily unavailable.', 5));
+      $('dashboardFeesState').replaceChildren();
+      $('recentPayments').replaceChildren();
+      if (forbidden) {
+        const message = document.createElement('p'); message.className = 'software-empty'; message.textContent = 'Dashboard data is not available to this admin session.';
+        $('recentCustomers').replaceChildren(message);
+      } else {
+        const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'ghost'; retry.textContent = 'Retry dashboard'; retry.addEventListener('click', () => renderWorkspace());
+        $('recentCustomers').replaceChildren(retry);
+      }
+    } finally {
+      if (requestId === state.requestId) $('stats').setAttribute('aria-busy', 'false');
+    }
   }
 
   window.GravityAdminDashboard = { setAdmin(admin) { state.admin = admin; }, renderWorkspace };

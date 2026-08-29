@@ -45,6 +45,9 @@
     const response = await fetch(path, request);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (response.status === 401 && !['/api/admin/session', '/api/admin/login', '/api/admin/verify'].includes(path)) {
+        await loadSession();
+      }
       const error = new Error(data.error || `HTTP ${response.status}`);
       error.status = response.status;
       error.data = data;
@@ -294,6 +297,7 @@
     api, flash: flashMessage, hasPermission, formatTime, badge,
     openView(view) { return showView(view); },
     currentAdmin() { return state.admin; },
+    refreshSession() { return loadSession(); },
   };
 
   $('sidebarOpen').addEventListener('click', openSidebar);
