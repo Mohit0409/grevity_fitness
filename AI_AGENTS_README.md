@@ -122,18 +122,17 @@ Current state:
 9. Migration 010 stays off the live database until final integrated release gates pass and a fresh verified pre-migration backup exists.
 10. Update this file when ownership, handoff SHA, or rollout state changes.
 
-## Current coordination - 2026-08-29 21:18 IST
+## Current coordination - 2026-08-29 22:01 IST
 
-- Product priority is corrected by operator direction: **Admin Portal ships first as Windows/local software. Public domain/tunnel deployment is Phase 2 and is not a blocker for Admin Software V1.**
-- Release decision remains **NO-GO for the local Admin V1 cutover only until local lifecycle/backup gates are complete**; production remains pinned v9 / migration 009 meanwhile.
-- Frozen runtime SHA remains `c4f2219a77f0a1248497c15c5eef6bc5389dd476`; immutable detached RC remains `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`, clean and detached. No runtime/product/ops code change is required for the scope correction.
-- Chat 2 exact-RC frontend acceptance is complete (`7cb2027`, reconfirmed `af1db69`). Chat 3 exact-RC lifecycle/ngrok/task code acceptance is complete (37/37 in `3560923`). Chat 1 canonically recorded final exact-RC acceptances in `f33e8e0`.
-- Existing `install-gravity-tasks.ps1` already supports local-only lifecycle: ngrok is optional unless `-EnsureNgrok` is supplied. Therefore Phase 1 must install/verify the three Gravity SYSTEM tasks **without** `-EnsureNgrok`.
-- Existing `release-lifecycle-check.ps1` is tunnel-specific and requires ngrok parameters; do not use it as the Phase-1 local-software acceptance command. Phase 1 uses local read-only reboot checks for exact RC identity, loopback backend, all three tasks, notifications, and backup evidence. Tunnel-aware acceptance is deferred to Phase 2.
-- Current protected local config `C:\ProgramData\GravityFitness\gravity.env` is absent, Gravity scheduled-task count is 0, and the available shell is not elevated. These are the immediate Phase-1 operational blockers. `ngrok.yml`, a SYSTEM ngrok executable, public hostname, and tunnel transition are no longer required for Phase 1.
-- After protected local lifecycle + deliberate reboot acceptance are green, Chat 1 must create/verify/recovery-drill/hash the fresh `pre-admin-v1` migration-009 backup, then make the explicit local Admin Software GO/NO-GO decision. Only GO permits migration 010/local Admin V1 cutover.
-- Public website/domain/tunnel work remains deferred and must not delay the Admin Portal software release.
-- Use the latest `NEW TASK ASSIGNMENTS` section at the end of this file. No unrelated runtime/product/ops changes are allowed; any such code change invalidates frozen RC `c4f2219`.
+- **ACTIVE SCOPE IS ADMIN PORTAL SOFTWARE ONLY.** Do not work on the existing customer/public website, homepage, public account pages, domain, DNS, ngrok, tunnel, hosting, or customer-site polish unless the operator explicitly starts that work later.
+- Frozen Admin V1 runtime remains `c4f2219a77f0a1248497c15c5eef6bc5389dd476`; immutable RC remains `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`, detached and clean.
+- Admin V1 product implementation is complete and validated. Remaining work is Admin-software installation, local lifecycle, backup, cutover, and final Admin-only acceptance.
+- Current local service is healthy on `127.0.0.1:8787`, but it remains pinned v9 / migration 009 until explicit Admin Software GO.
+- `C:\ProgramData\GravityFitness\gravity.env` and protected runtime directories are absent; Gravity SYSTEM task count is 0; current operator shell is not elevated.
+- Chat 2 exact-RC sign-off and Chat 3 exact-RC lifecycle sign-off remain complete. Do not rerun broad completed acceptance. New work must be narrowly Admin-only and release-directed.
+- Phase-1 task installation uses `install-gravity-tasks.ps1` without `-EnsureNgrok`. Public/tunnel lifecycle is out of scope.
+- Migration 010 is prohibited until protected config, local task preflight/install, deliberate reboot acceptance, and fresh migration-009 backup gates are green and Chat 1 records GO.
+- Use the latest `NEW TASK ASSIGNMENTS` section at the end of this file. Any accepted runtime/product/ops code change invalidates frozen RC `c4f2219` and requires a replacement immutable RC.
 
 ## NEW TASK ASSIGNMENTS - 2026-08-29 16:36 IST
 
@@ -826,3 +825,83 @@ Until step 7 explicitly records GO, production remains pinned v9 / migration 009
 - Current operator session is **not elevated** and `C:\ProgramData\GravityFitness\gravity.env` is absent; therefore Chat 1 stops before protected-config creation as required by the queue.
 - Off-host backup destination also requires operator input: only filesystem drive `C:` is currently mounted and documented example `E:\GravityBackups` does not exist. No off-host path is invented.
 - Production remains pinned v9 / migration 009; Gravity SYSTEM tasks remain uninstalled. No protected files, task mutations, reboot, backup, migration 010, or cutover were performed.
+
+## NEW TASK ASSIGNMENTS - 2026-08-29 22:01 IST
+
+This is the authoritative remaining-work queue for all three chats. It supersedes the 21:18 queue where scope is now narrower.
+
+**Active product scope: Gravity Fitness Admin Portal software only.**
+
+Do NOT work on the existing customer/public website, homepage, public customer account pages, public login UX, domain, DNS, Firebase Hosting, ngrok, tunnel, public hostname, or website redesign. Those are explicitly deferred.
+
+Frozen Admin V1 runtime:
+`c4f2219a77f0a1248497c15c5eef6bc5389dd476`
+
+Immutable RC:
+`C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`
+
+Current local service remains pinned v9 / migration 009 until Chat 1 records Admin Software GO. Broad exact-RC acceptance is already complete and must not be restarted.
+
+### Chat 1 - Admin Software Release Lead / Local Cutover Owner
+
+1. Own only Admin Portal completion and release. Do not spend time on the customer/public website.
+2. Keep `c4f2219` frozen unless another chat proves a reproducible Admin-software release blocker.
+3. Prepare the protected local configuration plan for `C:\ProgramData\GravityFitness\gravity.env` without printing secrets. Reuse verified values from the existing private `.env`; do not ask the operator to retype secrets already present.
+4. For local Admin software override only operational values needed for localhost/runtime safety: loopback `127.0.0.1:8787`, local `APP_BASE_URL`, no proxy trust, explicit live data path, protected runtime/log/backup paths, and approved Python path. Preserve the existing `SECRET_KEY`, Firebase/provider/business values unless an Admin-only requirement proves otherwise.
+5. Do not create the protected file until an elevated/operator-controlled PowerShell window is available. Before elevation, prepare only secret-free commands/manifests outside the frozen RC.
+6. Keep the existing v9 service healthy and live DB on migration 009 while preparation proceeds.
+7. Once elevated, create the protected Gravity directories/config with least-privilege ACLs. Never echo secret values into console output, Git, README, or chat.
+8. Hand the exact local tuple to Chat 3 and require a non-mutating local task/config/ACL preflight before task installation.
+9. Only after Chat 3 preflight is green, install `GravityFitness-Watchdog`, `GravityFitness-DailyBackup`, and `GravityFitness-Notifications` from exact RC as SYSTEM/Highest, explicitly **without `-EnsureNgrok`**.
+10. Perform one deliberate reboot only after all three tasks are installed/verified.
+11. After Chat 3 reports local reboot acceptance green, and while DB is still migration 009, create a fresh `pre-admin-v1` backup; verify SQLite integrity, run recovery drill, hash the archive, and copy it to an operator-approved second storage location when available. Do not invent a destination.
+12. Record explicit Admin Software GO/NO-GO. Only GO permits migration 010 and Admin V1 runtime cutover.
+13. On GO, switch from pinned v9 to exact RC `c4f2219`, apply migration 010 through the normal guarded application path, and keep runtime loopback-only.
+14. Run **Admin Portal-only** smoke: owner/admin login, Dashboard, Add Customer, customer edit/disable, Memberships, renewal, manual payment, Fees/pending balance, Notifications admin view/scan, Coaching/Diet assignment, Team Access/RBAC, Audit, Readiness/local health. Do not test or modify the customer/public website as part of this release.
+15. If critical cutover checks fail, restore the fresh migration-009 backup and pinned-v9 runtime using the documented rollback. Never manually edit SQLite/WAL files or migration rows.
+16. After successful Admin-only acceptance, record final runtime SHA/path, DB migration, task state, backup evidence, and Admin V1 release disposition. Public website work remains separate.
+
+### Chat 2 - Admin Portal Operational UX / Release Acceptance
+
+1. Work only on the **Admin Portal UI** in the frozen RC. Do not touch or review customer/public website pages unless an Admin Portal dependency directly requires it.
+2. Do not rerun the already-completed broad frontend acceptance. Instead perform one narrow Admin-operator rehearsal on exact RC using isolated/test data.
+3. Exercise the owner's real daily flow end-to-end inside Admin only: Dashboard -> Add Customer -> assign initial membership -> record manual payment -> inspect pending balance -> renew membership -> verify updated Memberships/Fees -> inspect Notifications -> create/assign a diet-plan version -> inspect Team Access/Audit.
+4. Confirm all Admin-only actions remain usable at representative laptop and small-window sizes; focus on forms, dialogs, tables, row actions, error/success feedback, keyboard reachability, and no blocked controls.
+5. Confirm the Admin Portal does not require a public hostname/tunnel for its core owner workflows and uses loopback-safe API behavior in the local-software release.
+6. Do not spend time testing customer self-service/login pages, homepage, gallery, plans page, public coaching pages, or any public-site feature.
+7. If no reproducible Admin blocker is found, create a branch-local docs handoff with the exact RC SHA/path, Admin-only workflow coverage, PASS verdict, and production nonmutation statement; then freeze again.
+8. If a genuine Admin Portal blocker is found, capture a deterministic repro first. Make only the smallest Admin UI/test fix within Chat 2 ownership, then stop and hand the SHA to Chat 1. Any accepted code fix invalidates `c4f2219` and requires replacement RC validation.
+9. Prepare the **post-cutover Admin-only browser checklist** for Chat 1: Dashboard, Customers, Memberships, Fees, Notifications, Coaching/Diet, Team Access, Audit, and local error/session behavior. No customer/public website checklist.
+
+### Chat 3 - Local Windows Lifecycle / Task / Reboot Owner
+
+1. Work only on local Admin Software lifecycle. Ignore ngrok, tunnel, public URL, domain, DNS, and customer/public website lifecycle.
+2. Do not rerun the completed 37/37 exact-RC lifecycle acceptance. Use that as code-level evidence.
+3. In parallel while the real protected config is absent, run a **synthetic/temp local-only preflight rehearsal** from exact RC using non-secret temporary paths and the approved Python runtime. Use `install-gravity-tasks.ps1 -PreflightOnly` and explicitly omit `-EnsureNgrok`.
+4. Verify the generated plan contains exactly three tasks: Watchdog, DailyBackup, Notifications; SYSTEM/Highest; exact RC working directory; loopback backend target; `IgnoreNew`; expected triggers; expected release SHA/detached requirement; and no ngrok/tunnel/public arguments.
+5. Verify no secret values are embedded in scheduled-task command-line arguments. Record only safe paths/identities/results.
+6. Prepare the exact live non-mutating preflight command for `C:\ProgramData\GravityFitness\gravity.env` so it can be run immediately after Chat 1/operator creates the protected config.
+7. Once the protected config exists, inspect ACLs read-only and verify SYSTEM plus the intended operator/deployment account have only the required access. Overbroad or insufficient ACLs are NO-GO.
+8. Run live `-PreflightOnly` against exact RC. Any SHA, detached-head, Python, config, task-plan, path, principal, argument, or loopback mismatch is NO-GO; do not repair it ad hoc.
+9. During the elevated window, perform task mutations only when Chat 1/operator explicitly authorizes them. Do not touch the live DB or run migration 010.
+10. After the deliberate reboot, perform **local-only** acceptance: exact RC identity, managed loopback backend health, all three task presence/enabled/state/results, notification-cycle freshness, backup-task readiness, no stuck notification lock, and no unexpected failure counters.
+11. Do not use tunnel-specific `release-lifecycle-check.ps1` as the Phase-1 acceptance command. Public/tunnel evidence is out of scope; use the local checks defined in the 21:18/22:01 coordination.
+12. If a real lifecycle tooling blocker appears, reproduce it first with synthetic/temp evidence. Make one minimal ops/test fix only if necessary and hand the SHA to Chat 1; do not patch production ad hoc.
+13. After Admin V1 cutover, perform read-only lifecycle verification only. Chat 1 owns migration, backup restore, and release disposition.
+
+### Parallel execution order - 22:01 queue
+
+1. **Immediately in parallel:** Chat 1 prepares the secret-safe protected-config/elevated execution plan; Chat 2 performs the narrow Admin-only operator rehearsal; Chat 3 performs synthetic local-only task preflight rehearsal and prepares live preflight commands.
+2. Chat 2 reports Admin-only PASS or one deterministic blocker, then freezes. It must not touch the customer/public website.
+3. When an elevated operator window is available, Chat 1 creates/secures `C:\ProgramData\GravityFitness\gravity.env` and required protected local directories without exposing secrets.
+4. Chat 3 immediately runs protected-config ACL inspection plus live non-mutating local task preflight.
+5. If green, Chat 1/operator installs and verifies the three SYSTEM tasks **without `-EnsureNgrok`**.
+6. Perform one deliberate reboot; Chat 3 runs local-only reboot acceptance.
+7. Still on migration 009, Chat 1 creates/verifies/recovery-drills/hashes the fresh `pre-admin-v1` backup and copies it to an approved second storage target when available.
+8. Chat 1 records explicit Admin Software GO/NO-GO. Only GO permits migration 010.
+9. On GO, Chat 1 performs guarded Admin V1 cutover to exact RC `c4f2219` and migration 010.
+10. Chat 1 runs full Admin-only smoke, Chat 2 runs read-only Admin UI acceptance, and Chat 3 runs read-only local lifecycle acceptance.
+11. If all green, Admin Portal Software V1 is complete. Customer/public website work remains deferred until the operator starts a separate task.
+12. On critical failure, rollback to the fresh migration-009 backup plus pinned v9; no ad-hoc DB edits.
+
+Until step 8 records GO, the live database remains migration 009 and current runtime remains pinned v9. The only active product is the Admin Portal software.
