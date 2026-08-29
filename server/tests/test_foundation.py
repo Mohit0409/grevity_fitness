@@ -239,6 +239,8 @@ class HttpFoundationTests(unittest.TestCase):
             self.assertIn(b"normalizePhoneNumber", script)
             self.assertIn(b"`+91${compact}`", script)
             self.assertIn(b"auth/unauthorized-domain", script)
+            self.assertIn(b"account_not_provisioned", script)
+            self.assertIn(b"Please contact the gym reception", script)
 
     def test_readiness_ui_contract_is_wired(self):
         with running_server() as (base, _settings):

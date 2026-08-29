@@ -222,6 +222,58 @@ class AdminSoftwareServiceTests(unittest.TestCase):
         self.assertIsNotNone(session["revoked_at"])
         self.assertEqual(session["revoke_reason"], "admin_disabled")
 
+    def test_customer_filters_apply_before_limit_and_return_late_plan_match(self) -> None:
+        now = self.clock.value
+        with self.database.session() as connection:
+            for index in range(205):
+                customer_id = f"bulk-customer-{index:03d}"
+                phone = f"+91970{index:07d}"
+                connection.execute(
+                    "INSERT INTO customers(id,status,display_name,phone_e164,phone_verified,created_at,updated_at) "
+                    "VALUES (?,?,?,?,?,?,?)",
+                    (customer_id, "active", f"Bulk Member {index:03d}", phone, 0, now, now),
+                )
+                connection.execute(
+                    "INSERT INTO customer_profiles(customer_id,updated_at) VALUES (?,?)",
+                    (customer_id, now),
+                )
+                connection.execute(
+                    "INSERT INTO memberships(id,membership_number,customer_id,plan_id,plan_name_snapshot,"
+                    "plan_price_paise_snapshot,currency_snapshot,duration_months_snapshot,status,starts_at,ends_at,"
+                    "source,created_by_admin_user_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (f"bulk-membership-{index:03d}", f"GF-BULK-{index:03d}", customer_id, "plan-basic-monthly",
+                     "Basic", 99900, "INR", 1, "active", now - 86400, now + 20 * 86400,
+                     "admin_manual", "admin-1", now, now),
+                )
+            target_id = "bulk-target-pro"
+            connection.execute(
+                "INSERT INTO customers(id,status,display_name,phone_e164,phone_verified,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (target_id, "active", "ZZZ Target Pro", "+919799999999", 0, now, now),
+            )
+            connection.execute(
+                "INSERT INTO customer_profiles(customer_id,updated_at) VALUES (?,?)", (target_id, now)
+            )
+            connection.execute(
+                "INSERT INTO memberships(id,membership_number,customer_id,plan_id,plan_name_snapshot,"
+                "plan_price_paise_snapshot,currency_snapshot,duration_months_snapshot,status,starts_at,ends_at,"
+                "source,created_by_admin_user_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("bulk-target-membership", "GF-BULK-TARGET", target_id, "plan-pro-monthly", "Pro", 149900,
+                 "INR", 1, "active", now - 86400, now + 20 * 86400, "admin_manual", "admin-1", now, now),
+            )
+            connection.execute(
+                "INSERT INTO membership_payments(id,membership_id,amount_paise,currency,method,paid_at,status,"
+                "recorded_by_admin_user_id,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                ("bulk-target-payment", "bulk-target-membership", 50000, "INR", "cash", now, "recorded", "admin-1", now),
+            )
+        unfiltered = self.service.list_customers(limit=200)
+        self.assertEqual(len(unfiltered), 200)
+        self.assertNotIn(target_id, {item["id"] for item in unfiltered})
+        filtered = self.service.list_customers(plan_id="plan-pro-monthly", membership_status="active", limit=200)
+        self.assertEqual([item["id"] for item in filtered], [target_id])
+        self.assertEqual(filtered[0]["membership"]["payment"]["paidPaise"], 50000)
+        self.assertEqual(filtered[0]["membership"]["payment"]["pendingPaise"], 99900)
+
     def test_dashboard_does_not_double_count_membership_history(self) -> None:
         first = self.create_customer(phone="+919800000024", paid=0)
         self.create_customer(phone="+919800000025", paid=0)

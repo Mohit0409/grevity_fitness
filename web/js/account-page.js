@@ -70,6 +70,9 @@ function friendlyError(error) {
   if (error && (error.code === 'account_disabled' || error.code === 'auth/user-disabled')) {
     return 'This account is unavailable. Please contact Gravity Fitness for help.';
   }
+  if (error && error.code === 'account_not_provisioned') {
+    return 'Your membership account is not registered with Gravity Fitness yet. Please contact the gym reception.';
+  }
   if (error && (error.code === 'account_link_required' || error.code === 'account_conflict' ||
       error.code === 'auth/credential-already-in-use' || error.code === 'auth/email-already-in-use')) {
     return 'That verified email or mobile is already linked. Sign in to the existing account or contact support.';

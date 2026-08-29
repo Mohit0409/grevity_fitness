@@ -77,10 +77,10 @@ Chat 2 owns the software-style Admin application shell and V1 owner workflows: D
 Current state:
 
 - Branch: `agent/gravity-public-ui`.
-- Admin Software UI commits now include `25f92cf` (`Build Gravity admin management workspace`), `2054d78` (`Wire admin software V1 workflows`), and `28466ae` (`Harden admin payment idempotency`).
-- Chat 2 code is committed through `28466ae`; its worktree currently has only a coordination-file edit, so Chat 1 must review the code commits deliberately and ignore stale README-only changes during integration.
+- Chat 2 Admin Software UI handoff was reviewed and integrated into local `main` as `6523989`, `fc19d7f`, and `c91ce85`.
+- Integrated UI covers the software shell, dashboard, customers, customer detail, memberships, fees, renewal, manual payment, notification views, responsive behavior, accessibility, and stable payment/renewal idempotency keys.
 - Chat 2 must consume Chat 1 server-owned calculations and must not fake persistent customer/payment state client-side.
-- `account_not_provisioned` must be presented as a contact-the-gym/reception state, not customer self-registration.
+- Chat 1 customer auth UI now maps `account_not_provisioned` to clear contact-the-gym/reception guidance; customer self-registration remains disabled server-side.
 
 ## Chat 3 - Admin Reliability / QA / Operations
 

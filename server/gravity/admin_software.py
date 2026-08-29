@@ -122,18 +122,22 @@ class AdminSoftwareService:
         }
 
     @staticmethod
-    def _payment_summary(connection, membership_row) -> dict[str, int]:
+    def _payment_summary_from_recorded(membership_row, recorded: int) -> dict[str, int]:
+        gateway_paid = 0
+        if membership_row["source"] == "payment" and membership_row["payment_reference"]:
+            gateway_paid = int(membership_row["plan_price_paise_snapshot"])
+        total = int(membership_row["plan_price_paise_snapshot"])
+        paid = min(total, int(recorded) + gateway_paid)
+        return {"totalPaise": total, "paidPaise": paid, "pendingPaise": max(0, total - paid)}
+
+    @classmethod
+    def _payment_summary(cls, connection, membership_row) -> dict[str, int]:
         recorded = int(connection.execute(
             "SELECT COALESCE(SUM(amount_paise),0) FROM membership_payments "
             "WHERE membership_id=? AND status='recorded'",
             (membership_row["id"],),
         ).fetchone()[0])
-        gateway_paid = 0
-        if membership_row["source"] == "payment" and membership_row["payment_reference"]:
-            gateway_paid = int(membership_row["plan_price_paise_snapshot"])
-        total = int(membership_row["plan_price_paise_snapshot"])
-        paid = min(total, recorded + gateway_paid)
-        return {"totalPaise": total, "paidPaise": paid, "pendingPaise": max(0, total - paid)}
+        return cls._payment_summary_from_recorded(membership_row, recorded)
 
     def _membership_payload(self, connection, row) -> dict[str, object]:
         item = self.membership_service._safe_membership(row, now=self._now())
@@ -500,32 +504,64 @@ class AdminSoftwareService:
         allowed_membership = {"", "active", "scheduled", "expired", "cancelled", "none"}
         if membership_status not in allowed_membership:
             raise AdminSoftwareValidationError({"membershipStatus": "Invalid membership status filter"})
+        membership_order = (
+            "CASE status WHEN 'active' THEN 0 WHEN 'scheduled' THEN 1 "
+            "WHEN 'expired' THEN 2 ELSE 3 END,ends_at DESC,created_at DESC,id"
+        )
+        pattern = f"%{needle}%"
+        bounded_limit = _bounded_limit(limit, 200)
         with self.database.session() as connection:
             connection.execute("BEGIN IMMEDIATE")
             self.membership_service._reconcile_connection(connection)
-            pattern = f"%{needle}%"
             rows = connection.execute(
-                "SELECT id,status,display_name,email,phone_e164,phone_verified,created_at,last_login_at "
-                "FROM customers WHERE status!='deleted' AND (?='' OR status=?) "
-                "AND (?='' OR lower(COALESCE(display_name,'')) LIKE ? OR COALESCE(phone_e164,'') LIKE ?) "
-                "ORDER BY display_name COLLATE NOCASE,id LIMIT ?",
-                (customer_status, customer_status, needle, pattern, pattern, _bounded_limit(limit, 200)),
+                "SELECT c.id,c.status,c.display_name,c.email,c.phone_e164,c.phone_verified,c.created_at,c.last_login_at "
+                "FROM customers c WHERE c.status!='deleted' AND (?='' OR c.status=?) "
+                "AND (?='' OR lower(COALESCE(c.display_name,'')) LIKE ? OR COALESCE(c.phone_e164,'') LIKE ?) "
+                "AND (?='' OR COALESCE((SELECT m.status FROM memberships m WHERE m.customer_id=c.id "
+                f"ORDER BY {membership_order} LIMIT 1),'none')=?) "
+                "AND (?='' OR (SELECT m.plan_id FROM memberships m WHERE m.customer_id=c.id "
+                f"ORDER BY {membership_order} LIMIT 1)=?) "
+                "ORDER BY c.display_name COLLATE NOCASE,c.id LIMIT ?",
+                (
+                    customer_status, customer_status, needle, pattern, pattern,
+                    membership_status, membership_status, plan_id, plan_id, bounded_limit,
+                ),
             ).fetchall()
+            customer_ids = [str(row["id"]) for row in rows]
+            selected_memberships: dict[str, object] = {}
+            payment_totals: dict[str, int] = {}
+            if customer_ids:
+                placeholders = ",".join("?" for _ in customer_ids)
+                membership_rows = connection.execute(
+                    f"SELECT * FROM memberships WHERE customer_id IN ({placeholders}) "
+                    f"ORDER BY customer_id,{membership_order}",
+                    customer_ids,
+                ).fetchall()
+                for membership in membership_rows:
+                    selected_memberships.setdefault(str(membership["customer_id"]), membership)
+                membership_ids = [str(row["id"]) for row in selected_memberships.values()]
+                if membership_ids:
+                    membership_placeholders = ",".join("?" for _ in membership_ids)
+                    totals = connection.execute(
+                        "SELECT membership_id,COALESCE(SUM(amount_paise),0) AS recorded_paise "
+                        f"FROM membership_payments WHERE status='recorded' AND membership_id IN ({membership_placeholders}) "
+                        "GROUP BY membership_id",
+                        membership_ids,
+                    ).fetchall()
+                    payment_totals = {str(item["membership_id"]): int(item["recorded_paise"]) for item in totals}
             result: list[dict[str, object]] = []
+            now = self._now()
             for row in rows:
-                membership = connection.execute(
-                    "SELECT * FROM memberships WHERE customer_id=? "
-                    "ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'scheduled' THEN 1 WHEN 'expired' THEN 2 ELSE 3 END,"
-                    "ends_at DESC LIMIT 1",
-                    (row["id"],),
-                ).fetchone()
-                if plan_id and (membership is None or membership["plan_id"] != plan_id):
-                    continue
-                actual_status = membership["status"] if membership is not None else "none"
-                if membership_status and actual_status != membership_status:
-                    continue
                 item = self._safe_customer(row)
-                item["membership"] = self._membership_payload(connection, membership) if membership else None
+                membership = selected_memberships.get(str(row["id"]))
+                if membership is None:
+                    item["membership"] = None
+                else:
+                    membership_item = self.membership_service._safe_membership(membership, now=now)
+                    membership_item["payment"] = self._payment_summary_from_recorded(
+                        membership, payment_totals.get(str(membership["id"]), 0)
+                    )
+                    item["membership"] = membership_item
                 result.append(item)
             connection.commit()
         return result
