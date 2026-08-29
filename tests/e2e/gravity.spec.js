@@ -1767,3 +1767,176 @@ test('audit trail filters readable events hides sensitive metadata and retries f
   await expectNoSeriousA11yFailures(page);
   expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
 });
+
+
+test('admin long content stays contained at 320px and low-height dialogs stay usable', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  const longName = `Customer-${'X'.repeat(120)}`;
+  const longPlan = `Plan-${'Y'.repeat(120)}`;
+  fixture.customers[0].displayName = longName;
+  fixture.admin.username = `owner-${'Z'.repeat(90)}`;
+  fixture.memberships['cust-asha'][0].planName = longPlan;
+  fixture.memberships['cust-asha'][0].payment.totalPaise = 999999999999;
+  fixture.memberships['cust-asha'][0].payment.pendingPaise = 999999999999;
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/admin');
+  await expect(page.locator('#stats')).toContainText('Pending Fees');
+  await expectNoOverflow(page);
+  await page.locator('#sidebarOpen').click();
+  await page.locator('#membersNav').click();
+  await expect(page.locator('#customersMobileList')).toContainText(longName);
+  await expect(page.locator('#customersMobileList')).toContainText(longPlan);
+  await expectNoOverflow(page);
+  await page.evaluate(() => window.GravityAdminCore.openView('memberships'));
+  await expect(page.locator('#membershipsBody')).toContainText(longPlan);
+  const membershipTableRegion = page.locator('#membershipsView .tablewrap').first();
+  await membershipTableRegion.focus();
+  await expect(membershipTableRegion).toBeFocused();
+  await expectNoOverflow(page);
+  await page.evaluate(() => window.GravityAdminCore.openView('fees'));
+  await expect(page.locator('#feesBody')).toContainText(longName);
+  const feesTableRegion = page.locator('#feesView .tablewrap').first();
+  await feesTableRegion.focus();
+  await expect(feesTableRegion).toBeFocused();
+  await expectNoOverflow(page);
+  await page.evaluate(() => window.GravityAdminCore.openView('members'));
+  await page.locator('#headerAddCustomer').click();
+  const dialog = page.locator('#addCustomerDialog');
+  await expect(dialog).toBeVisible();
+  const bounds = await dialog.boundingBox();
+  expect(bounds.y).toBeGreaterThanOrEqual(0);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(568);
+  await expect(dialog.getByRole('button', { name: 'Add Customer', exact: true })).toBeVisible();
+  await expectNoOverflow(page);
+  expect(runtimeProblems).toEqual([]);
+});
+test('admin deterministic 0 1 50 200 row datasets stay bounded without duplicate DOM growth', async ({ page }) => {
+  test.setTimeout(120_000);
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  let notificationRows = []; let enquiryRows = []; let staffRows = []; let coachingRows = [];
+  const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+  await page.route('**/api/admin/notifications?limit=100', (route) => json(route, { providerBlockers: {}, notifications: notificationRows }));
+  await page.route('**/api/admin/enquiries*', (route) => json(route, { enquiries: enquiryRows }));
+  await page.route('**/api/admin/admins', (route) => json(route, { admins: staffRows }));
+  await page.route('**/api/admin/members?q=*', (route) => json(route, { members: coachingRows }));
+  await page.route(/\/api\/admin\/coaching\/members\/[^/]+$/, (route) => json(route, { coaching: { latestMeasurements: {}, goals: [], currentDiet: null } }));
+  await page.route('**/api/admin/coaching/diets', (route) => json(route, { templates: [] }));
+  await page.route('**/api/admin/readiness', (route) => json(route, { readiness: {
+    productionReady: false, blockers: [`Provider pending ${'R'.repeat(120)}`],
+    runtime: { productionMode: true, httpsBaseUrl: true, strongSecret: true },
+    firebase: { clientConfigured: true, backendConfigured: true }, razorpay: { checkoutConfigured: true, webhookConfigured: true },
+    business: { identityConfigured: true, gstinConfigured: false, gstinFormatValid: false, taxInvoiceEnabled: false, taxInvoiceIdentityConfigured: false },
+    notifications: { email: { status: 'ready' }, sms: { status: 'blocked' }, whatsapp: { status: 'blocked' } },
+    analytics: { googleConfigured: false, metaConfigured: false, networkLoadingEnabled: false },
+  } }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/admin');
+  for (const size of [0, 1, 50, 200]) {
+    fixture.customers.splice(0); fixture.payments.splice(0); fixture.auditEvents.splice(0);
+    for (const key of Object.keys(fixture.memberships)) delete fixture.memberships[key];
+    notificationRows = []; enquiryRows = []; staffRows = []; coachingRows = [];
+    for (let index = 0; index < size; index += 1) {
+      const id = `stress-customer-${index}`; const membershipId = `stress-membership-${index}`;
+      const displayName = `Stress Customer ${String(index).padStart(3, '0')}`;
+      fixture.customers.push({ id, displayName, phone: `+9197${String(index).padStart(8, '0')}`, phoneVerified: true, email: null, status: 'active', createdAt: 1787990000 - index, lastLoginAt: null });
+      fixture.memberships[id] = [{ id: membershipId, membershipNumber: `GF-STRESS-${index}`, customerId: id, planId: 'plan-pro', planName: 'Pro', pricePaise: 999999900, currency: 'INR', durationMonths: 3, status: 'active', startsAt: 1787000000, endsAt: 1789000000, daysRemaining: index % 8, source: 'admin_manual', createdAt: 1787000000, payment: { totalPaise: 999999900, paidPaise: 10000, pendingPaise: 999989900 } }];
+      fixture.payments.push({ id: `stress-payment-${index}`, membershipId, membershipNumber: `GF-STRESS-${index}`, customerId: id, customerName: displayName, amountPaise: 10000, currency: 'INR', method: 'upi', note: null, paidAt: 1787990000 - index, status: 'recorded' });
+      fixture.auditEvents.push({ id: index + 1, username: `staff-${index}`, action: 'admin_login', targetType: 'admin_session', targetId: `session-${index}`, result: 'success', metadata: { requestId: `req-${index}` }, createdAt: 1787990000 - index });
+      notificationRows.push({ id: `stress-notification-${index}`, eventType: 'membership_expiry', customerId: id, membershipId, triggerDays: 7, state: 'pending', customer: { displayName }, payload: { planName: 'Pro', membershipNumber: `GF-STRESS-${index}`, endsAt: 1789000000 }, deliveries: [] });
+      enquiryRows.push({ id: `stress-enquiry-${index}`, reference: `GF-LEAD-${index}`, name: displayName, phone: `+9197${String(index).padStart(8, '0')}`, email: null, type: 'membership', status: 'new', createdAt: 1787990000 - index });
+      staffRows.push({ id: `stress-staff-${index}`, username: `staff-${index}`, role: ['reception', 'trainer', 'admin'][index % 3], status: 'active' });
+      coachingRows.push({ id, displayName, phone: `+9197${String(index).padStart(8, '0')}` });
+    }
+    await page.evaluate(() => window.GravityAdminCore.openView('dashboard'));
+    await expect(page.locator('#stats')).toContainText(`Total Customers${size}`);
+    await expect(page.locator('#dashboardFeesState .activity-row')).toHaveCount(Math.min(size, 6));
+    await expect(page.locator('#recentCustomers .activity-row')).toHaveCount(Math.min(size, 8));
+    await page.evaluate(() => window.GravityAdminCore.openView('members'));
+    await expect(page.locator('#membersBody tr')).toHaveCount(size || 1);
+    await expect(page.locator('#customersMobileList .mobile-record')).toHaveCount(size);
+    await page.evaluate(() => window.GravityCustomerAdmin.renderWorkspace());
+    await expect(page.locator('#membersBody tr')).toHaveCount(size || 1);
+    await expect(page.locator('#customersMobileList .mobile-record')).toHaveCount(size);
+    await page.evaluate(() => window.GravityAdminCore.openView('memberships'));
+    await expect(page.locator('#membershipsBody tr')).toHaveCount(size || 1);
+    await page.evaluate(() => window.GravityAdminCore.openView('fees'));
+    await expect(page.locator('#feesBody tr')).toHaveCount(size || 1);
+    await page.evaluate(() => window.GravityAdminCore.openView('notifications'));
+    await expect(page.locator('.notification-admin-card')).toHaveCount(size);
+    await page.evaluate(() => window.GravityAdminCore.openView('enquiries'));
+    await expect(page.locator('#enquiriesBody tr')).toHaveCount(size || 1);
+    await page.evaluate(() => window.GravityAdminCore.openView('admins'));
+    await expect(page.locator('#adminsBody tr')).toHaveCount(size || 1);
+    await page.evaluate(() => window.GravityAdminCore.openView('coaching'));
+    await expect(page.locator('#coachingMember option')).toHaveCount(size);
+    await page.evaluate(() => window.GravityAdminCore.openView('audit'));
+    await page.evaluate(() => window.GravityAuditAdmin.refresh());
+    await expect(page.locator('#auditBody tr')).toHaveCount(size || 1);
+    await page.evaluate(() => window.GravityAdminCore.openView('readiness'));
+    await expect(page.locator('#readinessBody tr')).not.toHaveCount(0);
+    await expectNoOverflow(page);
+  }
+  expect(runtimeProblems).toEqual([]);
+});
+
+
+test('admin advanced workspaces contain long content on low-height mobile and 200 percent text', async ({ page }) => {
+  test.setTimeout(90_000);
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  const longWord = `LONG-${'Q'.repeat(180)}`;
+  fixture.customers[0].displayName = longWord;
+  fixture.memberships['cust-asha'][0].planName = longWord;
+  fixture.memberships['cust-asha'][0].payment.totalPaise = 999999999999;
+  fixture.memberships['cust-asha'][0].payment.pendingPaise = 999999999999;
+  fixture.auditEvents.splice(0, fixture.auditEvents.length, { id: 1, username: longWord, action: 'admin_login', targetType: 'admin_session', targetId: longWord, result: 'success', metadata: { requestId: longWord, context: { nestedValue: longWord } }, createdAt: 1787990000 });
+  const longEnquiry = { id: 'long-enquiry', reference: 'GF-LONG-1', name: longWord, phone: '+919876543210', email: null, type: 'general', status: 'new', createdAt: 1787990000, planName: longWord, preferredDate: '2026-09-01', preferredTime: 'morning', retentionExpiresAt: 1790000000, message: longWord, notes: [{ note: longWord, username: longWord, createdAt: 1787990000 }] };
+  const json = (route, body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  await page.route('**/api/admin/notifications?limit=100', (route) => json(route, { providerBlockers: { email: longWord, sms: longWord, whatsapp: longWord }, notifications: [{ id: 'long-notification', eventType: 'membership_expiry', customerId: 'c1', membershipId: 'm1', triggerDays: 7, state: 'pending', customer: { displayName: longWord }, payload: { planName: longWord, membershipNumber: longWord, endsAt: 1789000000 }, deliveries: [] }] }));
+  await page.route('**/api/admin/enquiries*', (route) => json(route, { enquiries: [longEnquiry] }));
+  await page.route('**/api/admin/enquiries/long-enquiry', (route) => json(route, { enquiry: longEnquiry }));
+  await page.route('**/api/admin/admins', (route) => json(route, { admins: [{ id: 'long-staff', username: longWord, role: 'admin', status: 'active' }] }));
+  await page.route('**/api/admin/members?q=*', (route) => json(route, { members: [{ id: 'long-member', displayName: longWord, phone: '+919876543210' }] }));
+  await page.route(/\/api\/admin\/coaching\/members\/[^/]+$/, (route) => json(route, { coaching: { latestMeasurements: { long: { metricKey: longWord, value: 123, unit: longWord } }, goals: [{ metricKey: longWord, targetValue: 456, unit: longWord, status: 'active' }], currentDiet: { plan: { title: longWord, version: 99 } } } }));
+  await page.route('**/api/admin/coaching/diets', (route) => json(route, { templates: [] }));
+  await page.route('**/api/admin/readiness', (route) => json(route, { readiness: {
+    productionReady: false, blockers: [longWord], runtime: { productionMode: true, httpsBaseUrl: true, strongSecret: true },
+    firebase: { clientConfigured: true, backendConfigured: true }, razorpay: { checkoutConfigured: true, webhookConfigured: true },
+    business: { identityConfigured: true, gstinConfigured: false, gstinFormatValid: false, taxInvoiceEnabled: false, taxInvoiceIdentityConfigured: false },
+    notifications: { email: { status: 'ready' }, sms: { status: 'blocked' }, whatsapp: { status: 'blocked' } },
+    analytics: { googleConfigured: false, metaConfigured: false, networkLoadingEnabled: false },
+  } }));
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/admin');
+  for (const view of ['notifications', 'admins', 'coaching', 'audit', 'readiness']) {
+    await page.evaluate((target) => window.GravityAdminCore.openView(target), view);
+    if (view === 'audit') await page.evaluate(() => window.GravityAuditAdmin.refresh());
+    await expectNoOverflow(page);
+  }
+  await page.evaluate(() => window.GravityAdminCore.openView('enquiries'));
+  await page.locator('#enquiriesBody .lead-link').click();
+  await expect(page.locator('#enquiryDetail')).toBeVisible();
+  await expect(page.locator('#enquiryMessage')).toContainText(longWord.slice(0, 20));
+  await expectNoOverflow(page);
+  await page.evaluate(() => window.GravityAdminCore.openView('audit'));
+  await page.getByRole('button', { name: 'View details' }).click();
+  const auditDialog = page.locator('#auditDetailDialog');
+  await expect(auditDialog).toBeVisible();
+  await expectNoOverflow(page);
+  const auditBounds = await auditDialog.boundingBox();
+  expect(auditBounds.y).toBeGreaterThanOrEqual(0);
+  expect(auditBounds.y + auditBounds.height).toBeLessThanOrEqual(568);
+  await auditDialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 667 });
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  for (const view of ['dashboard', 'members', 'memberships', 'fees', 'notifications', 'enquiries', 'readiness', 'admins', 'coaching', 'audit']) {
+    await page.evaluate((target) => window.GravityAdminCore.openView(target), view);
+    if (view === 'audit') await page.evaluate(() => window.GravityAuditAdmin.refresh());
+    await expectNoOverflow(page);
+  }
+  await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+  await expectNoSeriousA11yFailures(page);
+  expect(runtimeProblems).toEqual([]);
+});
