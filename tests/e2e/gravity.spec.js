@@ -889,6 +889,11 @@ async function mockAdminSoftware(page, options = {}) {
   const notifications = [
     { id: 'n-asha', membershipId: 'mem-asha-live', customerId: 'cust-asha', state: 'pending', triggerDays: 7, createdAt: now - 120 },
   ];
+  const auditEvents = options.auditEvents || [
+    { id: 3, username: 'owner', action: 'admin_login', targetType: 'admin_session', targetId: 'session-123', result: 'success', metadata: { requestId: 'req-login' }, createdAt: now - 30 },
+    { id: 2, username: 'owner', action: 'admin_created', targetType: 'admin_user', targetId: 'staff-2', result: 'success', metadata: { role: 'reception', recoveryCode: 'MUST_NOT_RENDER' }, createdAt: now - 60 },
+    { id: 1, username: 'frontdesk', action: 'admin_login_password', targetType: 'admin_user', targetId: 'staff-1', result: 'failed', metadata: { requestId: 'req-fail', csrfToken: 'MUST_NOT_RENDER' }, createdAt: now - 90 },
+  ];
   const createBodies = [];
   const editBodies = [];
   const renewBodies = [];
@@ -898,6 +903,7 @@ async function mockAdminSoftware(page, options = {}) {
   let customerMode = options.customerMode || 'ok';
   let paymentMode = options.paymentMode || 'ok';
   let dashboardMode = options.dashboardMode || 'ok';
+  let auditMode = options.auditMode || 'ok';
   const customerDelays = options.customerDelays || {};
   const customerQueries = [];
   const feeDelays = options.feeDelays || {};
@@ -1059,9 +1065,9 @@ async function mockAdminSoftware(page, options = {}) {
     }
     return json(route, 200, { admins: [admin] });
   });
-  await page.route('**/api/admin/audit?limit=100', (route) => json(route, 200, { audit: [] }));
+  await page.route(/\/api\/admin\/audit(?:\?.*)?$/, (route) => auditMode === 'error' ? json(route, 503, { error: 'temporary_failure' }) : json(route, 200, { audit: auditEvents }));
 
-  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, adminCreateBodies, customerQueries, feeQueries, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; } };
+  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, adminCreateBodies, customerQueries, feeQueries, auditEvents, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; }, setAuditMode(value) { auditMode = value; } };
 }
 
 
@@ -1534,4 +1540,45 @@ test('owner Team access explains least-privilege staff roles before creation', a
   expect(fixture.adminCreateBodies.at(-1)).toMatchObject({ username: 'frontdesk2', role: 'reception' });
   await expectNoSeriousA11yFailures(page);
   expect(runtimeProblems).toEqual([]);
+});
+
+
+test('audit trail filters readable events hides sensitive metadata and retries failures', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page, { auditMode: 'error' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/admin');
+  await page.locator('#sidebarOpen').click();
+  await page.locator('#advancedNav summary').click();
+  await page.locator('#auditNav').click();
+  await expect(page.locator('#auditPanel')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('#auditBody')).toContainText('Audit trail is temporarily unavailable.');
+  await expect(page.locator('#auditSummary')).toHaveText('Audit events could not be loaded.');
+
+  fixture.setAuditMode('ok');
+  await page.getByRole('button', { name: 'Retry audit trail' }).click();
+  await expect(page.locator('#auditBody tr')).toHaveCount(3);
+  await expect(page.locator('#auditSummary')).toContainText('3 of 3 events shown');
+  await expect(page.locator('#auditBody')).toContainText('Admin sign-in');
+  await expect(page.locator('#auditBody')).toContainText('Password check');
+
+  await page.locator('#auditSearch').fill('frontdesk');
+  await expect(page.locator('#auditBody tr')).toHaveCount(1);
+  await expect(page.locator('#auditSummary')).toContainText('1 of 3 events shown');
+  await expect(page.locator('#auditBody')).toContainText('Failed');
+  await page.locator('#auditSearch').fill('');
+  await page.locator('#auditResultFilter').selectOption('failed');
+  await expect(page.locator('#auditBody tr')).toHaveCount(1);
+  await page.locator('#auditResultFilter').selectOption('');
+  await page.locator('#auditActionFilter').selectOption('admin_login_password');
+  await expect(page.locator('#auditBody tr')).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'View details' }).click();
+  await expect(page.locator('#auditDetailDialog')).toBeVisible();
+  await expect(page.locator('#auditDetailDialog')).toContainText('Password check');
+  await expect(page.locator('#auditDetailDialog')).toContainText('req-fail');
+  await expect(page.locator('#auditDetailDialog')).not.toContainText('MUST_NOT_RENDER');
+  await expectNoOverflow(page);
+  await expectNoSeriousA11yFailures(page);
+  expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
 });
