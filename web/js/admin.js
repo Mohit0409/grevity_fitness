@@ -3,6 +3,12 @@
 
   const $ = (id) => document.getElementById(id);
   const state = { admin: null, view: 'dashboard', searchTimer: null };
+  const ROLE_GUIDANCE = {
+    reception: { label: 'Reception', allows: 'Customers, memberships, Fees & manual payments, and enquiries.', limits: 'No coaching, notifications, audit, readiness or Team access.' },
+    trainer: { label: 'Trainer', allows: 'Customer read access plus Coaching & progress.', limits: 'No customer edits, membership changes, fees/payments, notifications, audit, readiness or Team access.' },
+    admin: { label: 'Administrator', allows: 'Customers, memberships, fees & payments, Notifications & enquiries, coaching, audit and readiness.', limits: 'Cannot manage owner-only Team access.' },
+    owner: { label: 'Owner', allows: 'All Admin Software areas including Team access.', limits: 'Owner accounts are not created from this screen.' },
+  };
   const setup = $('setup');
   const login = $('login');
   const app = $('app');
@@ -63,6 +69,16 @@
     const ms = Number(value) < 10_000_000_000 ? Number(value) * 1000 : Number(value);
     const date = new Date(ms);
     return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+  }
+
+  function roleLabel(role) { return ROLE_GUIDANCE[role]?.label || String(role || 'Unknown'); }
+
+  function updateRolePreview() {
+    const role = $('newRole')?.value;
+    const guidance = ROLE_GUIDANCE[role] || ROLE_GUIDANCE.reception;
+    $('rolePreviewTitle').textContent = guidance.label;
+    $('rolePreviewAllows').textContent = guidance.allows;
+    $('rolePreviewLimits').textContent = guidance.limits;
   }
 
   function badge(status) {
@@ -172,7 +188,7 @@
     for (const admin of data.admins || []) {
       const row = document.createElement('tr');
       const user = document.createElement('td'); user.textContent = admin.username;
-      const role = document.createElement('td'); role.textContent = admin.role;
+      const role = document.createElement('td'); role.textContent = roleLabel(admin.role);
       const status = document.createElement('td'); status.appendChild(badge(admin.status));
       const action = document.createElement('td'); action.className = 'row-actions';
       if (admin.id === state.admin?.id) action.textContent = 'Current session';
@@ -363,7 +379,9 @@
     $('adminCreate').hidden = !$('adminCreate').hidden;
     $('adminSecret').hidden = true;
     $('adminSecret').textContent = '';
+    if (!$('adminCreate').hidden) { $('newRole').value = 'reception'; updateRolePreview(); $('newUsername').focus(); }
   });
+  $('newRole').addEventListener('change', updateRolePreview);
 
   $('adminForm').addEventListener('submit', async (event) => {
     event.preventDefault();
