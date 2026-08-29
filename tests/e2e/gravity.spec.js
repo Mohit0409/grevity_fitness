@@ -894,6 +894,7 @@ async function mockAdminSoftware(page, options = {}) {
   const renewBodies = [];
   const paymentBodies = [];
   const paymentAttempts = [];
+  const adminCreateBodies = [];
   let customerMode = options.customerMode || 'ok';
   let paymentMode = options.paymentMode || 'ok';
   let dashboardMode = options.dashboardMode || 'ok';
@@ -1046,10 +1047,16 @@ async function mockAdminSoftware(page, options = {}) {
   await page.route('**/api/admin/membership/plans/*', (route) => json(route, 200, { plan: plans[0] }));
   await page.route('**/api/admin/notifications?limit=100', (route) => json(route, 200, { providerBlockers: { email: 'READY', sms: 'BLOCKED_EXTERNAL_CONFIG', whatsapp: 'BLOCKED_EXTERNAL_CONFIG' }, notifications: [] }));
   await page.route('**/api/admin/notifications/scan', (route) => json(route, 200, { scan: { created: 0, deduped: 0, suppressedRenewed: 0 }, providerBlockers: {} }));
-  await page.route('**/api/admin/admins', (route) => json(route, 200, { admins: [admin] }));
+  await page.route('**/api/admin/admins', (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON(); adminCreateBodies.push(body);
+      return json(route, 201, { admin: { id: `staff-${adminCreateBodies.length}`, username: body.username, role: body.role, status: 'active' }, totpSecret: 'TESTTOTPSECRET', otpauthUri: 'otpauth://totp/Gravity%20Fitness:test', recoveryCodes: ['ABCDEF123456'] });
+    }
+    return json(route, 200, { admins: [admin] });
+  });
   await page.route('**/api/admin/audit?limit=100', (route) => json(route, 200, { audit: [] }));
 
-  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, customerQueries, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; } };
+  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, adminCreateBodies, customerQueries, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; } };
 }
 
 
@@ -1466,4 +1473,39 @@ test('dashboard failure renders an inline retry state and recovers without navig
   await retry.click();
   await expect(page.locator('#stats')).toContainText('Total Customers');
   expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
+});
+test('owner Team access explains least-privilege staff roles before creation', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  await page.goto('/admin');
+  await page.locator('#advancedNav summary').click();
+  await page.locator('#adminsNav').click();
+  await expect(page.locator('#adminsView')).toBeVisible();
+  await expect(page.locator('#adminsView')).toContainText('Give each staff member only the access needed');
+  await expect(page.locator('#adminsBody')).toContainText('Owner');
+  await page.locator('#newAdmin').click();
+  await expect(page.locator('#newRole')).toHaveValue('reception');
+  await expect(page.locator('#newRole option[value="owner"]')).toHaveCount(0);
+  await expect(page.locator('#rolePreviewTitle')).toHaveText('Reception');
+  await expect(page.locator('#rolePreviewAllows')).toContainText('Fees & manual payments');
+  await expect(page.locator('#rolePreviewLimits')).toContainText('No coaching, notifications, audit, readiness or Team access');
+  await page.locator('#newRole').selectOption('trainer');
+  await expect(page.locator('#rolePreviewTitle')).toHaveText('Trainer');
+  await expect(page.locator('#rolePreviewAllows')).toContainText('Coaching & progress');
+  await expect(page.locator('#rolePreviewLimits')).toContainText('No customer edits, membership changes, fees/payments');
+  await page.locator('#newRole').selectOption('admin');
+  await expect(page.locator('#rolePreviewTitle')).toHaveText('Administrator');
+  await expect(page.locator('#rolePreviewAllows')).toContainText('Notifications & enquiries');
+  await expect(page.locator('#rolePreviewLimits')).toContainText('Cannot manage owner-only Team access');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('#rolePreview')).toBeVisible();
+  await expectNoOverflow(page);
+  await page.locator('#newRole').selectOption('reception');
+  await page.locator('#newUsername').fill('frontdesk2');
+  await page.locator('#newPassword').fill('Gravity!Desk456');
+  await page.locator('#adminForm').getByRole('button', { name: 'Create account' }).click();
+  await expect(page.locator('#adminSecret')).toContainText('TOTP secret: TESTTOTPSECRET');
+  expect(fixture.adminCreateBodies.at(-1)).toMatchObject({ username: 'frontdesk2', role: 'reception' });
+  await expectNoSeriousA11yFailures(page);
+  expect(runtimeProblems).toEqual([]);
 });
