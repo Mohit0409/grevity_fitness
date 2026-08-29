@@ -2,8 +2,10 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null, members: [], selected: null, memberships: [], plans: [], notifications: [], opener: null };
+  const state = { admin: null, customers: [], selected: null, detail: null, plans: [], opener: null, paymentTarget: null };
   const core = () => window.GravityAdminCore;
+
+  function hasPermission(permission) { return core()?.hasPermission(permission) || false; }
 
   function formatDate(value) {
     if (!value) return '--';
@@ -16,6 +18,29 @@
     const amount = Number(value || 0) / 100;
     try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount); }
     catch (_) { return `${currency} ${amount.toFixed(0)}`; }
+  }
+
+  function toPaise(value) {
+    const amount = Number(value || 0);
+    return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
+  }
+
+  function paymentMethodLabel(value) {
+    const key = String(value || '').toLowerCase();
+    return ({ cash: 'Cash', upi: 'UPI', card: 'Card', bank_transfer: 'Bank transfer', other: 'Other' })[key] || (key ? key.replaceAll('_', ' ') : '--');
+  }
+
+  function normalizePhoneInput(value) {
+    const raw = String(value || '').trim();
+    const digits = raw.replace(/\D/g, '');
+    if (!raw.startsWith('+') && digits.length === 10) return `+91${digits}`;
+    return raw;
+  }
+
+  function dateToUnix(value) {
+    if (!value) return null;
+    const date = new Date(`${value}T12:00:00`);
+    return Number.isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
   }
 
   function maskPhone(value) {
@@ -34,10 +59,6 @@
     return span;
   }
 
-  function currentMembership(items) {
-    return items.find((item) => item.status === 'active') || items.find((item) => item.status === 'scheduled') || null;
-  }
-
   function appendFact(root, label, value) {
     const div = document.createElement('div'); div.className = 'profile-fact';
     const small = document.createElement('span'); small.textContent = label;
@@ -51,56 +72,104 @@
     row.appendChild(cell); return row;
   }
 
-  function filteredMembers() {
-    const status = $('customerStatusFilter').value;
-    return state.members.filter((member) => !status || member.status === status);
-  }
-
-  function rowAction(member) {
-    const button = document.createElement('button'); button.type = 'button'; button.className = 'table-action'; button.textContent = 'Open';
-    button.addEventListener('click', () => openCustomer(member)); return button;
-  }
-
-  function renderMembers() {
-    const members = filteredMembers();
-    const body = $('membersBody'); body.replaceChildren();
-    const mobile = $('customersMobileList'); mobile.replaceChildren();
-    for (const member of members) {
-      const row = document.createElement('tr');
-      const name = document.createElement('td');
-      const strong = document.createElement('strong'); strong.textContent = member.displayName || 'Customer';
-      const created = document.createElement('small'); created.textContent = `Since ${formatDate(member.createdAt)}`;
-      name.append(strong, document.createElement('br'), created);
-      const phone = document.createElement('td'); phone.textContent = maskPhone(member.phone);
-      const plan = document.createElement('td'); plan.innerHTML = '<span class="data-unavailable">Open profile</span>';
-      const expiry = document.createElement('td'); expiry.innerHTML = '<span class="data-unavailable">Open profile</span>';
-      const pending = document.createElement('td'); pending.innerHTML = '<span class="data-unavailable">Ledger API</span>';
-      const status = document.createElement('td'); status.appendChild(statusBadge(member.status));
-      const action = document.createElement('td'); action.appendChild(rowAction(member));
-      row.append(name, phone, plan, expiry, pending, status, action); body.appendChild(row);
-
-      const card = document.createElement('article'); card.className = 'mobile-record'; card.setAttribute('role', 'listitem');
-      const head = document.createElement('div'); head.className = 'mobile-record-head';
-      const label = document.createElement('div'); const cname = document.createElement('strong'); cname.textContent = member.displayName || 'Customer'; const cphone = document.createElement('small'); cphone.textContent = maskPhone(member.phone); label.append(cname, cphone); head.append(label, statusBadge(member.status));
-      const meta = document.createElement('p'); meta.textContent = 'Membership and fee details open in the customer profile.';
-      const open = rowAction(member); open.classList.add('full-width'); card.append(head, meta, open); mobile.appendChild(card);
+  function setBusy(button, busy, busyLabel) {
+    if (!button) return;
+    if (busy) {
+      button.dataset.idleLabel = button.textContent;
+      button.textContent = busyLabel;
+      button.disabled = true;
+    } else {
+      button.textContent = button.dataset.idleLabel || button.textContent;
+      button.disabled = false;
     }
-    if (!body.children.length) body.appendChild(emptyRow('No customers match these filters.', 7));
-    if (!mobile.children.length) { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No customers match these filters.'; mobile.appendChild(empty); }
+  }
+
+  function errorText(error, context) {
+    const fields = error?.data?.fields;
+    if (fields && typeof fields === 'object') {
+      const message = Object.values(fields).find((value) => typeof value === 'string' && value.trim());
+      if (message) return message;
+    }
+    if (error?.status === 409) {
+      if (context === 'add' || context === 'edit') return 'A customer with this mobile number already exists.';
+      if (context === 'payment') return 'Payment is higher than the server-calculated pending balance.';
+      return 'The requested change conflicts with the current membership state.';
+    }
+    if (error?.status === 403) return 'Your admin role does not have permission for this action.';
+    if (error?.status === 404) return 'This customer or membership no longer exists.';
+    return 'The operation could not be completed. Please retry.';
+  }
+
+  function currentMembership() { return state.detail?.membership?.current || null; }
+  function allMemberships() { return Array.isArray(state.detail?.membership?.all) ? state.detail.membership.all : []; }
+
+  function paymentTarget() {
+    const current = currentMembership();
+    if (current?.payment?.pendingPaise > 0) return current;
+    return allMemberships().find((item) => item.status !== 'cancelled' && Number(item.payment?.pendingPaise || 0) > 0) || null;
   }
 
   async function loadPlans() {
     if (state.plans.length) return state.plans;
     const payload = await core().api('/api/admin/membership/plans');
     state.plans = Array.isArray(payload.plans) ? payload.plans : [];
+    populatePlanFilters();
     return state.plans;
   }
 
+  function populatePlanFilters() {
+    const filter = $('customerPlanFilter');
+    if (!filter) return;
+    const current = filter.value;
+    filter.replaceChildren(new Option('All plans', ''));
+    for (const plan of state.plans) filter.appendChild(new Option(plan.name, plan.id));
+    if (Array.from(filter.options).some((option) => option.value === current)) filter.value = current;
+  }
+
+  function renderCustomers() {
+    const body = $('membersBody'); body.replaceChildren();
+    const mobile = $('customersMobileList'); mobile.replaceChildren();
+    for (const member of state.customers) {
+      const membership = member.membership;
+      const payment = membership?.payment || {};
+      const row = document.createElement('tr');
+      const name = document.createElement('td');
+      const strong = document.createElement('strong'); strong.textContent = member.displayName || 'Customer';
+      const created = document.createElement('small'); created.textContent = `Since ${formatDate(member.createdAt)}`;
+      name.append(strong, document.createElement('br'), created);
+      const phone = document.createElement('td'); phone.textContent = maskPhone(member.phone);
+      const plan = document.createElement('td'); plan.textContent = membership?.planName || '--';
+      const expiry = document.createElement('td'); expiry.textContent = membership ? formatDate(membership.endsAt) : '--';
+      const pending = document.createElement('td'); pending.textContent = membership ? moneyPaise(payment.pendingPaise, membership.currency) : '--';
+      const status = document.createElement('td'); status.appendChild(statusBadge(member.status));
+      const action = document.createElement('td');
+      const open = document.createElement('button'); open.type = 'button'; open.className = 'table-action'; open.textContent = 'Open';
+      open.addEventListener('click', () => openCustomerById(member.id, open)); action.appendChild(open);
+      row.append(name, phone, plan, expiry, pending, status, action); body.appendChild(row);
+
+      const card = document.createElement('article'); card.className = 'mobile-record'; card.setAttribute('role', 'listitem');
+      const head = document.createElement('div'); head.className = 'mobile-record-head';
+      const label = document.createElement('div'); const cname = document.createElement('strong'); cname.textContent = member.displayName || 'Customer'; const cphone = document.createElement('small'); cphone.textContent = maskPhone(member.phone); label.append(cname, cphone); head.append(label, statusBadge(member.status));
+      const meta = document.createElement('dl'); meta.className = 'mobile-record-facts';
+      [['Plan', membership?.planName || '--'], ['Expiry', membership ? formatDate(membership.endsAt) : '--'], ['Pending', membership ? moneyPaise(payment.pendingPaise, membership.currency) : '--']].forEach(([key, value]) => { const div = document.createElement('div'); const dt = document.createElement('dt'); dt.textContent = key; const dd = document.createElement('dd'); dd.textContent = value; div.append(dt, dd); meta.appendChild(div); });
+      const mobileOpen = document.createElement('button'); mobileOpen.type = 'button'; mobileOpen.className = 'table-action full-width'; mobileOpen.textContent = 'Open customer'; mobileOpen.addEventListener('click', () => openCustomerById(member.id, mobileOpen));
+      card.append(head, meta, mobileOpen); mobile.appendChild(card);
+    }
+    if (!body.children.length) body.appendChild(emptyRow('No customers match these filters.', 7));
+    if (!mobile.children.length) { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No customers match these filters.'; mobile.appendChild(empty); }
+  }
+
   async function renderWorkspace() {
+    await loadPlans();
+    const params = new URLSearchParams();
     const query = $('memberSearch').value.trim();
-    const payload = await core().api(`/api/admin/members?q=${encodeURIComponent(query)}`);
-    state.members = Array.isArray(payload.members) ? payload.members : [];
-    renderMembers();
+    if (query) params.set('q', query);
+    if ($('customerStatusFilter').value) params.set('status', $('customerStatusFilter').value);
+    if ($('customerMembershipFilter').value) params.set('membershipStatus', $('customerMembershipFilter').value);
+    if ($('customerPlanFilter').value) params.set('planId', $('customerPlanFilter').value);
+    const payload = await core().api(`/api/admin/customers?${params.toString()}`);
+    state.customers = Array.isArray(payload.customers) ? payload.customers : [];
+    renderCustomers();
   }
 
   function renderMembershipHistory(root, memberships) {
@@ -108,88 +177,118 @@
     const h = document.createElement('div'); h.className = 'profile-section-head'; h.innerHTML = '<h4>Membership history</h4>';
     const wrap = document.createElement('div'); wrap.className = 'tablewrap';
     const table = document.createElement('table'); table.className = 'software-table compact-table';
-    table.innerHTML = '<thead><tr><th>Membership</th><th>Plan</th><th>Start</th><th>Expiry</th><th>Status</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th>Membership</th><th>Plan</th><th>Start</th><th>Expiry</th><th>Status</th><th>Paid / Pending</th></tr></thead>';
     const body = document.createElement('tbody');
     for (const item of memberships) {
       const row = document.createElement('tr');
       for (const value of [item.membershipNumber || '--', item.planName || '--', formatDate(item.startsAt), formatDate(item.endsAt)]) { const td = document.createElement('td'); td.textContent = value; row.appendChild(td); }
-      const status = document.createElement('td'); status.appendChild(statusBadge(item.status)); row.appendChild(status); body.appendChild(row);
+      const status = document.createElement('td'); status.appendChild(statusBadge(item.status));
+      const payment = document.createElement('td'); payment.textContent = `${moneyPaise(item.payment?.paidPaise, item.currency)} / ${moneyPaise(item.payment?.pendingPaise, item.currency)}`;
+      row.append(status, payment); body.appendChild(row);
     }
-    if (!body.children.length) body.appendChild(emptyRow('No membership history yet.', 5));
+    if (!body.children.length) body.appendChild(emptyRow('No membership history yet.', 6));
     table.appendChild(body); wrap.appendChild(table); section.append(h, wrap); root.appendChild(section);
   }
 
-  function renderNotificationHistory(root, customerId) {
+  function renderPaymentHistory(root, payments) {
+    const section = document.createElement('section'); section.className = 'profile-section';
+    const h = document.createElement('div'); h.className = 'profile-section-head'; h.innerHTML = '<h4>Payment history</h4>';
+    const wrap = document.createElement('div'); wrap.className = 'tablewrap';
+    const table = document.createElement('table'); table.className = 'software-table compact-table';
+    table.innerHTML = '<thead><tr><th>Date</th><th>Membership</th><th>Amount</th><th>Method</th><th>Note</th></tr></thead>';
+    const body = document.createElement('tbody');
+    for (const item of payments) {
+      const row = document.createElement('tr');
+      [formatDate(item.paidAt), item.membershipNumber || '--', moneyPaise(item.amountPaise, item.currency), paymentMethodLabel(item.method), item.note || '--'].forEach((value) => { const td = document.createElement('td'); td.textContent = value; row.appendChild(td); });
+      body.appendChild(row);
+    }
+    if (!body.children.length) body.appendChild(emptyRow('No manual payments recorded yet.', 5));
+    table.appendChild(body); wrap.appendChild(table); section.append(h, wrap); root.appendChild(section);
+  }
+
+  function renderNotificationHistory(root, reminders) {
     const section = document.createElement('section'); section.className = 'profile-section';
     const h = document.createElement('div'); h.className = 'profile-section-head'; h.innerHTML = '<h4>Notification history</h4>';
     const list = document.createElement('div'); list.className = 'mini-history';
-    const reminders = state.notifications.filter((item) => item.customerId === customerId).slice(0, 6);
-    for (const item of reminders) {
+    for (const item of reminders.slice(0, 10)) {
       const row = document.createElement('div'); row.className = 'mini-history-row';
-      const text = document.createElement('span'); const title = document.createElement('strong'); title.textContent = item.triggerDays === 0 ? 'Expiry day reminder' : `${item.triggerDays}-day expiry reminder`; const meta = document.createElement('small'); meta.textContent = formatDate(item.payload?.endsAt); text.append(title, meta);
-      const status = statusBadge(item.state === 'suppressed' ? 'suppressed' : item.state || 'pending'); row.append(text, status); list.appendChild(row);
+      const text = document.createElement('span');
+      const title = document.createElement('strong'); title.textContent = item.triggerDays === 0 ? 'Expiry-day reminder' : `${item.triggerDays}-day expiry reminder`;
+      const meta = document.createElement('small'); meta.textContent = formatDate(item.createdAt); text.append(title, meta);
+      row.append(text, statusBadge(item.state === 'suppressed' ? 'suppressed' : item.state || 'pending')); list.appendChild(row);
     }
-    if (!list.children.length) { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No notification history in the latest admin reminder window.'; list.appendChild(empty); }
+    if (!list.children.length) { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No membership reminders yet.'; list.appendChild(empty); }
     section.append(h, list); root.appendChild(section);
   }
 
   function renderCustomerProfile() {
-    const member = state.selected; if (!member) return;
+    const detail = state.detail; if (!detail?.customer) return;
+    const member = detail.customer;
+    const current = detail.membership?.current || null;
+    const upcoming = detail.membership?.upcoming || null;
     const body = $('customerDrawerBody'); body.replaceChildren();
-    const current = currentMembership(state.memberships);
     $('customerDrawerName').textContent = member.displayName || 'Customer';
     $('customerDrawerMeta').textContent = [member.phone || 'No mobile', `Customer since ${formatDate(member.createdAt)}`, String(member.status || 'unknown')].join(' | ');
 
     const top = document.createElement('div'); top.className = 'profile-summary-grid';
-    const membership = document.createElement('section'); membership.className = 'profile-summary-card'; const mh = document.createElement('h4'); mh.textContent = 'Current membership'; const facts = document.createElement('div'); facts.className = 'profile-facts';
-    if (current) { appendFact(facts, 'Plan', current.planName || '--'); appendFact(facts, 'Start', formatDate(current.startsAt)); appendFact(facts, 'Expiry', formatDate(current.endsAt)); appendFact(facts, 'Days remaining', String(current.daysRemaining ?? 0)); appendFact(facts, 'Status', String(current.status || '--')); }
-    else { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No active or scheduled membership.'; facts.appendChild(empty); }
+    const membership = document.createElement('section'); membership.className = 'profile-summary-card';
+    const mh = document.createElement('h4'); mh.textContent = 'Current membership'; const facts = document.createElement('div'); facts.className = 'profile-facts';
+    if (current) {
+      appendFact(facts, 'Plan', current.planName || '--'); appendFact(facts, 'Membership', current.membershipNumber || '--'); appendFact(facts, 'Start', formatDate(current.startsAt)); appendFact(facts, 'Expiry', formatDate(current.endsAt)); appendFact(facts, 'Days remaining', String(current.daysRemaining ?? 0)); appendFact(facts, 'Status', String(current.status || '--'));
+    } else if (upcoming) {
+      appendFact(facts, 'Upcoming plan', upcoming.planName || '--'); appendFact(facts, 'Membership', upcoming.membershipNumber || '--'); appendFact(facts, 'Starts', formatDate(upcoming.startsAt)); appendFact(facts, 'Expiry', formatDate(upcoming.endsAt)); appendFact(facts, 'Status', 'scheduled');
+    } else { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No active or scheduled membership.'; facts.appendChild(empty); }
     membership.append(mh, facts);
 
-    const payment = document.createElement('section'); payment.className = 'profile-summary-card'; const ph = document.createElement('h4'); ph.textContent = 'Payment summary'; const pf = document.createElement('div'); pf.className = 'profile-facts';
-    appendFact(pf, 'Total fee', current ? moneyPaise(current.pricePaise, current.currency) : '--'); appendFact(pf, 'Paid', '--'); appendFact(pf, 'Pending', '--');
-    const note = document.createElement('p'); note.className = 'field-hint'; note.textContent = 'Paid and pending require the admin manual-payment ledger API.'; payment.append(ph, pf, note);
-    top.append(membership, payment); body.appendChild(top);
+    const payMembership = current || upcoming;
+    const payment = document.createElement('section'); payment.className = 'profile-summary-card';
+    const ph = document.createElement('h4'); ph.textContent = 'Payment summary'; const pf = document.createElement('div'); pf.className = 'profile-facts';
+    appendFact(pf, 'Total fee', payMembership ? moneyPaise(payMembership.payment?.totalPaise, payMembership.currency) : '--');
+    appendFact(pf, 'Paid', payMembership ? moneyPaise(payMembership.payment?.paidPaise, payMembership.currency) : '--');
+    appendFact(pf, 'Pending', payMembership ? moneyPaise(payMembership.payment?.pendingPaise, payMembership.currency) : '--');
+    payment.append(ph, pf); top.append(membership, payment); body.appendChild(top);
 
     const actions = document.createElement('div'); actions.className = 'profile-actions';
-    const pay = document.createElement('button'); pay.type = 'button'; pay.className = 'primary-action'; pay.textContent = 'Record Payment'; pay.addEventListener('click', openRecordPayment);
-    const renew = document.createElement('button'); renew.type = 'button'; renew.textContent = 'Renew Membership'; renew.addEventListener('click', openRenew);
-    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'ghost'; edit.textContent = 'Edit Customer'; edit.addEventListener('click', () => core().flash('Customer editing requires a dedicated admin API.', 'error'));
-    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'ghost'; toggle.textContent = member.status === 'active' ? 'Disable account' : 'Enable account'; toggle.addEventListener('click', toggleStatus);
+    const pay = document.createElement('button'); pay.type = 'button'; pay.className = 'primary-action'; pay.textContent = 'Record Payment';
+    const target = paymentTarget(); pay.disabled = !target || !hasPermission('payments.record'); pay.title = !target ? 'No pending membership balance' : '';
+    pay.addEventListener('click', () => openRecordPayment(target, member));
+    const renew = document.createElement('button'); renew.type = 'button'; renew.textContent = 'Renew Membership'; renew.disabled = !hasPermission('memberships.manage'); renew.addEventListener('click', openRenew);
+    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'ghost'; edit.textContent = 'Edit Customer'; edit.disabled = !hasPermission('members.manage'); edit.addEventListener('click', openEdit);
+    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'ghost'; toggle.textContent = member.status === 'active' ? 'Disable account' : 'Enable account'; toggle.disabled = !hasPermission('members.manage'); toggle.addEventListener('click', toggleStatus);
     actions.append(pay, renew, edit, toggle); body.appendChild(actions);
 
-    renderMembershipHistory(body, state.memberships);
-    const payments = document.createElement('section'); payments.className = 'profile-section'; payments.innerHTML = '<div class="profile-section-head"><h4>Payment history</h4></div><div class="software-notice neutral"><strong>Admin payment history API required</strong><span>Customer checkout records are not exposed through the admin API and manual payments do not yet have a ledger.</span></div>'; body.appendChild(payments);
-    renderNotificationHistory(body, member.id);
+    renderMembershipHistory(body, allMemberships());
+    renderPaymentHistory(body, Array.isArray(detail.payments) ? detail.payments : []);
+    renderNotificationHistory(body, Array.isArray(detail.notifications) ? detail.notifications : []);
   }
 
   async function refreshSelected() {
-    if (!state.selected) return;
-    const [membershipPayload, notificationPayload] = await Promise.all([
-      core().api(`/api/admin/members/${encodeURIComponent(state.selected.id)}/memberships`),
-      core().api('/api/admin/notifications?limit=100').catch(() => ({ notifications: [] })),
-    ]);
-    state.memberships = Array.isArray(membershipPayload.memberships) ? membershipPayload.memberships : [];
-    state.notifications = Array.isArray(notificationPayload.notifications) ? notificationPayload.notifications : [];
+    if (!state.selected?.id) return;
+    state.detail = await core().api(`/api/admin/customers/${encodeURIComponent(state.selected.id)}`);
+    state.selected = state.detail.customer;
     renderCustomerProfile();
   }
 
-  async function openCustomer(member) {
-    state.selected = member; state.opener = document.activeElement;
+  async function openCustomerById(customerId, opener = document.activeElement) {
+    if (!customerId) return;
+    state.selected = { id: customerId }; state.opener = opener;
     const dialog = $('customerDrawer');
-    $('customerDrawerName').textContent = member.displayName || 'Customer';
+    $('customerDrawerName').textContent = 'Customer';
     $('customerDrawerBody').innerHTML = '<div class="software-loading">Loading customer profile...</div>';
     if (!dialog.open) dialog.showModal();
-    try { await refreshSelected(); } catch (_) { $('customerDrawerBody').innerHTML = '<div class="software-empty error-state">Customer details are temporarily unavailable.</div>'; }
+    try { await refreshSelected(); }
+    catch (_) { $('customerDrawerBody').innerHTML = '<div class="software-empty error-state">Customer details are temporarily unavailable. Close and retry.</div>'; }
   }
+
+  function openCustomer(member) { return openCustomerById(member?.id, document.activeElement); }
 
   async function toggleStatus() {
     if (!state.selected) return;
     const next = state.selected.status === 'active' ? 'disabled' : 'active';
     try {
-      await core().api(`/api/admin/members/${encodeURIComponent(state.selected.id)}`, { method: 'PATCH', body: { status: next } });
-      state.selected.status = next; core().flash(`Customer ${next}.`); await renderWorkspace(); renderCustomerProfile();
-    } catch (_) { core().flash('Customer status could not be updated.', 'error'); }
+      await core().api(`/api/admin/customers/${encodeURIComponent(state.selected.id)}`, { method: 'PATCH', body: { status: next } });
+      core().flash(`Customer ${next}.`); await refreshSelected(); await refreshRelated();
+    } catch (error) { core().flash(errorText(error, 'edit'), 'error'); }
   }
 
   function previewExpiry(startValue, months) {
@@ -199,80 +298,142 @@
     return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
+  function selectedPlan(selectId) { return state.plans.find((item) => item.id === $(selectId).value); }
+
   function updateAddPreview() {
-    const plan = state.plans.find((item) => item.id === $('newCustomerPlan').value);
+    const plan = selectedPlan('newCustomerPlan'); const received = toPaise($('newCustomerReceived').value);
     $('newCustomerFee').value = plan ? moneyPaise(plan.pricePaise, plan.currency) : '--';
     $('newCustomerExpiry').textContent = plan ? previewExpiry($('newCustomerStart').value, plan.durationMonths) : '--';
-    $('newCustomerPending').textContent = '--';
+    $('newCustomerPending').textContent = plan ? moneyPaise(Math.max(0, Number(plan.pricePaise || 0) - received), plan.currency) : '--';
   }
 
   async function openAddCustomer() {
-    state.opener = document.activeElement;
-    await loadPlans().catch(() => []);
+    state.opener = document.activeElement; await loadPlans();
+    const form = $('addCustomerForm'); form.reset(); $('addCustomerError').textContent = '';
     const select = $('newCustomerPlan'); select.replaceChildren();
-    for (const plan of state.plans.filter((item) => item.status === 'active')) { const option = document.createElement('option'); option.value = plan.id; option.textContent = `${plan.name} - ${moneyPaise(plan.pricePaise, plan.currency)}`; select.appendChild(option); }
-    $('newCustomerStart').value = new Date().toISOString().slice(0, 10); updateAddPreview();
+    for (const plan of state.plans.filter((item) => item.status === 'active')) select.appendChild(new Option(`${plan.name} - ${moneyPaise(plan.pricePaise, plan.currency)}`, plan.id));
+    $('newCustomerStart').value = new Date().toISOString().slice(0, 10); $('newCustomerReceived').value = '0'; updateAddPreview();
     const dialog = $('addCustomerDialog'); if (!dialog.open) dialog.showModal(); $('newCustomerName').focus();
   }
 
+  async function addCustomer(event) {
+    event.preventDefault();
+    const submit = $('submitNewCustomer'); $('addCustomerError').textContent = ''; setBusy(submit, true, 'Adding...');
+    const body = {
+      displayName: $('newCustomerName').value.trim(), phone: normalizePhoneInput($('newCustomerMobile').value), planId: $('newCustomerPlan').value,
+      amountPaidPaise: toPaise($('newCustomerReceived').value), paymentMethod: $('newCustomerPaymentMethod').value,
+    };
+    const startsAt = dateToUnix($('newCustomerStart').value); if (startsAt) body.startsAt = startsAt;
+    if ($('newCustomerNote').value.trim()) body.note = $('newCustomerNote').value.trim();
+    try {
+      const result = await core().api('/api/admin/customers', { method: 'POST', body });
+      $('addCustomerDialog').close(); core().flash('Customer added with server-calculated membership and balance.');
+      await refreshRelated();
+      if (result.customer?.id) await openCustomerById(result.customer.id, state.opener);
+    } catch (error) { $('addCustomerError').textContent = errorText(error, 'add'); }
+    finally { setBusy(submit, false); }
+  }
+
+  function openEdit() {
+    if (!state.selected) return;
+    state.opener = document.activeElement; $('editCustomerError').textContent = '';
+    $('editCustomerName').value = state.selected.displayName || ''; $('editCustomerMobile').value = state.selected.phone || ''; $('editCustomerStatus').value = state.selected.status || 'active';
+    const dialog = $('editCustomerDialog'); if (!dialog.open) dialog.showModal(); $('editCustomerName').focus();
+  }
+
+  async function editCustomer(event) {
+    event.preventDefault(); if (!state.selected) return;
+    const submit = $('submitEditCustomer'); $('editCustomerError').textContent = ''; setBusy(submit, true, 'Saving...');
+    try {
+      await core().api(`/api/admin/customers/${encodeURIComponent(state.selected.id)}`, { method: 'PATCH', body: { displayName: $('editCustomerName').value.trim(), phone: normalizePhoneInput($('editCustomerMobile').value), status: $('editCustomerStatus').value } });
+      $('editCustomerDialog').close(); core().flash('Customer updated.'); await refreshSelected(); await refreshRelated();
+    } catch (error) { $('editCustomerError').textContent = errorText(error, 'edit'); }
+    finally { setBusy(submit, false); }
+  }
+
   function updateRenewPreview() {
-    const plan = state.plans.find((item) => item.id === $('renewPlan').value);
+    const plan = selectedPlan('renewPlan'); const received = toPaise($('renewReceived').value);
     $('renewFeePreview').value = plan ? moneyPaise(plan.pricePaise, plan.currency) : '--';
     $('renewExpiryPreview').value = plan ? previewExpiry($('renewStart').value, plan.durationMonths) : '--';
+    $('renewPendingPreview').textContent = plan ? moneyPaise(Math.max(0, Number(plan.pricePaise || 0) - received), plan.currency) : '--';
   }
 
   async function openRenew() {
     if (!state.selected) return;
-    await loadPlans();
-    const current = currentMembership(state.memberships);
-    $('renewCurrentExpiry').textContent = current ? `Current expiry: ${formatDate(current.endsAt)}. Leave start date blank to let the server queue the renewal safely.` : 'No active membership. The server will determine the authoritative start and expiry.';
+    state.opener = document.activeElement; await loadPlans();
+    const current = currentMembership(); $('renewError').textContent = '';
+    $('renewCurrentExpiry').textContent = current ? `Current membership ${current.membershipNumber || ''} expires ${formatDate(current.endsAt)}. Leave start date blank to let the server queue renewal safely.` : 'No active membership. The server will determine the authoritative start and expiry.';
     const select = $('renewPlan'); select.replaceChildren();
-    for (const plan of state.plans.filter((item) => item.status === 'active')) { const option = document.createElement('option'); option.value = plan.id; option.textContent = `${plan.name} - ${moneyPaise(plan.pricePaise, plan.currency)}`; select.appendChild(option); }
-    $('renewStart').value = ''; updateRenewPreview();
+    for (const plan of state.plans.filter((item) => item.status === 'active')) select.appendChild(new Option(`${plan.name} - ${moneyPaise(plan.pricePaise, plan.currency)}`, plan.id));
+    $('renewStart').value = ''; $('renewReceived').value = '0'; $('renewNote').value = ''; updateRenewPreview();
     const dialog = $('renewMembershipDialog'); if (!dialog.open) dialog.showModal(); select.focus();
   }
 
-  function openRecordPayment() { const dialog = $('recordPaymentDialog'); if (!dialog.open) dialog.showModal(); }
-
   async function renewMembership(event) {
     event.preventDefault(); if (!state.selected) return;
-    const body = { planId: $('renewPlan').value };
-    if ($('renewStart').value) body.startsAt = Math.floor(new Date(`${$('renewStart').value}T00:00:00`).getTime() / 1000);
+    const submit = $('submitRenewMembership'); $('renewError').textContent = ''; setBusy(submit, true, 'Renewing...');
+    const body = { planId: $('renewPlan').value, amountPaidPaise: toPaise($('renewReceived').value), paymentMethod: $('renewPaymentMethod').value };
+    const startsAt = dateToUnix($('renewStart').value); if (startsAt) body.startsAt = startsAt;
+    if ($('renewNote').value.trim()) body.note = $('renewNote').value.trim();
     try {
-      await core().api(`/api/admin/members/${encodeURIComponent(state.selected.id)}/memberships`, { method: 'POST', body });
-      $('renewMembershipDialog').close(); core().flash('Membership renewed. Server dates are authoritative.');
-      await refreshSelected(); window.GravityMembershipAdmin?.renderWorkspace(); window.GravityAdminDashboard?.renderWorkspace();
-    } catch (_) { core().flash('Membership renewal could not be completed.', 'error'); }
+      await core().api(`/api/admin/customers/${encodeURIComponent(state.selected.id)}/renew`, { method: 'POST', body });
+      $('renewMembershipDialog').close(); core().flash('Membership renewed. Server dates and balance are authoritative.'); await refreshSelected(); await refreshRelated();
+    } catch (error) { $('renewError').textContent = errorText(error, 'renew'); }
+    finally { setBusy(submit, false); }
+  }
+
+  function openRecordPayment(membership, customer = state.selected) {
+    if (!membership || !customer) return;
+    state.opener = document.activeElement; state.paymentTarget = { membership, customer };
+    $('paymentError').textContent = ''; $('paymentCustomer').textContent = customer.displayName || customer.customerName || 'Customer';
+    $('paymentMembership').textContent = membership.membershipNumber || '--'; $('paymentPending').textContent = moneyPaise(membership.payment?.pendingPaise, membership.currency);
+    $('paymentAmount').value = (Number(membership.payment?.pendingPaise || 0) / 100).toFixed(2); $('paymentAmount').max = (Number(membership.payment?.pendingPaise || 0) / 100).toFixed(2);
+    $('paymentMethod').value = 'cash'; $('paymentDate').value = new Date().toISOString().slice(0, 10); $('paymentNote').value = '';
+    const dialog = $('recordPaymentDialog'); if (!dialog.open) dialog.showModal(); $('paymentAmount').focus();
+  }
+
+  async function recordPayment(event) {
+    event.preventDefault(); const target = state.paymentTarget; if (!target) return;
+    const submit = $('submitPayment'); $('paymentError').textContent = ''; setBusy(submit, true, 'Recording...');
+    const body = { amountPaise: toPaise($('paymentAmount').value), method: $('paymentMethod').value };
+    const paidAt = dateToUnix($('paymentDate').value); if (paidAt) body.paidAt = paidAt;
+    if ($('paymentNote').value.trim()) body.note = $('paymentNote').value.trim();
+    try {
+      await core().api(`/api/admin/memberships/${encodeURIComponent(target.membership.id)}/payments`, { method: 'POST', body });
+      $('recordPaymentDialog').close(); core().flash('Payment recorded against the server ledger.');
+      if (state.selected?.id === (target.customer.id || target.customer.customerId)) await refreshSelected();
+      await refreshRelated();
+    } catch (error) { $('paymentError').textContent = errorText(error, 'payment'); }
+    finally { setBusy(submit, false); }
+  }
+
+  async function refreshRelated() {
+    await Promise.allSettled([
+      renderWorkspace(), window.GravityAdminDashboard?.renderWorkspace?.(), window.GravityMembershipAdmin?.renderWorkspace?.(), window.GravityPaymentAdmin?.renderWorkspace?.(),
+    ]);
   }
 
   function installDialogA11y(dialog) {
     dialog.addEventListener('keydown', (event) => {
       if (event.key !== 'Tab') return;
-      const focusable = Array.from(dialog.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
-      )).filter((node) => !node.hidden && node.getClientRects().length > 0);
+      const focusable = Array.from(dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')).filter((node) => !node.hidden && node.getClientRects().length > 0);
       if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault(); last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault(); first.focus();
-      }
+      const first = focusable[0]; const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
     });
-    dialog.addEventListener('close', () => {
-      if (state.opener && document.contains(state.opener)) state.opener.focus();
-    });
+    dialog.addEventListener('close', () => { if (state.opener && document.contains(state.opener)) state.opener.focus(); });
   }
 
-  $('customerStatusFilter').addEventListener('change', renderMembers);
-  $('newCustomerPlan').addEventListener('change', updateAddPreview); $('newCustomerStart').addEventListener('change', updateAddPreview);
-  $('renewPlan').addEventListener('change', updateRenewPreview); $('renewStart').addEventListener('change', updateRenewPreview);
-  $('renewMembershipForm').addEventListener('submit', renewMembership);
+  ['customerStatusFilter', 'customerMembershipFilter', 'customerPlanFilter'].forEach((id) => $(id).addEventListener('change', () => renderWorkspace().catch(() => core().flash('Customer list is temporarily unavailable.', 'error'))));
+  ['newCustomerPlan', 'newCustomerStart', 'newCustomerReceived'].forEach((id) => $(id).addEventListener('input', updateAddPreview));
+  ['renewPlan', 'renewStart', 'renewReceived'].forEach((id) => $(id).addEventListener('input', updateRenewPreview));
+  $('addCustomerForm').addEventListener('submit', addCustomer); $('editCustomerForm').addEventListener('submit', editCustomer); $('renewMembershipForm').addEventListener('submit', renewMembership); $('recordPaymentForm').addEventListener('submit', recordPayment);
   document.querySelectorAll('[data-close-dialog]').forEach((button) => button.addEventListener('click', () => $(button.dataset.closeDialog).close()));
-  [$('customerDrawer'), $('addCustomerDialog'), $('renewMembershipDialog'), $('recordPaymentDialog')].forEach(installDialogA11y);
+  [$('customerDrawer'), $('addCustomerDialog'), $('editCustomerDialog'), $('renewMembershipDialog'), $('recordPaymentDialog')].forEach(installDialogA11y);
 
   window.GravityCustomerAdmin = {
-    setAdmin(admin) { state.admin = admin; }, renderWorkspace, openCustomer, openAddCustomer,
+    setAdmin(admin) { state.admin = admin; }, renderWorkspace, openCustomer, openCustomerById, openAddCustomer,
+    openPaymentFor(membership, customer) { openRecordPayment(membership, customer); }, refreshSelected,
   };
 })();

@@ -204,11 +204,11 @@ input, select, textarea { border-radius: 8px; background: #0b1016; border-color:
 .software-table td { padding: 11px 12px; font-size: .78rem; }
 .software-table tbody tr:hover { background: #111821; }
 .software-table tbody tr:last-child td { border-bottom: 0; }
-.software-stats { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
+.software-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
 .software-stat { min-width: 0; min-height: 94px; padding: 14px; border: 1px solid #202936; border-radius: 9px; background: #0e1319; }
 .software-stat > span { display: block; color: #8c97a6; font-size: .67rem; font-weight: 750; }
 .software-stat > strong { display: block; margin-top: 8px; color: #f5f7fa; font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; }
-.software-stat > small { display: block; margin-top: 8px; color: #697586; font-size: .59rem; line-height: 1.3; }
+.software-stat > small { display: block; margin-top: 8px; color: #8490a0; font-size: .59rem; line-height: 1.3; }
 .dashboard-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; align-items: start; }
 .dashboard-grid > *, .dashboard-grid .panel, .dashboard-grid .tablewrap { min-width: 0; max-width: 100%; }
 .dashboard-grid .panelhead { min-width: 0; flex-wrap: wrap; }
@@ -229,7 +229,7 @@ input, select, textarea { border-radius: 8px; background: #0b1016; border-color:
 .software-empty--action p { margin: 0 0 6px; line-height: 1.5; }
 .software-loading { min-height: 160px; display: grid; place-items: center; color: #8994a3; }
 .error-state { color: #ff9ca6; }
-.customer-filters, .membership-filters { display: grid; grid-template-columns: minmax(220px,1.4fr) repeat(2,minmax(150px,.65fr)); gap: 10px; align-items: end; margin-bottom: 12px; }
+.customer-filters, .membership-filters { display: grid; grid-template-columns: minmax(220px,1.4fr) repeat(3,minmax(140px,.6fr)); gap: 10px; align-items: end; margin-bottom: 12px; }
 .membership-filters { grid-template-columns: repeat(3,minmax(150px,.55fr)) minmax(220px,1fr); }
 .customer-filters label, .membership-filters label { gap: 5px; font-size: .69rem; }
 .customer-filters input, .customer-filters select, .membership-filters select { min-height: 40px; }
@@ -356,4 +356,34 @@ dialog::backdrop { background: rgba(0,0,0,.68); }
 }
 @media (prefers-reduced-motion: reduce) {
   .app-sidebar, .sidebar-backdrop { transition: none !important; }
+}
+
+
+/* Admin Software V1 transactional workflow additions */
+button:disabled { cursor: not-allowed; opacity: .52; filter: none; }
+.form-span-2 { grid-column: span 2; }
+.form-grid textarea { width: 100%; min-height: 84px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); background: #090e13; font: inherit; }
+.form-grid textarea:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.dialog-error { min-height: 1.3em; margin: 10px 0 0; color: #ff9ca6; font-size: .72rem; line-height: 1.45; }
+.payment-context { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-bottom: 14px; }
+.payment-context span { min-width: 0; padding: 10px 12px; border: 1px solid #252e39; border-radius: 8px; color: #8d98a7; font-size: .66rem; }
+.payment-context strong { display: block; margin-top: 4px; color: #eef2f6; font-size: .78rem; overflow-wrap: anywhere; }
+.mobile-record-facts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 10px 0; }
+.mobile-record-facts div { min-width: 0; }
+.mobile-record-facts dt { color: #7f8a99; font-size: .61rem; text-transform: uppercase; letter-spacing: .04em; }
+.mobile-record-facts dd { margin: 3px 0 0; color: #dce2e9; font-size: .72rem; overflow-wrap: anywhere; }
+.fees-filters { grid-template-columns: minmax(240px,1fr) minmax(150px,.45fr) auto; }
+.filter-action { align-self: end; min-height: 40px; }
+.amount-pending { color: #ffc477; font-weight: 750; font-variant-numeric: tabular-nums; }
+.software-table .lead-link { min-height: auto; padding: 0; border: 0; border-radius: 0; color: var(--accent-2); background: transparent; text-align: left; font-weight: 750; }
+.software-table .lead-link:hover { background: transparent; color: #d8ff86; text-decoration: underline; }
+@media (max-width: 900px) {
+  .fees-filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .fees-filters .filter-action { width: 100%; }
+}
+@media (max-width: 700px) {
+  #headerRecordPayment { display: none; }
+  .form-span-2 { grid-column: auto; }
+  .payment-context, .mobile-record-facts { grid-template-columns: 1fr; }
+  .fees-filters { grid-template-columns: 1fr; }
 }

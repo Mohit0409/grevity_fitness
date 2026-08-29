@@ -1,104 +1,164 @@
-# Gravity Fitness Admin Software - Backend Contract Request
+# Gravity Fitness Admin Software V1 - Frontend Contract
 
-Owner: Chat 1 backend / integration lead
-Requested by: Chat 2 admin software UI
-Status: frontend must remain fail-closed until these contracts are implemented and approved.
+Owner of backend implementation: Chat 1 / integration lead
+Consumer: Chat 2 Admin Software frontend
+Status: Chat 2 frontend is wired and tested against Chat 1's current Admin Software V1 contract. Chat 1 backend changes are still owned and committed by Chat 1.
 
-## Why this is required
+## Principles
 
-The current admin backend can list customers, change customer status, manage membership plans, create/renew memberships, list expiring memberships and read notifications. It does not currently expose admin customer creation/editing, a manual fee ledger, manual payment recording, enriched customer-list membership/fee fields, or a global membership list. Chat 2 intentionally does not emulate any of those records in browser memory.
+- Server values are authoritative for membership dates, balances and payment state.
+- The browser never persists a duplicate customer, membership or fee ledger.
+- All admin mutations use the existing authenticated admin session, same-origin and CSRF protections.
+- UI handles validation/conflict failures without exposing raw internal errors.
+- Customer list phone numbers are masked in broad list views; customer detail can show the admin-authorized phone.
 
-## 1. Customer onboarding
+## Dashboard
 
-Needed for the Add Customer workflow. Prefer one transactional backend operation so a partially-created customer is not left behind if membership/payment creation fails.
+`GET /api/admin/dashboard`
 
-Desired request semantics:
+Frontend consumes `stats`:
+- `totalCustomers`
+- `activeMembers`
+- `expiringSoon`
+- `expiredMembers`
+- `pendingFeesTotalPaise`
+- `newCustomersThisMonth`
+- `paymentsReceivedTodayPaise`
+- `paymentsReceivedThisMonthPaise`
 
-- customer: display name, normalized mobile
-- membership: plan id, optional requested start date
-- opening payment: optional amount, payment method, payment date/note
+Frontend also consumes:
+- `expiring.today`
+- `expiring.tomorrow`
+- `expiring.threeDays`
+- `expiring.sevenDays`
+- `pendingFees`
+- `recentPayments`
+- `recentCustomers`
 
-Desired response semantics:
+## Customers
 
-- authoritative customer record
-- authoritative current/scheduled membership including membership number, startsAt, endsAt, price snapshot and status
-- authoritative fee/payment summary
-- conflict response for duplicate normalized mobile
-- field-level validation response for invalid input
+`GET /api/admin/customers`
 
-Chat 2 will not choose the final route name until Chat 1 publishes it.
+Supported query parameters used by the UI:
+- `q`
+- `status`
+- `membershipStatus`
+- `planId`
 
-## 2. Customer detail and edit
+Each customer may include an enriched `membership` with its server payment summary.
 
-The customer drawer needs one admin-safe detail response containing:
+`POST /api/admin/customers`
+Chat 2 sends:
+- `displayName`
+- `phone` (10-digit Indian input is normalized to `+91...` as a UI convenience; backend still validates)
+- `planId`
+- optional `startsAt`
+- `amountPaidPaise`
+- `paymentMethod`
+- optional `note`
 
-- id, displayName, normalized phone, status, createdAt
-- current membership summary
-- membership history
-- fee summary: total fee, paid, pending
-- recent payment history
+The successful response provides authoritative `customer`, `membership`, optional `payment`, and `paymentSummary` values. Duplicate phone conflicts return HTTP 409. Field validation returns HTTP 422 with safe `fields` messages.
 
-A separate authenticated mutation is required for editable customer fields such as displayName/mobile. Existing customer status PATCH should remain available for enable/disable.
+`GET /api/admin/customers/{id}`
 
-## 3. Manual fee ledger and payments
+Customer detail includes:
+- customer identity/status
+- current/upcoming/history/all memberships
+- payment summaries on memberships
+- payment history
+- membership notification history
 
-Required for Fees, Record Payment and payment history. The ledger must be server-authoritative and auditable.
+`PATCH /api/admin/customers/{id}`
 
-Required capabilities:
+Chat 2 uses this for display name, phone and active/disabled status updates.
+## Renewal
 
-- list fee balances with customer, membership, total fee, paid, pending, expiry and status
-- filter pending / fully paid / expired and search customer
-- record a manual payment against a customer/membership
-- accepted method enum controlled by backend (for example cash/UPI/card/bank transfer)
-- amount > 0 and never above allowed outstanding balance unless backend explicitly supports credit
-- optional payment date and note
-- immutable audit/event record with actor admin id and request id
-- response returns refreshed authoritative fee summary and payment record
-- idempotency protection for repeated submissions
+`POST /api/admin/customers/{id}/renew`
 
-Do not reuse Razorpay customer checkout intents as the manual cash/UPI ledger.
+Chat 2 sends:
+- `planId`
+- optional `startsAt`
+- `amountPaidPaise`
+- `paymentMethod`
+- optional `note`
 
-## 4. Dashboard operations summary
+The UI displays plan fee/new-expiry/pending previews only. After success it reloads customer detail and uses the server-created active/scheduled membership and server payment summary.
 
-Extend the admin dashboard response, or add an approved operations-summary route, with server-derived values:
+## Payments
 
-- totalCustomers
-- activeMembers
-- expiringSoon (recommended 7-day count)
-- expiredMemberships
-- pendingFeesPaise + currency
-- recentPayments
-- recentCustomers
+`GET /api/admin/payments`
 
-Until this exists, Chat 2 shows verified customer total and expiring count only and renders unavailable markers for active/expired/pending-fee metrics.
+Used indirectly through dashboard/detail responses and available for dedicated listing. Supported filters include `customerId` and `membershipId`.
 
-## 5. Enriched customer list
+`POST /api/admin/memberships/{id}/payments`
 
-For a scalable Customers table, the list API should support server-side filters and avoid one membership request per customer:
+Chat 2 sends:
+- `amountPaise`
+- `method`
+- optional `paidAt`
+- optional `note`
 
-- q (name/mobile)
-- customer status
-- plan id
-- optional paging/cursor
+The UI never mutates the pending balance optimistically. It waits for the server response, closes on success, then reloads customer/dashboard/membership/fee views. Submit is disabled while a payment request is in flight.
 
-Each row should include:
+Handled states include partial payment, full payment, invalid amount, overpayment/conflict, network failure and duplicate-submit protection.
 
-- customer id/name/masked-or-full admin-safe phone/status/createdAt
-- current membership: planName, membershipNumber, endsAt, daysRemaining, membership status
-- fee summary: total/paid/pending
+## Fees
 
-## 6. Global membership list
+`GET /api/admin/fees`
 
-Required for full Memberships filters beyond the existing expiring endpoint:
+Chat 2 uses:
+- `q`
+- `pendingOnly=1` for pending-only mode
 
-- status: active / scheduled / expired / cancelled
-- plan id
-- expiry window
-- customer search
-- paging
+Response fields consumed:
+- `pendingFeesTotalPaise`
+- `rows[].customerId/customerName/phone`
+- `rows[].membership`
+- membership `payment.totalPaise/paidPaise/pendingPaise`
 
-Rows should include customer identity summary, membership number, plan snapshot, start/expiry, daysRemaining and status.
+The frontend can additionally filter the returned all-balances view to fully paid memberships.
 
-## Security / audit requirements
+## Memberships
 
-All new write operations must keep the existing admin session, permission, same-origin and CSRF protections. Customer creation/edit, manual payments and membership-affecting writes should be audit logged. Responses must not expose secrets, payment-provider credentials or raw internal stack traces.
+`GET /api/admin/memberships`
+Supported backend filters used by Chat 2:
+- `status=active|scheduled|expired|cancelled`
+- `planId`
+
+Chat 2 implements an additional `Expiring soon` view by requesting `status=active` and filtering the returned server `daysRemaining` value using a 3/7/14/30-day UI window. No expiry date is recomputed as authoritative client state.
+
+Plan catalog continues to use:
+- `GET /api/admin/membership/plans`
+- existing plan create/update endpoints
+
+## Notifications
+
+`GET /api/admin/notifications`
+
+Existing Chat 2 notification UX remains unchanged: customer and owner Email/SMS/WhatsApp delivery rows are separated and each delivery status is rendered individually. Raw provider errors/tokens are not displayed.
+
+## Remaining Chat 1-owned auth UI item
+
+Chat 1's current auth backend returns HTTP 403 with:
+
+`{"error":"account_not_provisioned"}`
+
+when a phone-authenticated customer has not first been created by Gravity Fitness.
+`web/js/account-page.js` and `web/pages/account.html` remain Chat 1-owned auth files. Chat 2 did not modify them.
+
+Required customer-facing handling when Chat 1 completes that UI path:
+
+> Your membership account is not registered with Gravity Fitness yet. Please contact the gym reception.
+
+Do not present this state as an invalid password and do not offer customer self-registration.
+
+## Validation snapshot
+
+Chat 2 synthetic Admin Software V1 browser fixture uses only temporary in-memory test state. It covers customer creation/duplicate mobile, search/filter/detail/edit/status, renewal, payment ledger, fees, memberships, empty/error states and responsive/accessibility behavior.
+
+At the time this contract was refreshed:
+- Chat 2 full Playwright suite: 36/36 passed.
+- Chat 2 Python regression: 102/102 passed.
+- Chat 1 current Admin Software service/HTTP focused tests: 15/15 passed read-only from `main`.
+
+Chat 1 remains responsible for committing/integrating the backend implementation and resolving any contract change before merging Chat 2.
