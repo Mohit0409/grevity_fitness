@@ -432,3 +432,25 @@ Success: exact final RC preflight is green against protected deployment paths, r
 11. On GO: guarded cutover, full smoke, Chat 2/3 read-only acceptance, and release documentation/tagging. On critical failure: rollback to fresh migration-009 backup + pinned v9.
 
 Until step 10 explicitly records GO, production must remain on pinned v9 / migration 009. The current free-tier ngrok ingress does not satisfy polished production-ingress readiness by itself.
+
+
+## RELEASE LEAD STATUS UPDATE - 2026-08-29 after 18:41 queue execution
+
+This status update records execution of the authoritative `NEW TASK ASSIGNMENTS - 2026-08-29 18:41 IST` queue. It does not supersede the safety/order rules in that queue.
+
+- Chat 1 explicitly accepted Chat 2 test-only `760a07b`; it is integrated on `main` as `c4f2219` and changes only two readiness waits in `tests/e2e/gravity.spec.js`.
+- Final code SHA is `c4f2219a77f0a1248497c15c5eef6bc5389dd476`.
+- New immutable detached RC is `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`; it is detached HEAD, exact-SHA, and clean.
+- `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-b6b42d7` is superseded/evidence-only and was not mutated.
+- Integrated mapping: Chat 3 lifecycle stack `922ec5c` -> `2d1a4f8` -> `c762b85`; Chat 2 product stress handoff `9a7111a` integrated as `b6b42d7`; Chat 2 test stabilization `760a07b` integrated as `c4f2219`. README-only Chat 2/3 handoffs remain branch-local.
+- Exact-RC backend: 192/192 PASS. Full Playwright: 53/53 PASS. Admin/customer focused clean rerun: 29/29 PASS. Admin stress: 3/3 PASS; the deterministic 0/1/50/200-row test also passed 3/3 repeated after one earlier transient Enquiries empty-row wait in a broader subset run.
+- Accessibility/responsive focused gate: 9/9 PASS. Focused Admin/auth/payment/notification business modules: 47/47 PASS. Focused ngrok/task/lifecycle/reliability gate: 64/64 PASS.
+- Static gates: tracked JS syntax 27/27, tracked Python compile 67/67, tracked PowerShell parse 28/28, `git diff --check` PASS, private-key headers 0, forbidden tracked runtime/credential files 0; reviewed high-risk key references contain environment reads or explicitly synthetic/empty test values, not production credentials.
+- Final isolated 009 -> 010 rehearsal under exact RC PASS: source migrations 001-009, only 010 applied, `membership_payments` created, schema stage `admin_software_v1`, 33 pre-existing business tables preserved on original columns/data, SQLite quick check `ok`, foreign-key errors 0.
+- Pinned-v9 rollback pairing PASS on a separate migration-009 restore at isolated port 8901: health `ok`, 9 migrations, no `membership_payments`, quick check `ok`, FK errors 0; isolated process was stopped afterward.
+- Production unchanged: PID 4644 remains the sole checked listener on `127.0.0.1:8787`; live DB remains migration 009 with no `membership_payments`, quick check `ok`, FK errors 0. Gravity scheduled-task count remains 0 and protected deployment files remain absent.
+- Production ingress remains NO-GO: the free ngrok path works with the bypass header, but ordinary root traffic does not render Gravity Fitness. No stable polished production URL/domain tuple is frozen.
+- `docs/ADMIN_V1_RELEASE_CANDIDATE.md` has been fully refreshed for final SHA `c4f2219a77f0a1248497c15c5eef6bc5389dd476`, exact RC path, final gates, rehearsal, rollback pairing, lifecycle commands, and remaining NO-GO gates.
+- Next safe action for Chat 2: independently validate exact detached RC `c4f2219` read-only, first proving the shipped `web/` tree is unchanged versus `b6b42d7`, then rerun its exact-RC responsive/stress/integration smoke and report sign-off; make no branch changes unless a reproducible defect appears.
+- Next safe action for Chat 3: independently rerun its exact-RC 37-test lifecycle/ngrok/task gate from detached RC `c4f2219` and report the SHA-sensitive sign-off. Protected-path preflight remains blocked until Chat 1/operator creates the protected config/ngrok files in the controlled window.
+- Release remains **NO-GO**. Do not run migration 010, stop PID 4644, transition live ngrok, install tasks, or reboot. The next Chat 1 boundary is resolving production ingress and entering the controlled protected-path/elevated lifecycle window; Chat 3 preflight must be green before any live lifecycle mutation.
