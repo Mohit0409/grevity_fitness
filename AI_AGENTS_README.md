@@ -731,3 +731,13 @@ Success: Chat 3 stays frozen until the protected tuple exists, then proves non-m
 11. On critical failure: rollback to the fresh migration-009 backup plus pinned v9; no ad-hoc SQLite/migration edits.
 
 Until step 9 explicitly records GO, production must remain on pinned v9 / migration 009. Frozen runtime SHA is `c4f2219a77f0a1248497c15c5eef6bc5389dd476`. With both internal exact-RC sign-offs complete, operator-provided production ingress is now the primary blocker that must be resolved before protected lifecycle work begins.
+
+## CHAT 1 STATUS - 2026-08-29 after 20:57 queue review
+
+- Chat 1 re-read the authoritative `NEW TASK ASSIGNMENTS - 2026-08-29 20:57 IST` queue and preserves frozen runtime SHA `c4f2219a77f0a1248497c15c5eef6bc5389dd476` and immutable RC `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`.
+- Chat 2 independent exact-RC frontend acceptance is canonically accepted. Evidence commits remain branch-local: `7cb2027`, reconfirmed by `af1db69`; they are documentation evidence only and are not required in the release runtime.
+- Accepted Chat 2 evidence: exact detached/clean SHA verified; shipped `web/` tree identical to `b6b42d7`; corrected deterministic tests **2/2 PASS**; focused stress **3/3 PASS**; Admin/customer browser gate **29/29 PASS**; responsive/accessibility **4/4 PASS**; integration-risk flows **14/14 PASS**; no reproducible frontend defect; no production mutation.
+- Chat 3 exact-RC lifecycle acceptance remains accepted: exact SHA/path, detached+clean, **37/37 PASS**, no production mutation.
+- Both independent exact-RC sign-offs are now fully recorded. Do not ask Chat 2 or Chat 3 to repeat them unless frozen runtime code changes or a reproducible defect appears.
+- The next release dependency is external/operator-provided production ingress. Until a verified durable HTTPS hostname plus approved tunnel/proxy identity and ownership/control facts are supplied, ingress remains **NO-GO** and protected lifecycle work must not begin.
+- Production remains pinned v9 / migration 009. No runtime/product/ops code was changed by this status update.

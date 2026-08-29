@@ -163,3 +163,11 @@ No production URL has been invented or frozen. Because ingress is unresolved, th
 - Ingress remains **NO-GO pending operator-supplied verified identity**. The unblock checklist is: durable HTTPS hostname; DNS/TLS ownership/control; approved tunnel/proxy provider and identity; stable SYSTEM-accessible executable/config paths; upstream `127.0.0.1:8787`; ordinary-browser root rendering without warning/interstitial; public health behavior; and a documented rollback/disable method.
 - Do not place tunnel credentials, tokens, config contents, provider secrets, or recipient data in this document. Identity/path/ownership evidence only.
 - Protected deployment, lifecycle installation, reboot acceptance, fresh pre-admin-v1 backup, migration 010, and cutover remain blocked until their ordered gates are satisfied.
+
+## Independent exact-RC acceptance complete - 2026-08-29 20:57 IST
+
+- Chat 2 final frontend sign-off is complete for exact RC `c4f2219a77f0a1248497c15c5eef6bc5389dd476` at `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`; detached/clean identity was verified and the shipped `web/` tree matches `b6b42d7`.
+- Accepted Chat 2 counts: corrected deterministic **2/2 PASS**; focused stress **3/3 PASS**; Admin/customer **29/29 PASS**; responsive/accessibility **4/4 PASS**; integration-risk **14/14 PASS**; no reproducible frontend defect and no production mutation. Branch-local evidence is `7cb2027`, reconfirmed by `af1db69`; these docs-only commits are not runtime inputs.
+- Chat 3 final lifecycle sign-off remains accepted at **37/37 PASS** for the same exact detached/clean RC, with no production mutation.
+- There is now no remaining internal exact-RC acceptance blocker. Do not repeat already-green Chat 2/3 acceptance unless frozen runtime code changes or a reproducible defect appears.
+- Production ingress remains **NO-GO** until the operator supplies verifiable durable hostname/tunnel/proxy identity and ownership/control facts. Protected deployment, tunnel transition, SYSTEM tasks, reboot, fresh backup, migration 010, and cutover remain gated in that order.
