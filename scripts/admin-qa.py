@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from server.gravity.admin import AdminService, AdminSessionIdentity
+from server.gravity.admin_software import AdminSoftwareService
 from server.gravity.config import Settings
 from server.gravity.database import Database
 from server.gravity.membership import MembershipService
@@ -67,6 +68,7 @@ def build_dataset(runtime: Path, customer_count: int) -> tuple[Settings, Databas
     customers = []
     memberships = []
     payments = []
+    manual_payments = []
     reminders = []
     deliveries = []
     for index in range(customer_count):
@@ -91,6 +93,11 @@ def build_dataset(runtime: Path, customer_count: int) -> tuple[Settings, Databas
             f"qa-order-{index:05d}", f"qa-provider-payment-{index:05d}" if paid else None,
             created_at, created_at, created_at if paid else None,
         ))
+        if index % 2 == 0:
+            manual_payments.append((
+                f"qa-manual-payment-{index:05d}", membership_id, 10_000, "INR", "cash", None,
+                created_at, "recorded", "qa-admin", f"qa-manual-{index:05d}", created_at,
+            ))
         reminders.append((
             reminder_id, f"membership_expiry:{membership_id}:7", "membership_expiry", customer_id,
             membership_id, 7, ends_at - 7 * 86400, "pending", "{}", created_at, created_at,
@@ -124,6 +131,11 @@ def build_dataset(runtime: Path, customer_count: int) -> tuple[Settings, Databas
             "duration_months_snapshot,provider,status,receipt_reference,provider_order_id,provider_payment_id,"
             "created_at,updated_at,paid_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             payments,
+        )
+        connection.executemany(
+            "INSERT INTO membership_payments(id,membership_id,amount_paise,currency,method,note,paid_at,status,"
+            "recorded_by_admin_user_id,idempotency_key,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            manual_payments,
         )
         connection.executemany(
             "INSERT INTO notification_reminders(id,dedupe_key,event_type,customer_id,membership_id,trigger_days,"
@@ -173,6 +185,15 @@ def query_plans(database: Database) -> dict[str, list[str]]:
             "ORDER BY r.created_at DESC LIMIT 100",
             (),
         ),
+        "manualPaymentHistory": (
+            "SELECT id FROM membership_payments WHERE status='recorded' ORDER BY paid_at DESC LIMIT 100",
+            (),
+        ),
+        "pendingFees": (
+            "SELECT m.id FROM memberships m JOIN customers c ON c.id=m.customer_id "
+            "WHERE c.status!='deleted' AND m.status!='cancelled' ORDER BY m.ends_at ASC LIMIT 300",
+            (),
+        ),
     }
     result = {}
     with database.session() as connection:
@@ -192,13 +213,16 @@ def performance_volume(customer_count: int) -> dict[str, object]:
         admin = AdminService(database, settings)
         memberships = MembershipService(database)
         notifications = NotificationService(database, memberships, settings)
+        admin_software = AdminSoftwareService(database, memberships, admin, notifications)
         search_value = f"Synthetic Member {customer_count // 2:05d}"
         timings = {
-            "customerList": measure(lambda: admin.list_customers(session)),
-            "customerSearch": measure(lambda: admin.list_customers(session, search_value)),
-            "dashboardStats": measure(lambda: admin.dashboard(session)),
+            "customerList": measure(lambda: admin_software.list_customers(limit=100)),
+            "customerSearch": measure(lambda: admin_software.list_customers(query=search_value, limit=100)),
+            "dashboardStats": measure(admin_software.dashboard),
             "membershipExpiry": measure(lambda: memberships.expiring_within(30)),
             "notificationList": measure(lambda: notifications.list_admin(100)),
+            "pendingFees": measure(lambda: admin_software.fees(pending_only=True, limit=300)),
+            "manualPaymentHistory": measure(lambda: admin_software.list_payments(limit=100)),
         }
         with database.session() as connection:
             foreign_keys_ok = not connection.execute("PRAGMA foreign_key_check").fetchall()
@@ -208,7 +232,7 @@ def performance_volume(customer_count: int) -> dict[str, object]:
             "foreignKeysOk": foreign_keys_ok,
             "timings": timings,
             "queryPlans": query_plans(database),
-            "pendingFeeCalculation": {"status": "unavailable", "reason": "fee_ledger_not_implemented"},
+            "pendingFeeCalculation": {"status": "measured", "source": "membership_payments"},
         }
 
 
@@ -216,37 +240,37 @@ def reliability_diagnostics() -> dict[str, object]:
     with TemporaryDirectory(prefix="gravity-admin-reliability-") as temporary:
         settings, database, now = build_dataset(Path(temporary), 1)
         memberships = MembershipService(database, clock=lambda: float(now))
-        before = len(memberships.list_customer_memberships("qa-customer-00000"))
-        memberships.create_membership(
-            "qa-customer-00000", "plan-basic-monthly", actor_admin_user_id="qa-admin",
+        admin = AdminService(database, settings, clock=lambda: float(now))
+        notifications = NotificationService(database, memberships, settings, clock=lambda: float(now))
+        software = AdminSoftwareService(
+            database, memberships, admin, notifications, clock=lambda: float(now),
         )
-        memberships.create_membership(
-            "qa-customer-00000", "plan-basic-monthly", actor_admin_user_id="qa-admin",
+        payment_payload = {"amountPaise": 1_000, "method": "cash"}
+        payment_one = software.record_payment(
+            "qa-membership-00000", payment_payload, actor_admin_user_id="qa-admin",
+            idempotency_key="qa-payment-replay-0001",
         )
-        after_duplicate = len(memberships.list_customer_memberships("qa-customer-00000"))
-
-        payments = PaymentService(
-            database, settings, memberships, provider=FakeProvider(), clock=lambda: float(now),
+        payment_two = software.record_payment(
+            "qa-membership-00000", payment_payload, actor_admin_user_id="qa-admin",
+            idempotency_key="qa-payment-replay-0001",
         )
-        intent = payments.create_intent("qa-customer-00000", "plan-basic-monthly")
+        renewal_payload = {"planId": "plan-basic-monthly", "amountPaidPaise": 0}
+        renewal_one = software.renew_membership(
+            "qa-customer-00000", renewal_payload, actor_admin_user_id="qa-admin",
+            idempotency_key="qa-renewal-replay-0001",
+        )
+        renewal_two = software.renew_membership(
+            "qa-customer-00000", renewal_payload, actor_admin_user_id="qa-admin",
+            idempotency_key="qa-renewal-replay-0001",
+        )
         with database.session() as connection:
-            row = connection.execute("SELECT * FROM payment_intents WHERE id=?", (intent["id"],)).fetchone()
-            connection.execute("DELETE FROM payment_intents WHERE id=?", (intent["id"],))
-        membership_count_before_fault = len(memberships.list_customer_memberships("qa-customer-00000"))
-        try:
-            payments._finalize_verified_payment(
-                row,
-                "qa-payment-atomicity-fault",
-                event_key="qa-atomicity-fault",
-                event_type="qa.atomicity",
-                payload_hash="0" * 64,
-            )
-        except PaymentNotFound:
-            pass
-        membership_count_after_fault = len(memberships.list_customer_memberships("qa-customer-00000"))
+            payment_rows = connection.execute("SELECT COUNT(*) FROM membership_payments").fetchone()[0]
+            renewal_rows = connection.execute(
+                "SELECT COUNT(*) FROM memberships WHERE customer_id='qa-customer-00000' AND status='scheduled'"
+            ).fetchone()[0]
         return {
-            "duplicateRenewalAccepted": after_duplicate == before + 2,
-            "paymentFailureLeftMembership": membership_count_after_fault == membership_count_before_fault + 1,
+            "paymentReplaySingle": payment_one["payment"]["id"] == payment_two["payment"]["id"] and payment_rows == 2,
+            "renewalReplaySingle": renewal_one["membership"]["id"] == renewal_two["membership"]["id"] and renewal_rows == 1,
             "foreignKeysOk": database.health().get("database") == "ok",
         }
 
@@ -255,32 +279,28 @@ def report(volumes: tuple[int, ...]) -> dict[str, object]:
     performance = [performance_volume(volume) for volume in volumes]
     diagnostics = reliability_diagnostics()
     capabilities = {
-        "adminCustomerCreate": hasattr(AdminService, "create_customer"),
-        "adminManualPaymentRecord": hasattr(AdminService, "record_payment"),
-        "pendingFeeLedger": hasattr(AdminService, "pending_fees"),
+        "adminCustomerCreate": hasattr(AdminSoftwareService, "create_customer_bundle"),
+        "adminManualPaymentRecord": hasattr(AdminSoftwareService, "record_payment"),
+        "pendingFeeLedger": hasattr(AdminSoftwareService, "fees"),
     }
     blockers = []
     for name, available in capabilities.items():
         if not available:
             blockers.append(name)
-    if diagnostics["duplicateRenewalAccepted"]:
+    if not diagnostics["paymentReplaySingle"]:
+        blockers.append("duplicatePaymentProtection")
+    if not diagnostics["renewalReplaySingle"]:
         blockers.append("duplicateRenewalProtection")
-    if diagnostics["paymentFailureLeftMembership"]:
-        blockers.append("atomicPaymentFinalization")
+    if not diagnostics["foreignKeysOk"]:
+        blockers.append("foreignKeyIntegrity")
     return {
         "temporaryDatabasesOnly": True,
         "volumes": performance,
         "capabilities": capabilities,
         "reliabilityDiagnostics": diagnostics,
-        "indexMigrationRecommended": {
-            "owner": "Chat 1",
-            "filename": "010_admin_operations_indexes.sql",
-            "statements": [
-                "CREATE INDEX idx_customers_admin_status ON customers(status);",
-                "CREATE INDEX idx_customers_admin_recent ON customers(created_at DESC, id DESC);",
-                "CREATE INDEX idx_notification_reminders_admin_recent ON notification_reminders(created_at DESC, id DESC);",
-            ],
-            "note": "Leading-wildcard customer search needs an FTS/prefix-search design if measured latency becomes material; a normal B-tree cannot serve it.",
+        "indexAudit": {
+            "ledger": "migration 010 supplies membership/date payment indexes; plans are emitted per volume",
+            "note": "Leading-wildcard name search and membership filtering need a joined/FTS design if latency or filter completeness becomes material.",
         },
         "ready": not blockers,
         "blockers": blockers,

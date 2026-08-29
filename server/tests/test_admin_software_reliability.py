@@ -209,44 +209,58 @@ class AdminSoftwareReliabilityTests(unittest.TestCase):
         self.assertEqual(self.database_counts()["customers"], 1)
         self.assertEqual(self.database_counts()["memberships"], 1)
 
-    def test_duplicate_payment_requests_are_currently_not_idempotent(self) -> None:
+    def test_payment_replay_with_an_idempotency_key_records_once(self) -> None:
         created = self.create_customer(phone="+919800000006", initial_payment=0)
         membership_id = created["membership"]["id"]
         payload = {"amountPaise": 10_000, "method": "cash"}
-        self.service.record_payment(membership_id, payload, actor_admin_user_id="admin-qa")
-        self.service.record_payment(membership_id, payload, actor_admin_user_id="admin-qa")
-        self.assertEqual(self.database_counts()["payments"], 2)
+        first = self.service.record_payment(
+            membership_id, payload, actor_admin_user_id="admin-qa", idempotency_key="payment-replay-0001",
+        )
+        second = self.service.record_payment(
+            membership_id, payload, actor_admin_user_id="admin-qa", idempotency_key="payment-replay-0001",
+        )
+        self.assertEqual(first["payment"]["id"], second["payment"]["id"])
+        self.assertEqual(self.database_counts()["payments"], 1)
         detail = self.service.customer_detail(created["customer"]["id"])
-        self.assertEqual(detail["membership"]["current"]["payment"]["pendingPaise"], 79900)
+        self.assertEqual(detail["membership"]["current"]["payment"]["pendingPaise"], 89900)
 
-    def test_duplicate_renewal_requests_are_currently_not_idempotent(self) -> None:
+    def test_renewal_replay_with_an_idempotency_key_creates_one_membership(self) -> None:
         created = self.create_customer(phone="+919800000007", initial_payment=0)
         payload = {"planId": "plan-pro-monthly", "amountPaidPaise": 0, "paymentMethod": "cash"}
-        self.service.renew_membership(created["customer"]["id"], payload, actor_admin_user_id="admin-qa")
-        self.service.renew_membership(created["customer"]["id"], payload, actor_admin_user_id="admin-qa")
+        first = self.service.renew_membership(
+            created["customer"]["id"], payload, actor_admin_user_id="admin-qa", idempotency_key="renewal-replay-0001",
+        )
+        second = self.service.renew_membership(
+            created["customer"]["id"], payload, actor_admin_user_id="admin-qa", idempotency_key="renewal-replay-0001",
+        )
+        self.assertEqual(first["membership"]["id"], second["membership"]["id"])
         with self.database.session() as connection:
             scheduled = connection.execute(
                 "SELECT COUNT(*) FROM memberships WHERE customer_id=? AND status='scheduled'",
                 (created["customer"]["id"],),
             ).fetchone()[0]
-        self.assertEqual(scheduled, 2)
+        self.assertEqual(scheduled, 1)
 
-    def test_notification_reconcile_failure_happens_after_the_renewal_commit(self) -> None:
-        """Record the retry-risk boundary so it is visible in the release evidence.
-
-        The service commits the renewal first and suppresses notifications in a
-        second transaction. An infrastructure error must not erase a valid
-        membership, but clients also must not retry without server idempotency.
-        """
+    def test_renewal_suppresses_pending_reminders_without_external_reconcile(self) -> None:
+        """Suppression belongs to the same renewal transaction, not a follow-up call."""
         created = self.create_customer(phone="+919800000008", initial_payment=0)
-        with mock.patch.object(self.notifications, "reconcile", side_effect=RuntimeError("notification fault")):
-            with self.assertRaisesRegex(RuntimeError, "notification fault"):
-                self.service.renew_membership(
-                    created["customer"]["id"],
-                    {"planId": "plan-pro-monthly", "amountPaidPaise": 0},
-                    actor_admin_user_id="admin-qa",
-                )
+        self.clock.value = int(created["membership"]["endsAt"]) - 6 * 86400
+        self.assertEqual(self.notifications.scan_expiring(7)["created"], 1)
+        with mock.patch.object(self.notifications, "reconcile") as reconcile:
+            self.service.renew_membership(
+                created["customer"]["id"],
+                {"planId": "plan-pro-monthly", "amountPaidPaise": 0},
+                actor_admin_user_id="admin-qa",
+                idempotency_key="renewal-suppression-0001",
+            )
+        reconcile.assert_not_called()
         self.assertEqual(self.database_counts()["memberships"], 2)
+        with self.database.session() as connection:
+            state = connection.execute(
+                "SELECT state FROM notification_reminders WHERE customer_id=?",
+                (created["customer"]["id"],),
+            ).fetchone()[0]
+        self.assertEqual(state, "suppressed")
 
 
 if __name__ == "__main__":

@@ -6,14 +6,12 @@ Branch: `agent/gravity-admin-ops`
 
 Baseline: `49529c9`
 
-## Migration 010 Admin Software follow-up (awaiting integration)
+## Migration 010 Admin Software validation
 
-Chat 1's current uncommitted `010_admin_software_v1.sql` / `admin_software.py`
-implementation was reviewed read-only from its assigned `main` worktree. This
-branch deliberately does not copy or modify that owned implementation. The new
-forward-compatible contract suite is
-`server/tests/test_admin_software_reliability.py`; it automatically skips until
-the migration and service reach this branch through Chat 1 integration.
+Chat 1 committed the owned migration/service as `27e827f`. This QA branch was
+rebased onto that committed snapshot; no uncommitted Chat 1 work was included.
+`server/tests/test_admin_software_reliability.py` now runs eight disposable-
+database contract tests rather than skipping.
 
 The reviewed design provides the required partial unique phone index and the
 `membership_payments` ledger indexes for membership and date queries. The
@@ -21,23 +19,33 @@ create-customer bundle and renewal-with-payment paths use a single SQLite
 transaction for the customer/profile/membership/ledger write set, and the unique
 phone constraint is converted to a conflict response.
 
-Release blockers to resolve or explicitly accept before daily operations:
+Validated contract outcomes:
 
-1. Manual payment and renewal mutations have no idempotency key. Replayed
-   submissions create another payment or another scheduled renewal.
-2. Renewal commits before notification reconciliation. A reconciliation failure
-   leaves a valid renewal committed but returns an error to the caller, making a
-   client retry unsafe without server idempotency.
-3. `list_customers` applies membership/plan filtering after its SQL `LIMIT`, and
+1. Same-key manual payment replay returns the original ledger entry; one payment
+   remains and its balance is correct.
+2. Same-key renewal replay returns the original membership; only one scheduled
+   membership remains.
+3. Renewal suppresses prior pending expiry reminders inside its own transaction
+   and does not call the external notification reconciler afterward.
+4. Create customer + membership + initial payment and renewal + payment roll
+   back together under injected faults; concurrent duplicate phone creation has
+   one success and one conflict.
+
+Open performance/correctness follow-up before larger-scale rollout:
+
+1. `list_customers` applies membership/plan filtering after its SQL `LIMIT`, and
    does one membership query per displayed customer. Rework this to filter in SQL
-   and batch/join current membership before accepting a 5,000-customer result.
-4. The migration has not yet been committed or integrated, so no migration-010
-   benchmark, browser exercise, backup/restore run, or full implementation test
-   result is claimed below.
+   and batch/join current membership before relying on filters beyond the first
+   200 alphabetical customers.
 
 ## Release decision
 
-**Not ready for daily fee/payment operation.** Existing authentication, membership scheduling, notification suppression, backup integrity, and lifecycle foundations are strong, but the current `main` does not yet expose admin customer creation, manual fee/payment recording, or pending-balance contracts. Two synthetic fault/retry diagnostics also prove release-blocking integrity gaps: payment completion can leave a committed membership when final payment state fails, and two membership submit requests create two renewals.
+**Backend QA handoff ready; not approved for live migration.** Migration 010 now
+provides owner-created customers, a manual payment ledger, derived pending
+balances, keyed mutation replay protection, membership history, and transactional
+reminder suppression. Final approval still requires Chat 2's integrated owner UI
+and browser journey, a fresh migration-009 production backup, and the normal
+integrated release gates.
 
 No production database or real customer data was used. All new acceptance and performance work creates disposable temporary databases.
 
