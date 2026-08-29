@@ -148,3 +148,16 @@ Current state:
 - `node --check` for `admin-audit.js`, `admin.js`, and `gravity.spec.js`: PASS. `git diff --check`: PASS.
 - No Chat 1 protected backend/auth files and no Chat 3 reliability/ops files were modified. No backend API contract or migration change is required.
 - Live production remains migration 009; this handoff does not change the migration 010 rollout gate.
+
+## Chat 2 final QA handoff - 2026-08-29
+
+- Branch: `agent/gravity-public-ui`.
+- Code commit: `dd3a407` (`Harden admin final QA edge cases`).
+- Chat 1 has already integrated the earlier Audit workspace as `588ed7a`; cherry-pick only `dd3a407` for this final QA slice.
+- Changed: `tests/e2e/gravity.spec.js`, `web/pages/admin.html`, `web/css/admin.css`, `web/js/admin.js`, `web/js/admin-customers.js`, `web/js/admin-dashboard.js`, `web/js/admin-enquiries.js`, `web/js/admin-memberships.js`, `web/js/admin-notifications.js`, `web/js/admin-readiness.js`, and `web/js/admin-coaching.js`.
+- Fixes: customer access-impact confirmations/acknowledgement and focus restoration; keyboard-focusable scroll regions; Membership stale-response protection; Dashboard stale financial-data clearing and safe 403 behavior; Enquiry stale-search/403/loading protection plus mutation double-submit guards; Readiness loading/error/403 states; Notification stale-response/403 clearing; and safe 401 session-expiry return to login across Admin clients.
+- Responsive defect found and fixed: Enquiries no longer expands to table min-content width at 390px.
+- Deterministic Admin-focused Playwright gate: 24/24 PASS, including Owner/Admin/Reception/Trainer permissions, customer/payment/renewal/Fees flows, race cases, Notifications, Enquiries, Readiness, session expiry, Team Access, Audit, 390px overflow checks, and serious/critical axe checks.
+- Syntax checks for all `web/js/admin*.js` and `tests/e2e/gravity.spec.js`: PASS. `git diff --check`: PASS.
+- No backend/domain/auth/migration/ops files changed. No production DB or migration 010 action was performed.
+- Frontend blocker: none. Chat 1 should run the final integrated release gate after cherry-pick.
