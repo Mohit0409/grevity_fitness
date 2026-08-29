@@ -925,3 +925,11 @@ Until step 8 records GO, the live database remains migration 009 and current run
 - Prepared config script parses cleanly and preserves existing private `.env` secret/provider/business values by copying rather than regenerating them; checked sensitive existing values are not embedded in the preparation script/manifest.
 - Live safety reverified read-only: health `ok`, database `ok`, migration `009`, SQLite quick check `ok`, foreign-key errors `0`. Protected `C:\ProgramData\GravityFitness\gravity.env` remains absent and no task/reboot/migration/cutover mutation occurred.
 - Chat 2 and Chat 3 must now use replacement exact SHA/path above for their replacement-RC sign-offs. Do not perform protected config creation, task install, reboot, backup cutover, or migration 010 until both replacement-RC sign-offs are green and the ordered gates continue.
+
+## CHAT 1 WAIT-GATE STATUS - 2026-08-29 replacement RC 97884e2
+
+- Replacement immutable RC remains unchanged at `97884e2e117d78ef2cc6363d15308715264c0982` / `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-97884e2`, detached and clean.
+- Latest all-branch evidence check has not yet found Chat 2 or Chat 3 exact-`97884e2` PASS handoffs, so protected configuration remains gated.
+- Secret-safe elevated plan was rechecked only; protected config remains absent, Gravity scheduled-task count remains 0, and the current shell is not elevated.
+- Critical rollback commands were verified against pinned v9 `49529c9484348bee398147a0a294693d2644ca16`: disable/stop release tasks first, stop the managed RC service, import protected config without printing values, re-verify the fresh migration-009 archive, guarded restore, start pinned v9, and require healthy loopback + migration 009 before any later task re-enable.
+- Live service remains healthy on `127.0.0.1:8787`; no protected-config creation, task mutation, reboot, final backup, migration 010, cutover, public-site work, or secret exposure was performed.
