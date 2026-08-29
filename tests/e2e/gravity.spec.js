@@ -1833,6 +1833,7 @@ test('admin deterministic 0 1 50 200 row datasets stay bounded without duplicate
   } }));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/admin');
+  await expect.poll(() => page.evaluate(() => window.GravityAdminCore?.currentAdmin()?.id || '')).toBe('owner-ui-test');
   for (const size of [0, 1, 50, 200]) {
     fixture.customers.splice(0); fixture.payments.splice(0); fixture.auditEvents.splice(0);
     for (const key of Object.keys(fixture.memberships)) delete fixture.memberships[key];
@@ -1910,6 +1911,7 @@ test('admin advanced workspaces contain long content on low-height mobile and 20
   } }));
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto('/admin');
+  await expect.poll(() => page.evaluate(() => window.GravityAdminCore?.currentAdmin()?.id || '')).toBe('owner-ui-test');
   for (const view of ['notifications', 'admins', 'coaching', 'audit', 'readiness']) {
     await page.evaluate((target) => window.GravityAdminCore.openView(target), view);
     if (view === 'audit') await page.evaluate(() => window.GravityAuditAdmin.refresh());
