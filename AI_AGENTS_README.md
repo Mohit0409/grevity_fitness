@@ -176,3 +176,15 @@ Current state:
 - Frontend product verdict for exact RC `b6b42d7`: PASS; no integration-only frontend defect found.
 - `760a07b` is test-only and does not change the shipped frontend. Chat 1 may cherry-pick it if deterministic final-gate source tests are desired, but doing so changes the consolidated SHA and therefore requires a new immutable RC identity before release.
 - No production process, ngrok state, scheduled task, live database, migration row, secret, or protected deployment path was touched by Chat 2.
+
+## Chat 2 18:41 queue boundary evidence - 2026-08-29
+
+- `9a7111a` and test-only `760a07b` remain preserved; neither was amended/rebased.
+- Current Chat 1 state checked read-only: `main` is `f5e9f10` on top of product RC `b6b42d7`; `760a07b` is not integrated and no replacement immutable RC exists yet.
+- Isolated temporary cherry-pick proof applied `760a07b` onto `b6b42d7` without touching `main` or the RC.
+- The simulated integration changed only `tests/e2e/gravity.spec.js` (2 readiness waits).
+- `web/` tree before and after the simulated cherry-pick is byte-identical by Git tree identity: `8c9a72dba12f627c6c3d5c50560c39d5d6d1aacb`.
+- The temporary proof worktree was removed after verification; no persistent release/runtime state was changed.
+- Existing exact-RC `b6b42d7` frontend sign-off remains PASS from the prior 4/4 responsive/stress + 14/14 integration-risk UI acceptance.
+- Next Chat 2 action is gated on Chat 1 explicitly accepting/skipping `760a07b` and freezing the chosen exact final RC. No unrelated frontend work should start before that decision.
+- No production process, ngrok, scheduled task, protected path, database, migration, secret, or business data was touched.
