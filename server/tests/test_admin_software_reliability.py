@@ -209,6 +209,25 @@ class AdminSoftwareReliabilityTests(unittest.TestCase):
         self.assertEqual(self.database_counts()["customers"], 1)
         self.assertEqual(self.database_counts()["memberships"], 1)
 
+    def test_plan_filter_is_applied_before_the_customer_page_limit(self) -> None:
+        """Plan filtering must happen before the customer page limit is applied."""
+        rows = [
+            (
+                f"filter-alpha-{index:03d}", "active", f"Alpha {index:03d}",
+                f"+91970{index:07d}", 0, self.clock.value, self.clock.value,
+            )
+            for index in range(200)
+        ]
+        with self.database.session() as connection:
+            connection.executemany(
+                "INSERT INTO customers(id,status,display_name,phone_e164,phone_verified,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                rows,
+            )
+        target = self.create_customer(phone="+919800000009", initial_payment=0)
+        result = self.service.list_customers(plan_id="plan-basic-monthly", limit=200)
+        self.assertEqual([item["id"] for item in result], [target["customer"]["id"]])
+
     def test_payment_replay_with_an_idempotency_key_records_once(self) -> None:
         created = self.create_customer(phone="+919800000006", initial_payment=0)
         membership_id = created["membership"]["id"]
