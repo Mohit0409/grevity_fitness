@@ -122,18 +122,17 @@ Current state:
 9. Migration 010 stays off the live database until final integrated release gates pass and a fresh verified pre-migration backup exists.
 10. Update this file when ownership, handoff SHA, or rollout state changes.
 
-## Current coordination - 2026-08-29 19:39 IST
+## Current coordination - 2026-08-29 20:04 IST
 
-- Release decision: **NO-GO; production remains pinned to v9 / migration 009.** Final code and isolated migration/rollback gates are green, but production ingress, protected deployment, SYSTEM tasks, reboot lifecycle acceptance, and the fresh pre-cutover backup remain incomplete.
-- Final code SHA is `c4f2219a77f0a1248497c15c5eef6bc5389dd476`; immutable detached RC is `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`, clean and detached. Superseded `b6b42d7` and `5725e47` RCs are evidence-only.
-- Chat 1 accepted Chat 2 test-only `760a07b` as integrated `c4f2219`. Final exact-RC gates are green: backend 192/192, Playwright 53/53, Admin/customer 29/29, stress 3/3, accessibility/responsive 9/9, business modules 47/47, ops/reliability 64/64, plus JS/Python/PowerShell/diff/security scans.
-- Final isolated 009 -> 010 rehearsal on exact RC `c4f2219` passed, including data preservation, `membership_payments`, quick/FK checks, Admin/customer/RBAC flows, and separate pinned-v9 migration-009 rollback pairing.
-- `docs/ADMIN_V1_RELEASE_CANDIDATE.md` is refreshed for final SHA `c4f2219`; `main` is now ahead only by release/coordination documentation (`c65db1b`), not by runtime code that changes the frozen RC.
-- Chat 2 has not yet recorded an independent exact-`c4f2219` RC sign-off; its latest branch handoff `843b8ab` predates Chat 1's final RC creation. Its prior `b6b42d7` product acceptance remains evidence only.
-- Chat 3 has not yet recorded the required SHA-sensitive exact-`c4f2219` 37-test lifecycle/ngrok/task sign-off; its previous 37/37 sign-off was for superseded RC `b6b42d7`.
-- Production backend PID `4644` remains healthy on `127.0.0.1:8787`; live DB remains migration 009 with no production cutover. Current free ngrok remains staging-quality/unmanaged and is not accepted as polished production ingress.
-- Current operator session is not elevated. Gravity scheduled-task count is 0. Protected targets `C:\ProgramData\GravityFitness\gravity.env`, `C:\ProgramData\GravityFitness\ngrok.yml`, and `C:\Program Files\ngrok\ngrok.exe` are absent, so Chat 3 protected-path/ACL preflight is still gated.
-- Use the latest `NEW TASK ASSIGNMENTS` section at the end of this file. Code is frozen at `c4f2219`; no unrelated feature work is allowed before Admin V1 release disposition.
+- Release decision: **NO-GO; production remains pinned to v9 / migration 009.** Frozen code, exact-SHA code gates, isolated migration rehearsal, and rollback pairing are green; production ingress and protected lifecycle/reboot/fresh-backup gates are not.
+- Frozen code SHA is `c4f2219a77f0a1248497c15c5eef6bc5389dd476`; immutable detached RC is `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`, detached and clean. Later `main` commits are documentation/coordination only and do not change the frozen runtime.
+- Chat 1 final exact-RC evidence remains green: backend 192/192, Playwright 53/53, Admin/customer 29/29, stress 3/3, accessibility/responsive 9/9, business modules 47/47, ops/reliability 64/64, plus static/security gates. Exact-RC isolated 009 -> 010 rehearsal and separate pinned-v9 migration-009 rollback pairing passed.
+- Chat 1 completed the production-ingress audit in `8279051`: no verified durable production hostname, reserved production tunnel identity, or approved custom-domain value exists in the repo. Ingress is an explicit operator-input NO-GO; the chats must not invent a hostname or approve the current free ngrok interstitial as production.
+- Chat 2 exact-`c4f2219` frontend sign-off is still outstanding. Latest branch commit is `843b8ab`, which predates creation of the final `c4f2219` RC.
+- Chat 3 exact-`c4f2219` lifecycle/ngrok/task sign-off is complete: detached/clean/exact-SHA checks passed and the focused gate passed 37/37. Branch-local evidence commit is `3560923`; it is documentation-only and should not be cherry-picked into the release runtime.
+- Production backend PID `4644` remains healthy on loopback `127.0.0.1:8787`; live DB remains migration 009. Gravity scheduled-task count is 0, the operator session is not elevated, and protected targets `C:\ProgramData\GravityFitness\gravity.env`, `C:\ProgramData\GravityFitness\ngrok.yml`, and `C:\Program Files\ngrok\ngrok.exe` are absent.
+- Chat 3 protected-path/task/ngrok/ACL preflight is therefore correctly blocked until Chat 1/operator supplies the approved ingress tuple and creates the protected deployment layout in the controlled elevated window.
+- Use the latest `NEW TASK ASSIGNMENTS` section at the end of this file. No unrelated feature/runtime/ops changes are allowed; any such code change invalidates frozen RC `c4f2219` and requires a replacement immutable RC plus affected exact-SHA gates.
 
 
 ## NEW TASK ASSIGNMENTS - 2026-08-29 16:36 IST
@@ -549,3 +548,90 @@ Until step 8 explicitly records GO, production must remain on pinned v9 / migrat
 - Chat 3 SHA-sensitive exact-`c4f2219` 37-test lifecycle/ngrok/task sign-off is still outstanding in canonical coordination.
 - Protected Gravity/ngrok paths remain absent, the session is non-elevated, and scheduled-task count remains 0; protected lifecycle/preflight/install/reboot/fresh-backup/cutover work remains gated.
 - Next Chat 1 action after both independent sign-offs and a verified production hostname/tunnel decision: freeze the complete deployment tuple, then enter the controlled elevated protected-path window while production remains migration 009.
+
+
+## NEW TASK ASSIGNMENTS - 2026-08-29 20:04 IST
+
+This is the authoritative remaining-work queue for all three chats. It supersedes the 19:39 queue where status has advanced. Completed implementation, exact-RC test, migration-rehearsal, and ingress-audit work must not be restarted.
+
+Current confirmed release state:
+- Frozen runtime code SHA: `c4f2219a77f0a1248497c15c5eef6bc5389dd476`.
+- Frozen immutable RC: `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219`, detached HEAD and clean.
+- `main` is at documentation-only commit `8279051`; there is no runtime/product/ops code commit after `c4f2219`.
+- Chat 1 final exact-RC code/static/security gates, exact-SHA isolated 009 -> 010 rehearsal, and pinned-v9 rollback pairing are PASS.
+- Chat 1 production-ingress audit is complete and explicitly NO-GO: no verified durable production hostname/tunnel is available. Operator input is required; do not invent one and do not promote the free ngrok interstitial to production.
+- Chat 2 still owes the independent exact-`c4f2219` frontend release sign-off.
+- Chat 3 exact-`c4f2219` lifecycle/ngrok/task sign-off is complete: 37/37 PASS; branch-local evidence is `3560923`.
+- Production remains pinned v9 / migration 009 on healthy loopback PID `4644`. Protected deployment files are absent, Gravity scheduled-task count is 0, and the available shell is not elevated.
+
+Global release freeze: no unrelated features. Any new runtime/product/ops code change after `c4f2219` invalidates this RC and requires Chat 1 to create and validate a replacement immutable RC. Documentation-only coordination may continue on `main`.
+
+### Chat 1 - Release Lead: Collect Final UI Sign-Off + Operator-Gated Deployment
+
+1. Keep `c4f2219` frozen. Do not integrate new runtime/product/ops code unless Chat 2 or Chat 3 proves a real release-blocking defect.
+2. Canonically record Chat 3's completed exact-RC sign-off as evidence: exact SHA/path, detached+clean checks, 37/37 focused PASS, production nonmutation. Do not cherry-pick Chat 3 docs-only `3560923` into the runtime.
+3. Collect Chat 2's independent exact-`c4f2219` frontend sign-off. Do not treat the older `b6b42d7` sign-off as final-SHA acceptance.
+4. If Chat 2 reports a real defect, review only the smallest justified fix. Any accepted code fix invalidates `c4f2219`: create a replacement detached RC and rerun every affected exact-SHA gate before proceeding.
+5. Do not repeat the ingress repository audit. The current blocker is operator input: obtain a verified durable production hostname plus the approved tunnel/proxy identity/provider and ownership details. Do not fabricate or infer these values.
+6. Maintain an operator ingress-unblock checklist in release coordination: intended HTTPS hostname, DNS/TLS ownership, tunnel/proxy identity, stable executable/config location, loopback upstream `127.0.0.1:8787`, ordinary-browser root behavior without interstitial, public health behavior, and rollback/disable method. Never record secrets.
+7. Once Chat 2 sign-off is green and the operator supplies a verifiable production ingress, validate that ingress without changing production: durable HTTPS hostname, correct tunnel identity, TLS/DNS resolution, trusted forwarding to loopback, normal-browser root rendering, and public health. Any failure keeps release NO-GO.
+8. After ingress validation, freeze the complete deployment tuple: final RC SHA/path, pinned-v9 rollback SHA/path, live DB, protected Gravity config path, Python/runtime path, ngrok/tunnel executable+config path, public URL, scheduled-task commands, post-reboot acceptance command, smoke checks, backup/off-host targets, rollback commands, and abort criteria.
+9. Enter the protected deployment window only with explicit elevation/operator control. Create/install the protected Gravity config and tunnel executable/config with least-privilege ACLs; do not expose contents or secret values in Git/chat/logs.
+10. Before any live tunnel/task mutation, hand the exact frozen tuple to Chat 3 and require its non-mutating protected-path/task/tunnel/ACL preflight to be green.
+11. With explicit authorization and while live DB remains migration 009, perform the documented controlled tunnel transition. Never stop an unverified PID, adopt a mismatched process, or create a duplicate tunnel.
+12. Install and verify `GravityFitness-Watchdog`, `GravityFitness-DailyBackup`, and `GravityFitness-Notifications` as SYSTEM/Highest from exact frozen RC. Verify action paths, working directory, triggers, enabled state, `IgnoreNew`, protected config/tunnel paths, and secret-free arguments.
+13. Perform one deliberate reboot only after lifecycle installation is green. Require Chat 3 exact-RC `release-lifecycle-check.ps1` exit 0 plus `ready:true` with current-boot backend/task/tunnel/notification evidence.
+14. After reboot acceptance is green and live DB is still migration 009, create the fresh `pre-admin-v1` live backup with pinned v9; verify it, recovery-drill it, hash it, and copy it to protected off-host storage. Older rehearsal archives do not satisfy this gate.
+15. Make and record the explicit production GO/NO-GO decision only after Chat 2 final UI sign-off, approved ingress, protected preflight/lifecycle/reboot acceptance, and fresh backup are all green.
+16. On GO, execute the guarded final RC + migration-010 cutover and run local/public health, owner TOTP/Admin workspaces, approved-customer login, unknown-phone denial, trainer redaction, payments/renewals, notifications, readiness, task history, and browser smoke.
+17. On critical failure, safely stop the candidate and restore the fresh migration-009 backup plus pinned-v9 runtime using the documented procedure. Never edit migration rows or live SQLite/WAL files manually.
+18. After successful release, update final runtime/task/ingress/backup evidence, remove obsolete NO-GO wording, and complete normal push/tag/release documentation.
+
+Success: Chat 1 obtains the remaining independent UI sign-off and real operator ingress, then proves protected lifecycle/reboot and fresh rollback backup before explicitly authorizing migration 010.
+
+### Chat 2 - Immediate Exact `c4f2219` Frontend Release Sign-Off
+
+1. This is Chat 2's only immediate pre-deployment task. Do not start new frontend features or refactor already-passing product code.
+2. Validate exact detached RC `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-c4f2219` read-only. Confirm detached HEAD, exact SHA `c4f2219a77f0a1248497c15c5eef6bc5389dd476`, and clean tree before testing.
+3. Prove the shipped `web/` Git tree is byte-identical/tree-identical to superseded product RC `b6b42d7`; the only expected source delta from `760a07b` is the two test readiness waits in `tests/e2e/gravity.spec.js`.
+4. Run the two corrected deterministic stress tests, focused stress gate, Admin/customer browser gate, and concise exact-RC responsive/accessibility smoke. Record exact counts, retries, and skips.
+5. Reconfirm representative widths 320/360/375/390/430/768/1024/1366/1440/1920, low-height 320x568, 390x667 at 200% text, long unbroken content, large rupee values, bounded 0/1/50/200-row DOM, internal table scrolling, dialog/action reachability, focus restoration, and all ten Admin workspaces.
+6. Recheck integration-risk flows on exact RC `c4f2219`: notification failure/403, customer workflows, Fees/Membership stale responses, Trainer/Reception/Admin RBAC, Enquiries stale/403 clearing, Readiness recovery/403, customer-search races, Dashboard stale-financial clearing/recovery, expired session, Team Access, and Audit.
+7. If all checks pass, create only a branch-local README handoff with exact SHA/path, `web/` tree comparison, test counts, explicit frontend PASS, and production-nonmutation statement. Do not ask Chat 1 to cherry-pick the docs commit.
+8. If a real frontend defect is found, reproduce it deterministically and create one minimal frontend/test fix. Stop afterward and hand the fix SHA to Chat 1 because any code change invalidates frozen RC `c4f2219`. Do not touch backend/auth/migration/ops files.
+9. After exact-SHA PASS, freeze the Chat 2 branch until release disposition. During post-cutover smoke, perform read-only rendering/navigation checks only unless Chat 1 explicitly asks for a defect investigation.
+
+Success: exact `c4f2219` receives independent frontend PASS with proof that shipped product assets are unchanged from `b6b42d7`.
+
+### Chat 3 - Sign-Off Complete; Wait for Protected Preflight Gate
+
+1. Exact `c4f2219` SHA-sensitive lifecycle sign-off is COMPLETE. Do not rerun completed tests unless the frozen code SHA changes. Evidence: detached=true, clean=true, exact SHA match, focused ngrok/task/post-reboot modules 37/37 PASS; branch-local docs commit `3560923`.
+2. Keep `3560923`, `b920584`, and `e1182d0` branch-local. Chat 1 should record the facts canonically, not cherry-pick those docs commits into the runtime.
+3. No new lifecycle feature code is assigned. Protected preflight remains blocked while the protected config/tunnel paths do not exist and the operator session is non-elevated.
+4. Once Chat 1/operator provides the approved ingress/deployment tuple and creates protected files, run non-mutating preflight from exact RC `c4f2219`: SHA/detached cleanliness, Python/runtime identity, loopback upstream, exact tunnel executable/config identity, expected public hostname/target, all three SYSTEM task action+trigger plans, working directory, and secret-free arguments.
+5. Inspect protected ACLs read-only. Report whether SYSTEM and the deployment account have required read/execute access and whether any access is too broad. Never print config contents, tokens, recipients, provider credentials, or other secret values.
+6. Any path mismatch, ACL issue, wrong/foreign/stale tunnel PID, wrong target/hostname, duplicate-tunnel risk, task-plan error, or secret-bearing argument is a clear NO-GO. Do not repair live state ad hoc unless Chat 1/operator explicitly authorizes the controlled action.
+7. During the elevated lifecycle window, execute tunnel/task mutations only with explicit Chat 1/operator authorization for exact RC `c4f2219`; never stop an unverified PID and preserve duplicate-tunnel fail-closed behavior.
+8. After the deliberate reboot, run exact-RC `release-lifecycle-check.ps1` and require exit 0 + `ready:true`; capture only safe JSON evidence.
+9. Confirm current-boot backend managed PID/listener/start metadata, all three task states/results, managed tunnel executable/config/target/public health, notification scan+delivery freshness, no stuck runner lock, and no unexpected failure counters.
+10. If lifecycle acceptance exposes a real tooling defect, reproduce it with synthetic/temp evidence first, create one minimal ops/test fix, rerun focused + isolated integration proof, and hand the new SHA to Chat 1. Do not patch production ad hoc.
+11. Do not create/restore the final pre-migration backup and do not run migration 010. After cutover, perform only read-only lifecycle verification unless Chat 1 explicitly assigns otherwise.
+
+Success: Chat 3 stays frozen until the protected tuple exists, then proves non-mutating preflight and reboot lifecycle acceptance without independent business-data/migration changes.
+
+### Mandatory remaining order - 20:04 queue
+
+1. Chat 2 completes the independent exact-`c4f2219` frontend sign-off now. Chat 3's exact-RC 37/37 sign-off is already complete.
+2. Chat 1 canonically records both independent sign-offs. Any real code defect reopens the RC and requires replacement exact-SHA validation.
+3. Operator supplies a verified durable production hostname/tunnel/proxy identity. Until then ingress remains NO-GO; chats must not invent or infer it.
+4. Chat 1 validates the supplied ingress and freezes the complete deployment tuple. Failure keeps release NO-GO.
+5. With an elevated operator, Chat 1 creates/secures the protected Gravity/tunnel deployment paths while production remains migration 009.
+6. Chat 3 runs non-mutating protected-path/task/tunnel/ACL preflight. Any blocker stops the lifecycle window.
+7. With explicit authorization only, perform the controlled tunnel transition and install/verify all three SYSTEM tasks from exact RC `c4f2219`.
+8. Perform one deliberate reboot; Chat 3 post-reboot lifecycle acceptance must return exit 0 + `ready:true` with fresh notification-cycle evidence.
+9. Still on migration 009, Chat 1 creates/verifies/recovery-drills/hashes/offsite-copies the fresh `pre-admin-v1` backup.
+10. Chat 1 records the explicit GO/NO-GO decision. Only GO permits migration 010 and final RC cutover.
+11. On GO: guarded migration/cutover, full production smoke, Chat 2 frontend read-only acceptance, Chat 3 lifecycle read-only acceptance, then final release evidence/tagging.
+12. On critical failure: rollback to the fresh migration-009 backup plus pinned v9; no ad-hoc SQLite/migration edits.
+
+Until step 10 explicitly records GO, production must remain on pinned v9 / migration 009. Frozen runtime SHA is `c4f2219a77f0a1248497c15c5eef6bc5389dd476`. Operator-provided production ingress is now the principal external release blocker after Chat 2 completes its exact-RC sign-off.
