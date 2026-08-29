@@ -214,22 +214,6 @@
     if (!body.children.length) body.appendChild(emptyCell('No administrators found.'));
   }
 
-  async function renderAudit() {
-    const data = await api('/api/admin/audit?limit=100');
-    const body = $('auditBody');
-    body.replaceChildren();
-    for (const item of data.audit || []) {
-      const row = document.createElement('tr');
-      for (const value of [formatTime(item.createdAt), item.username || 'system', item.action || '—', item.result || '—']) {
-        const cell = document.createElement('td');
-        cell.textContent = value;
-        row.appendChild(cell);
-      }
-      body.appendChild(row);
-    }
-    if (!body.children.length) body.appendChild(emptyCell('No audit events yet.'));
-  }
-
   async function showView(view) {
     const allowed = new Set(['dashboard', 'enquiries', 'members', 'memberships', 'fees', 'coaching', 'notifications', 'readiness', 'admins', 'audit']);
     state.view = allowed.has(view) ? view : 'dashboard';
@@ -250,7 +234,7 @@
     if (state.view === 'notifications' && window.GravityNotificationAdmin) await window.GravityNotificationAdmin.renderWorkspace();
     if (state.view === 'readiness' && window.GravityReadinessAdmin) await window.GravityReadinessAdmin.renderWorkspace();
     if (state.view === 'admins') await renderAdmins();
-    if (state.view === 'audit') await renderAudit();
+    if (state.view === 'audit' && window.GravityAuditAdmin) await window.GravityAuditAdmin.renderWorkspace();
   }
 
   async function enterApp(admin) {
