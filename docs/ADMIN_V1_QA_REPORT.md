@@ -6,6 +6,35 @@ Branch: `agent/gravity-admin-ops`
 
 Baseline: `49529c9`
 
+## Migration 010 Admin Software follow-up (awaiting integration)
+
+Chat 1's current uncommitted `010_admin_software_v1.sql` / `admin_software.py`
+implementation was reviewed read-only from its assigned `main` worktree. This
+branch deliberately does not copy or modify that owned implementation. The new
+forward-compatible contract suite is
+`server/tests/test_admin_software_reliability.py`; it automatically skips until
+the migration and service reach this branch through Chat 1 integration.
+
+The reviewed design provides the required partial unique phone index and the
+`membership_payments` ledger indexes for membership and date queries. The
+create-customer bundle and renewal-with-payment paths use a single SQLite
+transaction for the customer/profile/membership/ledger write set, and the unique
+phone constraint is converted to a conflict response.
+
+Release blockers to resolve or explicitly accept before daily operations:
+
+1. Manual payment and renewal mutations have no idempotency key. Replayed
+   submissions create another payment or another scheduled renewal.
+2. Renewal commits before notification reconciliation. A reconciliation failure
+   leaves a valid renewal committed but returns an error to the caller, making a
+   client retry unsafe without server idempotency.
+3. `list_customers` applies membership/plan filtering after its SQL `LIMIT`, and
+   does one membership query per displayed customer. Rework this to filter in SQL
+   and batch/join current membership before accepting a 5,000-customer result.
+4. The migration has not yet been committed or integrated, so no migration-010
+   benchmark, browser exercise, backup/restore run, or full implementation test
+   result is claimed below.
+
 ## Release decision
 
 **Not ready for daily fee/payment operation.** Existing authentication, membership scheduling, notification suppression, backup integrity, and lifecycle foundations are strong, but the current `main` does not yet expose admin customer creation, manual fee/payment recording, or pending-balance contracts. Two synthetic fault/retry diagnostics also prove release-blocking integrity gaps: payment completion can leave a committed membership when final payment state fails, and two membership submit requests create two renewals.
@@ -64,10 +93,10 @@ Median wall-clock milliseconds from five calls on this Windows workstation:
 
 | Synthetic customers | Customer list | Search | Dashboard | Expiry query/render | Notification admin list |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 100 | 15.5 | 7.7 | 9.7 | 14.3 | 60.1 |
-| 500 | 13.1 | 15.8 | 13.5 | 31.1 | 68.7 |
-| 1,000 | 11.9 | 14.3 | 10.1 | 57.8 | 148.4 |
-| 5,000 | 17.5 | 24.9 | 21.9 | 255.8 | 586.3 |
+| 100 | 10.8 | 10.0 | 8.8 | 10.4 | 61.4 |
+| 500 | 10.8 | 7.1 | 4.4 | 16.8 | 62.7 |
+| 1,000 | 15.7 | 10.1 | 5.4 | 41.4 | 77.2 |
+| 5,000 | 13.8 | 21.8 | 16.4 | 174.6 | 389.6 |
 
 All four databases passed foreign-key integrity. SQLite uses `idx_memberships_expiry_scan` and the customer primary key for expiry queries. Customer list/dashboard and the global notification list scan and create temporary sort/group B-trees. Pending-fee performance cannot be measured until the fee ledger exists.
 
