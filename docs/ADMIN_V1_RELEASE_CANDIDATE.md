@@ -195,3 +195,15 @@ Public website/domain/tunnel work remains a separate Phase-2 project after local
 - Local reboot acceptance: exact RC detached/clean identity, managed loopback backend health, all three task states/results, fresh notification-cycle evidence, no stuck runner lock, no unexpected failure counters. Tunnel/public evidence is excluded from Phase 1.
 - Fresh backup gate: after reboot acceptance while still migration 009, create/verify/recovery-drill/hash `pre-admin-v1` with pinned v9. Off-host destination is currently **UNRESOLVED**: only `C:` is mounted and documented example `E:\GravityBackups` is absent; do not fabricate an off-host target.
 - Abort criteria: any SHA/checkout mismatch, config/ACL failure, task-plan or principal mismatch, non-loopback backend target, secret-bearing task argument, failed reboot acceptance, failed backup verification/recovery drill/off-host copy, or unexpected migration state keeps local Admin V1 NO-GO.
+
+## Replacement immutable RC after Admin Coaching fix - 2026-08-29 23:11 IST
+
+Chat 2's deterministic Coaching/Diet blocker was accepted. The required fix commit `db19c4e` was integrated as `97884e2e117d78ef2cc6363d15308715264c0982`; Chat 2's docs-only handoff commit was not integrated into the runtime.
+
+Replacement immutable RC: `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-97884e2` at exact detached/clean SHA `97884e2e117d78ef2cc6363d15308715264c0982`. The former `c4f2219` RC is superseded and must not be used for final release acceptance.
+
+Replacement exact-SHA evidence: focused Coaching create/reset/version/activate/assign regression **1/1 PASS** and deterministic repeat **3/3 PASS**; tracked JavaScript syntax **26/26 PASS**; `git diff --check` PASS. The `server/` and `scripts/` trees are identical to the prior RC, so migration/lifecycle code is unchanged and prior isolated migration-009 -> 010 rehearsal evidence remains applicable.
+
+The secret-safe local protected-config preparation under `.gravity\release-prep\97884e2\` is corrected for localhost software operation: development environment mode, `127.0.0.1:8787`, HTTP localhost base URL, no proxy trust, explicit live data path, protected runtime/log/backup paths, and approved Python 3.12 path. Existing private secret/provider/business values are preserved without being printed or embedded in documentation.
+
+Live runtime remains pinned v9 with migration 009. Health/database are OK, SQLite quick check is OK, foreign-key errors are zero, the protected config is absent, and no SYSTEM tasks/reboot/migration-010/cutover action has occurred. Replacement-RC Chat 2 Admin UI and Chat 3 local lifecycle sign-offs are required before protected lifecycle work proceeds.
