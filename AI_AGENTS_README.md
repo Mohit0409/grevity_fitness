@@ -947,3 +947,17 @@ Until step 8 records GO, the live database remains migration 009 and current run
 - Local notification scheduler is healthy with zero consecutive failures and no stuck notification lock. External SMS/WhatsApp adapters remain `blocked_external_config`; owner destinations are configured but actual provider delivery is not live until external provider credentials/config are supplied.
 - Only `C:` is mounted. No approved second/off-host backup target exists, so no off-host copy was fabricated.
 - Public/customer website, domain/DNS, Firebase Hosting, ngrok/tunnel, and public hostname remain out of scope and untouched.
+
+## ADMIN PORTAL SOFTWARE V1 COMPLETE - 2026-08-30 final local acceptance
+
+- Final immutable runtime is `97884e2e117d78ef2cc6363d15308715264c0982` at `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-97884e2`, running on loopback `127.0.0.1:8787`.
+- Live database is migration `010` / schema stage `admin_software_v1`; SQLite quick check is `ok` and foreign-key errors are `0`.
+- Protected `C:\ProgramData\GravityFitness\gravity.env` exists with restricted operator/SYSTEM ACLs. No secret values were printed or committed.
+- `GravityFitness-Watchdog`, `GravityFitness-DailyBackup`, and `GravityFitness-Notifications` are installed as SYSTEM/Highest and post-reboot verification reports `ready:true`, zero blockers, and all three tasks `Ready`.
+- Notification scheduler is healthy with zero consecutive failures and a successful post-reboot scan. External SMS/WhatsApp adapters remain `blocked_external_config`; this is an external provider-configuration dependency, not an Admin software release blocker.
+- Migration-009 rollback archive `gravity-pre-admin-v1-rollback-20260829T111931084801Z.zip` is valid, recovery-drill PASS, archive SHA-256 `F7FD6CCCE5240495FB5AC0DC27338DA1D371E699CDBC40640409D5FF081AC888`.
+- The rollback archive was copied off-host to Google Drive at `GravityFitness/AdminV1Backups/gravity-pre-admin-v1-rollback-20260829T111931084801Z.zip`. A fresh download of that cloud copy produced the exact same SHA-256, so the off-host rollback gate is PASS.
+- Final focused Admin regression on exact RC used disposable data and passed **19/19**: login, customers, add customer, renewal, manual payments, fees, memberships, responsive usability, Team Access, Audit, Coaching/Diet, Notifications, Trainer/Reception/Admin RBAC, Readiness, retry/error handling, and expired-session handling.
+- Public/customer website, domain/DNS, Firebase Hosting, ngrok/tunnel, public hostname, and public redesign remain explicitly deferred and were not part of this release.
+- Release disposition: **GRAVITY FITNESS ADMIN PORTAL SOFTWARE V1 COMPLETE / LOCAL PHASE-1 ACCEPTED**.
+- Maintenance note: the current rclone Google Drive remote uses rclone's shared Google client ID, which rclone warns is being retired during 2026. Configure a dedicated Google API client ID before relying on this remote for long-term automated off-host backups.

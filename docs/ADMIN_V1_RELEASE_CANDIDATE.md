@@ -217,3 +217,15 @@ Live SQLite is migration 010 / schema stage `admin_software_v1`, quick check `ok
 Post-cutover migration-010 backup `gravity-admin-v1-postcutover-20260830T044524270847Z.zip` is verified/recovery-drilled with SHA-256 `19022B408302A070C89C6ADC581E6474031C33C2C30F76FF27D6EE04DA820FF9`. Internal Admin QA is `ready:true` with no blockers. Local backend/database/migrations/backup/scheduler checks are green.
 
 Remaining external operational dependencies are not runtime-code defects: SMS/WhatsApp provider adapters are not configured (`blocked_external_config`), and only `C:` is mounted so no approved off-host backup destination exists. Public website/tunnel/domain work remains Phase 2 and untouched.
+
+## Final local Admin V1 release disposition - 2026-08-30
+
+The remaining Phase-1 off-host rollback gate is now closed. The verified migration-009 archive `gravity-pre-admin-v1-rollback-20260829T111931084801Z.zip` was copied to Google Drive at `GravityFitness/AdminV1Backups/gravity-pre-admin-v1-rollback-20260829T111931084801Z.zip`. The cloud copy was downloaded again and its SHA-256 matched the source exactly: `F7FD6CCCE5240495FB5AC0DC27338DA1D371E699CDBC40640409D5FF081AC888`.
+
+Final focused Admin regression on exact immutable RC `97884e2e117d78ef2cc6363d15308715264c0982` passed **19/19** using disposable test data. Coverage included owner/admin login, Dashboard/admin navigation, Customers, Add Customer, renewal, manual payments, Fees, Memberships, Notifications, Coaching/Diet, Team Access, Audit, Trainer/Reception/Admin RBAC, Readiness, responsive/keyboard/reduced-motion usability, retry/error states, and expired-session handling.
+
+Live local acceptance remains green: runtime path is `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-97884e2`, backend is loopback-only on `127.0.0.1:8787`, database is migration 010 / `admin_software_v1`, SQLite quick check is `ok`, foreign-key errors are zero, and all three SYSTEM/Highest tasks are present and post-reboot `Ready` with zero verifier blockers. Notification scheduling is healthy; actual SMS/WhatsApp delivery remains dependent on external provider configuration and is not treated as an Admin runtime-code defect.
+
+**Release disposition: GRAVITY FITNESS ADMIN PORTAL SOFTWARE V1 COMPLETE / LOCAL PHASE-1 ACCEPTED.** Public/customer website, domain/DNS, Firebase Hosting, ngrok/tunnel, public hostname, and public redesign remain deferred to a separate Phase-2 task.
+
+Maintenance: the rclone remote used for the verified Drive copy currently uses rclone's shared Google client ID, which rclone reports is being retired during 2026. Configure a dedicated Google API client ID before long-term automated Drive backups depend on that remote.
