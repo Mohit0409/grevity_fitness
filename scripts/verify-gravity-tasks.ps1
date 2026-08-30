@@ -127,3 +127,4 @@ $report = [ordered]@{
 }
 $report | ConvertTo-Json -Depth 8 -Compress
 if ($blockers.Count -ne 0) { exit 2 }
+exit 0

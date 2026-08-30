@@ -222,6 +222,7 @@ class OperationsScriptTests(unittest.TestCase):
         self.assertIn("MultipleInstances", verifier)
         self.assertIn("working_directory_mismatch", verifier)
         self.assertIn("secret_marker", verifier)
+        self.assertRegex(verifier, r"if \(\$blockers\.Count -ne 0\) \{ exit 2 \}\s+exit 0")
 
     def test_ngrok_adoption_defaults_to_probe_only_and_requires_explicit_commit(self) -> None:
         adoption = (ROOT / "scripts" / "adopt-ngrok.ps1").read_text(encoding="utf-8")
