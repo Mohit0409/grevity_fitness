@@ -229,3 +229,13 @@ Live local acceptance remains green: runtime path is `C:\movieXsuggestion\MyProj
 **Release disposition: GRAVITY FITNESS ADMIN PORTAL SOFTWARE V1 COMPLETE / LOCAL PHASE-1 ACCEPTED.** Public/customer website, domain/DNS, Firebase Hosting, ngrok/tunnel, public hostname, and public redesign remain deferred to a separate Phase-2 task.
 
 Maintenance: the rclone remote used for the verified Drive copy currently uses rclone's shared Google client ID, which rclone reports is being retired during 2026. Configure a dedicated Google API client ID before long-term automated Drive backups depend on that remote.
+
+## Provider-ready replacement RC and live cutover - 2026-08-30
+
+The live Admin V1 runtime is now replacement immutable RC `7632121e06367d452b13d3a3fcd1ac2f046180e4` at `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-7632121`. It is detached/clean and runs loopback-only at `127.0.0.1:8787`.
+
+This RC adds production adapters for Meta WhatsApp Cloud API template sends and MSG91 Flow/DLT SMS sends, while keeping all provider secrets in protected configuration only. Exact RC backend acceptance is **195/195 PASS**. Provider-related Admin browser acceptance is **4/4 PASS**; subsequent lifecycle-only changes did not touch web/product code.
+
+The guarded cutover is complete. Health/database are `ok/ok`; all three SYSTEM/Highest tasks verify with zero blockers; post-cutover notification status is `ok` with zero consecutive failures and fresh successful scan/delivery timestamps. A pre-provider-cutover migration-010 backup is valid at `C:\ProgramData\GravityFitness\backups\gravity-pre-provider-cutover-20260830T082515018110Z.zip`, SHA-256 `A5DC3627DDB73546F6653BF49E4EF46D4B5C0A0275A1B339BB3CEE42B1A59B61`.
+
+Actual WhatsApp/SMS delivery is still externally gated because the protected config has no Meta/MSG91 credentials or approved template/flow identifiers. This is an external provider-account/configuration dependency, not an Admin runtime defect.

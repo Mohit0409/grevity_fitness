@@ -961,3 +961,16 @@ Until step 8 records GO, the live database remains migration 009 and current run
 - Public/customer website, domain/DNS, Firebase Hosting, ngrok/tunnel, public hostname, and public redesign remain explicitly deferred and were not part of this release.
 - Release disposition: **GRAVITY FITNESS ADMIN PORTAL SOFTWARE V1 COMPLETE / LOCAL PHASE-1 ACCEPTED**.
 - Maintenance note: the current rclone Google Drive remote uses rclone's shared Google client ID, which rclone warns is being retired during 2026. Configure a dedicated Google API client ID before relying on this remote for long-term automated off-host backups.
+
+## ADMIN V1 PROVIDER-READY REPLACEMENT RC - 2026-08-30
+
+- Final live immutable RC is `7632121e06367d452b13d3a3fcd1ac2f046180e4` at `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-7632121`, detached and clean.
+- Provider support added: Meta WhatsApp Cloud API template adapter and MSG91 Flow/DLT SMS adapter. No credentials are committed or placed in task arguments.
+- Replacement RC acceptance: backend **195/195 PASS**. Provider-related Admin browser acceptance **4/4 PASS**; the only delta after that browser run was lifecycle/task-verifier tooling, not web/product code.
+- Lifecycle log contention was fixed so a locked `operations.log` cannot break stop/start; regression added and full suite remains green.
+- Task verifier now exits `0` when `ready:true`, fixing the earlier false `new_task_verification_failed` rollback.
+- Guarded cutover completed successfully. Live health is `ok/ok`, runtime state points to `7632121`, and elevated verification reports all three SYSTEM/Highest tasks present with zero blockers.
+- Notification scheduler completed post-cutover with `status=ok`, zero consecutive failures, zero delivery failures, and fresh successful scan/delivery timestamps.
+- WhatsApp/SMS remain `blocked_external_config` because protected config currently contains no Meta/MSG91 credentials or approved template/flow identifiers. Owner phone/WhatsApp destinations remain configured.
+- Fresh migration-010 pre-provider-cutover backup `gravity-pre-provider-cutover-20260830T082515018110Z.zip` is valid. Archive SHA-256: `A5DC3627DDB73546F6653BF49E4EF46D4B5C0A0275A1B339BB3CEE42B1A59B61`.
+- Public/customer website, hosting, DNS/domain, Firebase Hosting, ngrok/tunnel and public hostname remain deferred and untouched.
