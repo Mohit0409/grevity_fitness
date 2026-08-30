@@ -981,7 +981,10 @@ async function mockAdminSoftware(page, options = {}) {
   const json = (route, status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
   await page.route('**/api/admin/session', (route) => json(route, 200, { configured: true, bootstrapRequired: false, authenticated: authState.authenticated, admin: authState.authenticated ? admin : undefined }));
-  await page.route('**/api/admin/login', (route) => json(route, 200, { factorRequired: true }));
+  await page.route('**/api/admin/login', (route) => {
+    if (options.passwordOnly) { authState.authenticated = true; return json(route, 200, { authenticated: true, admin, secondFactorRequired: false }); }
+    return json(route, 200, { challenge: true, secondFactorRequired: true });
+  });
   await page.route('**/api/admin/verify', (route) => { authState.authenticated = true; return json(route, 200, { admin }); });
   await page.route('**/api/admin/logout', (route) => { authState.authenticated = false; return json(route, 200, {}); });
   await page.route(/\/api\/admin\/dashboard(?:\?.*)?$/, (route) => {
@@ -1085,18 +1088,16 @@ async function mockAdminSoftware(page, options = {}) {
 }
 
 
-test('admin login enters the operational gym dashboard', async ({ page }) => {
+test('admin password-only login enters the operational gym dashboard', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
-  await mockAdminSoftware(page, { startUnauthenticated: true });
+  await mockAdminSoftware(page, { startUnauthenticated: true, passwordOnly: true });
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto('/admin');
   await expect(page.locator('#login')).toBeVisible();
   await page.locator('#username').fill('owner');
   await page.locator('#password').fill('correct-horse-battery-staple');
-  await page.getByRole('button', { name: 'Continue securely' }).click();
-  await expect(page.locator('#factor')).toBeFocused();
-  await page.locator('#factor').fill('123456');
-  await page.getByRole('button', { name: /Verify/ }).click();
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.locator('#factorForm')).toBeHidden();
   await expect(page.locator('#app')).toBeVisible();
   await expect(page.locator('#viewTitle')).toHaveText('Dashboard');
   for (const label of ['Total Customers', 'Active Members', 'Expiring Soon', 'Expired Members', 'Pending Fees', 'New This Month', 'Payments Today', 'Payments This Month']) {

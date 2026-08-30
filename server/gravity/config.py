@@ -109,6 +109,7 @@ class Settings:
     meta_pixel_id: str
     session_idle_seconds: int
     session_absolute_seconds: int
+    admin_require_second_factor: bool
 
     @classmethod
     def load(
@@ -225,6 +226,7 @@ class Settings:
             meta_pixel_id=values.get("META_PIXEL_ID", "").strip(),
             session_idle_seconds=idle_seconds,
             session_absolute_seconds=absolute_seconds,
+            admin_require_second_factor=_boolean(values.get("ADMIN_REQUIRE_SECOND_FACTOR"), True),
         )
 
     @property

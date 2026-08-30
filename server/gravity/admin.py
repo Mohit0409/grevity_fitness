@@ -227,7 +227,7 @@ class AdminService:
             "role": role,
             "status": row["status"],
             "permissions": sorted(permissions),
-            "totpEnabled": True,
+            "totpEnabled": self.settings.admin_require_second_factor,
         }
 
     def bootstrap_required(self) -> bool:
@@ -508,10 +508,11 @@ class AdminService:
     ) -> AdminSessionIssue:
         if not self.configured:
             raise AdminUnavailable("Admin security is not configured")
-        if not challenge_token or not isinstance(code, str):
+        require_second_factor = self.settings.admin_require_second_factor
+        if not challenge_token or (require_second_factor and not isinstance(code, str)):
             raise AdminInvalidSecondFactor("Invalid administrator verification code")
-        normalized_code = code.strip()
-        if not (re.fullmatch(r"\d{6}", normalized_code) or RECOVERY_PATTERN.fullmatch(normalized_code)):
+        normalized_code = code.strip() if isinstance(code, str) else ""
+        if require_second_factor and not (re.fullmatch(r"\d{6}", normalized_code) or RECOVERY_PATTERN.fullmatch(normalized_code)):
             raise AdminInvalidSecondFactor("Invalid administrator verification code")
         now = self._now()
         with self.database.session() as connection:
@@ -527,7 +528,8 @@ class AdminService:
                 raise AdminChallengeExpired("Administrator challenge expired")
             admin_id = str(row["admin_user_id"])
             connection.rollback()
-            self._rate_limit_second_factor(admin_id, remote_addr)
+            if require_second_factor:
+                self._rate_limit_second_factor(admin_id, remote_addr)
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 "SELECT c.*,u.username,u.role,u.status,u.encrypted_totp_secret,u.last_totp_counter "
@@ -539,10 +541,10 @@ class AdminService:
                 connection.rollback()
                 raise AdminChallengeExpired("Administrator challenge expired")
 
-            verified = False
+            verified = not require_second_factor
             accepted_counter: int | None = None
             recovery_id: str | None = None
-            if normalized_code.isdigit():
+            if require_second_factor and normalized_code.isdigit():
                 secret = self._decrypt_totp_secret(str(row["encrypted_totp_secret"]))
                 current_counter = now // 30
                 for candidate_counter in range(current_counter - 1, current_counter + 2):
@@ -552,7 +554,7 @@ class AdminService:
                             verified = True
                             accepted_counter = candidate_counter
                         break
-            else:
+            elif require_second_factor:
                 recovery_hash = self._private_hash(
                     "admin-recovery",
                     f"{admin_id}\0{normalized_code.upper()}",
@@ -564,7 +566,9 @@ class AdminService:
                 if recovery is not None:
                     verified = True
                     recovery_id = str(recovery["id"])
-            if not verified:
+            if not require_second_factor:
+                self._audit(connection, admin_id, "admin_second_factor_skipped", target_type="admin_user", target_id=admin_id, metadata={"mode": "password_only"})
+            elif not verified:
                 self._audit(
                     connection,
                     admin_id,
@@ -676,7 +680,7 @@ class AdminService:
                 "role": row["role"],
                 "status": row["status"],
                 "permissions": sorted(ROLE_PERMISSIONS.get(str(row["role"]), frozenset())),
-                "totpEnabled": True,
+                "totpEnabled": self.settings.admin_require_second_factor,
             }
             return AdminSessionIdentity(
                 session_id=str(row["id"]),

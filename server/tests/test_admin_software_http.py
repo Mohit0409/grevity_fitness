@@ -19,12 +19,12 @@ TEST_SECRET = "admin-software-http-secret-key-that-is-long-enough"
 
 
 @contextmanager
-def running_server():
+def running_server(require_second_factor=True):
     with TemporaryDirectory() as temporary:
         runtime = Path(temporary)
         base = Settings.load(
             root_dir=ROOT,
-            environ={"SECRET_KEY": TEST_SECRET, "GRAVITY_PORT": "0", "GRAVITY_LOG_LEVEL": "CRITICAL"},
+            environ={"SECRET_KEY": TEST_SECRET, "GRAVITY_PORT": "0", "GRAVITY_LOG_LEVEL": "CRITICAL", "ADMIN_REQUIRE_SECOND_FACTOR": "true" if require_second_factor else "false"},
         )
         settings = replace(
             base,
@@ -107,6 +107,15 @@ def customer_payload(phone="+919876543210", paid=30000):
 
 
 class AdminSoftwareHttpTests(unittest.TestCase):
+    def test_password_only_admin_login_skips_second_factor(self):
+        with running_server(require_second_factor=False) as (server, base):
+            server.admin_service.bootstrap_owner("owner", "Gravity!Owner123")
+            status, payload = request_json(base, "/api/admin/login", method="POST", body={"username": "owner", "password": "Gravity!Owner123"}, headers={"Origin": base})
+            self.assertEqual(status, 200)
+            self.assertTrue(payload["authenticated"])
+            self.assertFalse(payload["secondFactorRequired"])
+            self.assertEqual(payload["admin"]["username"], "owner")
+
     def test_owner_customer_payment_fees_and_renewal_workflow(self):
         with running_server() as (server, base):
             status, payload = request_json(base, "/api/admin/customers")

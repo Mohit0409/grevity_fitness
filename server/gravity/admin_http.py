@@ -239,10 +239,16 @@ def _login(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
         return origin_failure
     payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
     issue = handler.server.admin_service.begin_login(payload, handler._client_ip())
+    if not handler.server.settings.admin_require_second_factor:
+        session_issue = handler.server.admin_service.verify_second_factor(
+            issue.challenge_token, None,
+            remote_addr=handler._client_ip(), user_agent=handler.headers.get("User-Agent", "")[:1000], request_id=request_id,
+        )
+        return _json(handler, HTTPStatus.OK, {"authenticated": True, "admin": session_issue.admin, "csrfToken": session_issue.csrf_token, "secondFactorRequired": False}, request_id, send_body, headers=_session_cookie_headers(handler, session_issue))
     return _json(
         handler,
         HTTPStatus.OK,
-        {"challenge": True, "expiresAt": issue.expires_at},
+        {"challenge": True, "expiresAt": issue.expires_at, "secondFactorRequired": True},
         request_id,
         send_body,
         headers=_challenge_cookie_headers(handler, issue.challenge_token, issue.expires_at),
@@ -278,6 +284,7 @@ def _session_status(handler: Any, request_id: str, send_body: bool) -> HTTPStatu
         "authenticated": False,
         "configured": service.configured,
         "bootstrapRequired": service.bootstrap_required(),
+        "secondFactorRequired": handler.server.settings.admin_require_second_factor,
     }
     try:
         session = _admin_session(handler)

@@ -317,10 +317,15 @@
   $('loginForm').addEventListener('submit', async (event) => {
     event.preventDefault(); authError.textContent = '';
     try {
-      await api('/api/admin/login', {
+      const data = await api('/api/admin/login', {
         method: 'POST', body: { username: $('username').value, password: $('password').value },
       });
       $('password').value = '';
+      if (data.authenticated) {
+        $('factorForm').hidden = true;
+        await enterApp(data.admin);
+        return;
+      }
       $('loginForm').hidden = true;
       $('factorForm').hidden = false;
       $('factor').focus();
