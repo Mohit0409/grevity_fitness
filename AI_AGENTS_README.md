@@ -933,3 +933,17 @@ Until step 8 records GO, the live database remains migration 009 and current run
 - Secret-safe elevated plan was rechecked only; protected config remains absent, Gravity scheduled-task count remains 0, and the current shell is not elevated.
 - Critical rollback commands were verified against pinned v9 `49529c9484348bee398147a0a294693d2644ca16`: disable/stop release tasks first, stop the managed RC service, import protected config without printing values, re-verify the fresh migration-009 archive, guarded restore, start pinned v9, and require healthy loopback + migration 009 before any later task re-enable.
 - Live service remains healthy on `127.0.0.1:8787`; no protected-config creation, task mutation, reboot, final backup, migration 010, cutover, public-site work, or secret exposure was performed.
+
+## ADMIN V1 LIVE LOCAL STATE - 2026-08-30 post-cutover verification
+
+- Replacement runtime is live from immutable RC `97884e2e117d78ef2cc6363d15308715264c0982` / `C:\movieXsuggestion\MyProject\grevity_fitness-admin-v1-final-rc-97884e2`; runtime state points to that exact root and loopback `127.0.0.1:8787` is healthy.
+- Protected `C:\ProgramData\GravityFitness\gravity.env` exists with restricted operator/SYSTEM ACLs. No secret values were printed or committed.
+- `GravityFitness-Watchdog`, `GravityFitness-DailyBackup`, and `GravityFitness-Notifications` are present, enabled, SYSTEM/Highest, exact-RC, and post-reboot verification reports `ready:true`, zero blockers, and `LastResult=0` for all three.
+- Live DB is schema stage `admin_software_v1`, migration `010`, SQLite quick check `ok`, FK errors `0`. Migration 010 was first applied at `2026-08-29T19:05:01.466Z` (2026-08-30 00:35 IST) when replacement background tooling initialized, before the later explicit GO step; treat this as a release-gate ordering incident, not as a second migration to rerun.
+- The newest verified migration-009 recovery archive was promoted to `C:\ProgramData\GravityFitness\backups\gravity-pre-admin-v1-rollback-20260829T111931084801Z.zip`, SHA-256 `F7FD6CCCE5240495FB5AC0DC27338DA1D371E699CDBC40640409D5FF081AC888`, verification valid, recovery drill PASS.
+- Migration-009 archive versus live migration-010 DB comparison checked 34 common tables with zero data mismatches; the only new table is `membership_payments`, matching migration 010. Existing business data was therefore preserved across the premature migration.
+- Post-cutover backup `C:\ProgramData\GravityFitness\backups\gravity-admin-v1-postcutover-20260830T044524270847Z.zip` is migration 010 / `admin_software_v1`, SHA-256 `19022B408302A070C89C6ADC581E6474031C33C2C30F76FF27D6EE04DA820FF9`, verification valid, recovery drill PASS.
+- Internal Admin QA against disposable databases is `ready:true` with zero blockers; customer creation, manual payment, pending-fee ledger, payment/renewal idempotency, and FK integrity are green. `/admin` serves HTTP 200.
+- Local notification scheduler is healthy with zero consecutive failures and no stuck notification lock. External SMS/WhatsApp adapters remain `blocked_external_config`; owner destinations are configured but actual provider delivery is not live until external provider credentials/config are supplied.
+- Only `C:` is mounted. No approved second/off-host backup target exists, so no off-host copy was fabricated.
+- Public/customer website, domain/DNS, Firebase Hosting, ngrok/tunnel, and public hostname remain out of scope and untouched.

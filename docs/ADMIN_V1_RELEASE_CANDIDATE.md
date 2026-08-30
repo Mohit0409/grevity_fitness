@@ -207,3 +207,13 @@ Replacement exact-SHA evidence: focused Coaching create/reset/version/activate/a
 The secret-safe local protected-config preparation under `.gravity\release-prep\97884e2\` is corrected for localhost software operation: development environment mode, `127.0.0.1:8787`, HTTP localhost base URL, no proxy trust, explicit live data path, protected runtime/log/backup paths, and approved Python 3.12 path. Existing private secret/provider/business values are preserved without being printed or embedded in documentation.
 
 Live runtime remains pinned v9 with migration 009. Health/database are OK, SQLite quick check is OK, foreign-key errors are zero, the protected config is absent, and no SYSTEM tasks/reboot/migration-010/cutover action has occurred. Replacement-RC Chat 2 Admin UI and Chat 3 local lifecycle sign-offs are required before protected lifecycle work proceeds.
+
+## Live local Admin V1 post-cutover evidence - 2026-08-30
+
+Replacement immutable RC `97884e2e117d78ef2cc6363d15308715264c0982` is running locally on `127.0.0.1:8787`. Protected config exists; all three SYSTEM/Highest scheduled tasks are installed and post-reboot verification reports `ready:true`, zero task blockers, and successful last results.
+
+Live SQLite is migration 010 / schema stage `admin_software_v1`, quick check `ok`, FK errors `0`. Migration 010 was applied at `2026-08-29T19:05:01.466Z` before the planned explicit GO step when replacement background tooling initialized; do not rerun it. A verified migration-009 rollback archive is protected at `C:\ProgramData\GravityFitness\backups\gravity-pre-admin-v1-rollback-20260829T111931084801Z.zip` (SHA-256 `F7FD6CCCE5240495FB5AC0DC27338DA1D371E699CDBC40640409D5FF081AC888`) and passes recovery drill. Comparison of 34 common tables between that 009 archive and current 010 live DB found zero data mismatches.
+
+Post-cutover migration-010 backup `gravity-admin-v1-postcutover-20260830T044524270847Z.zip` is verified/recovery-drilled with SHA-256 `19022B408302A070C89C6ADC581E6474031C33C2C30F76FF27D6EE04DA820FF9`. Internal Admin QA is `ready:true` with no blockers. Local backend/database/migrations/backup/scheduler checks are green.
+
+Remaining external operational dependencies are not runtime-code defects: SMS/WhatsApp provider adapters are not configured (`blocked_external_config`), and only `C:` is mounted so no approved off-host backup destination exists. Public website/tunnel/domain work remains Phase 2 and untouched.
