@@ -123,8 +123,18 @@ function Write-GravityOpsLog {
   param([Parameter(Mandatory = $true)]$Context, [Parameter(Mandatory = $true)][string]$Message)
   New-Item -ItemType Directory -Force -Path $Context.RuntimeDir | Out-Null
   $path = Join-Path $Context.RuntimeDir 'operations.log'
-  Rotate-GravityLog -Path $path
-  Add-Content -LiteralPath $path -Value "$([DateTimeOffset]::UtcNow.ToString('o')) $Message" -Encoding utf8
+  $line = "$([DateTimeOffset]::UtcNow.ToString('o')) $Message"
+  for ($attempt = 0; $attempt -lt 5; $attempt++) {
+    try {
+      Rotate-GravityLog -Path $path
+      Add-Content -LiteralPath $path -Value $line -Encoding utf8 -ErrorAction Stop
+      return
+    } catch {
+      if ($attempt -lt 4) { Start-Sleep -Milliseconds (100 * ($attempt + 1)) }
+    }
+  }
+  $fallback = Join-Path $Context.RuntimeDir "operations.fallback.$PID.log"
+  try { Add-Content -LiteralPath $fallback -Value $line -Encoding utf8 -ErrorAction Stop } catch { }
 }
 
 function Set-GravityEnvironmentValue {

@@ -54,6 +54,33 @@ class OperationsScriptTests(unittest.TestCase):
             self.assertIn("127.0.0.1", text, path)
             self.assertIn("server.gravity", text, path)
 
+    @unittest.skipUnless(sys.platform == "win32", "Windows file-lock behavior")
+    def test_operations_log_lock_falls_back_without_failing_lifecycle(self) -> None:
+        common = ROOT / "scripts" / "gravity-common.ps1"
+        with TemporaryDirectory() as temporary:
+            runtime = Path(temporary)
+            (runtime / "operations.log").write_text("seed\n", encoding="utf-8")
+            probe = runtime / "probe.ps1"
+            common_ps = str(common).replace("'", "''")
+            runtime_ps = str(runtime).replace("'", "''")
+            probe.write_text(
+                "$ErrorActionPreference = 'Stop'\n"
+                f". '{common_ps}'\n"
+                f"$runtime = '{runtime_ps}'\n"
+                "$path = Join-Path $runtime 'operations.log'\n"
+                "$lock = [IO.File]::Open($path,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)\n"
+                "try { Write-GravityOpsLog -Context ([pscustomobject]@{RuntimeDir=$runtime}) -Message 'lock-test' } finally { $lock.Dispose() }\n"
+                "$fallback = Get-ChildItem $runtime -Filter 'operations.fallback.*.log' | Select-Object -First 1\n"
+                "if (-not $fallback) { exit 3 }\n"
+                "if ((Get-Content $fallback.FullName -Raw) -notmatch 'lock-test') { exit 4 }\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(probe)],
+                capture_output=True, text=True,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+
     def test_tunnel_targets_loopback_and_token_is_not_in_git(self) -> None:
         tunnel = (
             ROOT / "deploy" / "termux" / "services" / "gravity-tunnel" / "run"
