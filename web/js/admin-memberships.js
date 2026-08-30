@@ -87,7 +87,9 @@
       const status = document.createElement('td'); status.appendChild(badge(membership.status));
       const money = document.createElement('td'); money.textContent = hasPermission('payments.read') ? `${moneyPaise(payment.paidPaise, membership.currency)} / ${moneyPaise(payment.pendingPaise, membership.currency)}` : 'Restricted';
       const action = document.createElement('td'); action.className = 'row-actions';
-      const open = document.createElement('button'); open.type = 'button'; open.className = 'table-action'; open.textContent = 'Open'; open.addEventListener('click', () => window.GravityCustomerAdmin?.openCustomerById(customer.id)); action.appendChild(open);
+      const needsFollowup = membership.status === 'expired' || (membership.status === 'active' && Number(membership.daysRemaining ?? 999) <= 7);
+      if (needsFollowup) { const whatsapp = document.createElement('button'); whatsapp.type = 'button'; whatsapp.className = 'whatsapp-action table-action'; whatsapp.textContent = 'WhatsApp'; whatsapp.addEventListener('click', () => core()?.openWhatsAppReminder({ customerName: customer.displayName, phone: customer.phone, planName: membership.planName, endsAt: membership.endsAt, status: membership.status, membershipNumber: membership.membershipNumber })); action.appendChild(whatsapp); }
+      const open = document.createElement('button'); open.type = 'button'; open.className = 'ghost table-action'; open.textContent = 'Open'; open.addEventListener('click', () => window.GravityCustomerAdmin?.openCustomerById(customer.id)); action.appendChild(open);
       if (Number(payment.pendingPaise || 0) > 0 && hasPermission('payments.record')) { const pay = document.createElement('button'); pay.type = 'button'; pay.className = 'ghost table-action'; pay.textContent = 'Pay'; pay.addEventListener('click', () => window.GravityCustomerAdmin?.openPaymentFor(membership, { id: customer.id, displayName: customer.displayName })); action.appendChild(pay); }
       row.append(customerCell, number, plan, start, expiry, status, money, action); body.appendChild(row);
     }

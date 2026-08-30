@@ -308,6 +308,22 @@ class AdminSoftwareServiceTests(unittest.TestCase):
         self.assertTrue(all(row["membership"]["payment"]["pendingPaise"] == 99900 for row in fees["rows"]))
         self.assertEqual(fees["pendingFeesTotalPaise"], 301 * 99900)
 
+    def test_dashboard_followups_include_customer_phone_for_expiring_and_expired(self) -> None:
+        created = self.create_customer(phone="+919811112222", paid=0)
+        membership = created["membership"]
+        self.clock.value = int(membership["endsAt"]) - 2 * 86400
+        expiring = self.service.dashboard()
+        self.assertEqual(len(expiring["expiring"]["threeDays"]), 1)
+        self.assertEqual(expiring["expiring"]["threeDays"][0]["phone"], "+919811112222")
+        self.assertEqual(expiring["expiring"]["threeDays"][0]["status"], "active")
+
+        self.clock.value = int(membership["endsAt"]) + 86400
+        expired = self.service.dashboard()
+        self.assertEqual(expired["stats"]["expiredMembers"], 1)
+        self.assertEqual(len(expired["expiring"]["expired"]), 1)
+        self.assertEqual(expired["expiring"]["expired"][0]["phone"], "+919811112222")
+        self.assertEqual(expired["expiring"]["expired"][0]["status"], "expired")
+
     def test_dashboard_does_not_double_count_membership_history(self) -> None:
         first = self.create_customer(phone="+919800000024", paid=0)
         self.create_customer(phone="+919800000025", paid=0)

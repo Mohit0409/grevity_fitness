@@ -766,13 +766,31 @@ class AdminSoftwareService:
                         **summary,
                     })
             expiry_rows = connection.execute(
-                "SELECT m.*,c.display_name FROM memberships m JOIN customers c ON c.id=m.customer_id "
-                "WHERE c.status!='deleted' AND m.status IN ('active','expired') "
+                "SELECT m.*,c.display_name,c.phone_e164 FROM memberships m JOIN customers c ON c.id=m.customer_id "
+                "WHERE c.status!='deleted' AND m.status='active' "
                 "AND m.ends_at>=? AND m.ends_at<? ORDER BY m.ends_at ASC",
                 (day_start, day_start + 8 * day),
             ).fetchall()
+            expired_rows = connection.execute(
+                "SELECT m.*,c.display_name,c.phone_e164 FROM memberships m JOIN customers c ON c.id=m.customer_id "
+                "WHERE c.status!='deleted' AND m.status='expired' "
+                "AND NOT EXISTS(SELECT 1 FROM memberships live WHERE live.customer_id=m.customer_id AND live.status IN ('active','scheduled')) "
+                "AND m.ends_at=(SELECT MAX(old.ends_at) FROM memberships old WHERE old.customer_id=m.customer_id AND old.status='expired') "
+                "ORDER BY m.ends_at DESC LIMIT 50"
+            ).fetchall()
             connection.commit()
-        expiry = {"today": [], "tomorrow": [], "threeDays": [], "sevenDays": []}
+        expiry = {"expired": [], "today": [], "tomorrow": [], "threeDays": [], "sevenDays": []}
+        for row in expired_rows:
+            expiry["expired"].append({
+                "customerId": row["customer_id"],
+                "customerName": row["display_name"],
+                "phone": row["phone_e164"],
+                "membershipId": row["id"],
+                "membershipNumber": row["membership_number"],
+                "planName": row["plan_name_snapshot"],
+                "endsAt": int(row["ends_at"]),
+                "status": "expired",
+            })
         for row in expiry_rows:
             ends_at = int(row["ends_at"])
             if ends_at < day_start + day:
@@ -786,6 +804,7 @@ class AdminSoftwareService:
             expiry[key].append({
                 "customerId": row["customer_id"],
                 "customerName": row["display_name"],
+                "phone": row["phone_e164"],
                 "membershipId": row["id"],
                 "membershipNumber": row["membership_number"],
                 "planName": row["plan_name_snapshot"],

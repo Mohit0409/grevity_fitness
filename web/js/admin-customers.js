@@ -269,6 +269,9 @@
     payment.append(ph, pf); top.appendChild(membership); if (hasPermission('payments.read')) top.appendChild(payment); body.appendChild(top);
 
     const actions = document.createElement('div'); actions.className = 'profile-actions';
+    const latestExpired = allMemberships().filter((item) => item.status === 'expired').sort((a, b) => Number(b.endsAt || 0) - Number(a.endsAt || 0))[0] || null;
+    const followupMembership = current && Number(current.daysRemaining ?? 999) <= 7 ? current : (!current && !upcoming ? latestExpired : null);
+    if (followupMembership) { const whatsapp = document.createElement('button'); whatsapp.type = 'button'; whatsapp.className = 'whatsapp-action'; whatsapp.textContent = 'Send WhatsApp'; whatsapp.addEventListener('click', () => core()?.openWhatsAppReminder({ customerName: member.displayName, phone: member.phone, planName: followupMembership.planName, endsAt: followupMembership.endsAt, status: followupMembership.status, membershipNumber: followupMembership.membershipNumber })); actions.appendChild(whatsapp); }
     const pay = document.createElement('button'); pay.type = 'button'; pay.className = 'primary-action'; pay.textContent = 'Record Payment';
     const target = paymentTarget(); pay.disabled = !target || !hasPermission('payments.record'); pay.title = !target ? 'No pending membership balance' : '';
     pay.addEventListener('click', () => openRecordPayment(target, member));

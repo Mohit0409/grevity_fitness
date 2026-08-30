@@ -951,21 +951,28 @@ async function mockAdminSoftware(page, options = {}) {
   const dashboardPayload = () => {
     const pending = feeRows('', true);
     const active = allMemberships().filter((item) => item.status === 'active');
-    const expiring = { today: [], tomorrow: [], threeDays: [], sevenDays: [] };
+    const expiring = { expired: [], today: [], tomorrow: [], threeDays: [], sevenDays: [] };
     for (const membership of active) {
       if (membership.daysRemaining > 7) continue;
       const customer = findCustomer(membership.customerId);
-      const row = { customerId: membership.customerId, customerName: customer?.displayName, membershipId: membership.id, membershipNumber: membership.membershipNumber, planName: membership.planName, endsAt: membership.endsAt, status: membership.status };
+      const row = { customerId: membership.customerId, customerName: customer?.displayName, phone: customer?.phone, membershipId: membership.id, membershipNumber: membership.membershipNumber, planName: membership.planName, endsAt: membership.endsAt, status: membership.status };
       if (membership.daysRemaining <= 1) expiring.tomorrow.push(row);
       else if (membership.daysRemaining <= 3) expiring.threeDays.push(row);
       else expiring.sevenDays.push(row);
+    }
+    for (const customer of customers) {
+      const rows = memberships[customer.id] || [];
+      if (rows.some((item) => ['active', 'scheduled'].includes(item.status))) continue;
+      const membership = rows.filter((item) => item.status === 'expired').sort((a, b) => b.endsAt - a.endsAt)[0];
+      if (!membership) continue;
+      expiring.expired.push({ customerId: customer.id, customerName: customer.displayName, phone: customer.phone, membershipId: membership.id, membershipNumber: membership.membershipNumber, planName: membership.planName, endsAt: membership.endsAt, status: 'expired' });
     }
     const pendingFees = pending.map((item) => ({ customerId: item.customerId, customerName: item.customerName, membershipId: item.membership.id, membershipNumber: item.membership.membershipNumber, planName: item.membership.planName, endsAt: item.membership.endsAt, ...item.membership.payment }));
     return {
       stats: {
         totalCustomers: customers.length,
         activeMembers: active.length,
-        expiringSoon: Object.values(expiring).flat().length,
+        expiringSoon: ['today', 'tomorrow', 'threeDays', 'sevenDays'].flatMap((key) => expiring[key]).length,
         expiredMembers: customers.filter((customer) => (memberships[customer.id] || []).some((m) => m.status === 'expired') && !(memberships[customer.id] || []).some((m) => ['active', 'scheduled'].includes(m.status))).length,
         pendingFeesTotalPaise: pending.reduce((sum, item) => sum + Number(item.membership.payment?.pendingPaise || 0), 0),
         newCustomersThisMonth: customers.filter((customer) => customer.createdAt >= now - 31 * day).length,
@@ -1099,7 +1106,7 @@ test('admin password-only login enters the operational gym dashboard', async ({ 
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.locator('#factorForm')).toBeHidden();
   await expect(page.locator('#app')).toBeVisible();
-  await expect(page.locator('#viewTitle')).toHaveText('Dashboard');
+  await expect(page.locator('#viewTitle')).toHaveText('Home');
   for (const label of ['Total Customers', 'Active Members', 'Expiring Soon', 'Expired Members', 'Pending Fees', 'New This Month', 'Payments Today', 'Payments This Month']) {
     await expect(page.locator('#stats')).toContainText(label);
   }
@@ -1110,6 +1117,34 @@ test('admin password-only login enters the operational gym dashboard', async ({ 
   await expectNoOverflow(page);
   expect(runtimeProblems).toEqual([]);
 });
+
+test('manual follow-ups open a ready WhatsApp message for expiring and expired members', async ({ page, context }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  const expired = { ...fixture.memberships['cust-ravi'][0], status: 'expired', endsAt: Math.floor(Date.now() / 1000) - 86400, daysRemaining: 0 };
+  fixture.memberships['cust-ravi'] = [expired];
+  await context.route('https://wa.me/**', (route) => route.fulfill({ status: 200, contentType: 'text/plain', body: 'ok' }));
+  await page.goto('/admin');
+  await page.locator('#notificationsNav').click();
+  await expect(page.locator('#viewTitle')).toHaveText('Follow-ups');
+  await expect(page.locator('#followupsList')).toContainText('Asha Sharma');
+  const ravi = page.locator('.followup-card').filter({ hasText: 'Ravi Patel' });
+  await expect(ravi).toContainText('Expired');
+  const popupPromise = page.waitForEvent('popup');
+  await ravi.getByRole('button', { name: 'Send WhatsApp' }).click();
+  const popup = await popupPromise;
+  await expect.poll(() => popup.url()).toContain('https://wa.me/919812345678?text=');
+  const decoded = decodeURIComponent(popup.url());
+  expect(decoded).toContain('Your Basic membership expired on');
+  expect(decoded).toContain('Please reply here if you would like to continue your membership.');
+  await popup.close();
+  await page.locator('#followupFilter').selectOption('expired');
+  await expect(page.locator('.followup-card')).toHaveCount(1);
+  await expect(page.locator('#followupSummary')).toContainText('1 to contact');
+  await expectNoOverflow(page);
+  expect(runtimeProblems).toEqual([]);
+});
+
 
 test('customers workspace supports search filters detail history and status changes', async ({ page }) => {
   test.setTimeout(60_000);
@@ -1706,14 +1741,14 @@ test('owner Team access explains least-privilege staff roles before creation', a
   await expect(page.locator('#newRole option[value="owner"]')).toHaveCount(0);
   await expect(page.locator('#rolePreviewTitle')).toHaveText('Reception');
   await expect(page.locator('#rolePreviewAllows')).toContainText('Fees & manual payments');
-  await expect(page.locator('#rolePreviewLimits')).toContainText('No coaching, notifications, audit, readiness or Team access');
+  await expect(page.locator('#rolePreviewLimits')).toContainText('No coaching, follow-ups, audit, readiness or Team access');
   await page.locator('#newRole').selectOption('trainer');
   await expect(page.locator('#rolePreviewTitle')).toHaveText('Trainer');
   await expect(page.locator('#rolePreviewAllows')).toContainText('Coaching & progress');
   await expect(page.locator('#rolePreviewLimits')).toContainText('No customer edits, membership changes, fees/payments');
   await page.locator('#newRole').selectOption('admin');
   await expect(page.locator('#rolePreviewTitle')).toHaveText('Administrator');
-  await expect(page.locator('#rolePreviewAllows')).toContainText('Notifications & enquiries');
+  await expect(page.locator('#rolePreviewAllows')).toContainText('follow-ups & enquiries');
   await expect(page.locator('#rolePreviewLimits')).toContainText('Cannot manage owner-only Team access');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('#rolePreview')).toBeVisible();

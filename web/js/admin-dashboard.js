@@ -54,8 +54,9 @@
 
   function expiringRows(groups = {}) {
     return [
-      ['Expired today', groups.today || []],
-      ['Tomorrow', groups.tomorrow || []],
+      ['Expired', groups.expired || []],
+      ['Expires today', groups.today || []],
+      ['Expires tomorrow', groups.tomorrow || []],
       ['Within 3 days', groups.threeDays || []],
       ['Within 7 days', groups.sevenDays || []],
     ].flatMap(([priority, rows]) => rows.map((row) => ({ ...row, priority })));
@@ -69,10 +70,12 @@
       const plan = document.createElement('td'); plan.textContent = item.planName || '--';
       const expiry = document.createElement('td'); expiry.textContent = formatDate(item.endsAt);
       const priority = document.createElement('td'); priority.textContent = item.priority;
-      const action = document.createElement('td');
-      const button = document.createElement('button'); button.type = 'button'; button.className = 'table-action'; button.textContent = 'Open';
-      button.addEventListener('click', () => window.GravityCustomerAdmin?.openCustomerById(item.customerId));
-      action.appendChild(button); row.append(customer, plan, expiry, priority, action); body.appendChild(row);
+      const action = document.createElement('td'); action.className = 'row-actions';
+      const whatsapp = document.createElement('button'); whatsapp.type = 'button'; whatsapp.className = 'whatsapp-action table-action'; whatsapp.textContent = 'Send WhatsApp';
+      whatsapp.addEventListener('click', () => core()?.openWhatsAppReminder(item));
+      const open = document.createElement('button'); open.type = 'button'; open.className = 'ghost table-action'; open.textContent = 'Open';
+      open.addEventListener('click', () => window.GravityCustomerAdmin?.openCustomerById(item.customerId));
+      action.append(whatsapp, open); row.append(customer, plan, expiry, priority, action); body.appendChild(row);
     }
     if (!body.children.length) body.appendChild(emptyRow('No memberships need expiry attention.', 5));
   }

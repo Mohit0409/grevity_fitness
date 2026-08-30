@@ -4,9 +4,9 @@
   const $ = (id) => document.getElementById(id);
   const state = { admin: null, view: 'dashboard', searchTimer: null };
   const ROLE_GUIDANCE = {
-    reception: { label: 'Reception', allows: 'Customers, memberships, Fees & manual payments, and enquiries.', limits: 'No coaching, notifications, audit, readiness or Team access.' },
-    trainer: { label: 'Trainer', allows: 'Customer read access plus Coaching & progress.', limits: 'No customer edits, membership changes, fees/payments, notifications, audit, readiness or Team access.' },
-    admin: { label: 'Administrator', allows: 'Customers, memberships, fees & payments, Notifications & enquiries, coaching, audit and readiness.', limits: 'Cannot manage owner-only Team access.' },
+    reception: { label: 'Reception', allows: 'Customers, memberships, Fees & manual payments, and enquiries.', limits: 'No coaching, follow-ups, audit, readiness or Team access.' },
+    trainer: { label: 'Trainer', allows: 'Customer read access plus Coaching & progress.', limits: 'No customer edits, membership changes, fees/payments, follow-ups, audit, readiness or Team access.' },
+    admin: { label: 'Administrator', allows: 'Customers, memberships, fees & payments, follow-ups & enquiries, coaching, audit and readiness.', limits: 'Cannot manage owner-only Team access.' },
     owner: { label: 'Owner', allows: 'All Admin Software areas including Team access.', limits: 'Owner accounts are not created from this screen.' },
   };
   const setup = $('setup');
@@ -72,6 +72,36 @@
     const ms = Number(value) < 10_000_000_000 ? Number(value) * 1000 : Number(value);
     const date = new Date(ms);
     return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+  }
+
+  function reminderDate(value) {
+    const numeric = Number(value || 0);
+    if (!numeric) return 'the recorded expiry date';
+    const date = new Date(numeric < 10_000_000_000 ? numeric * 1000 : numeric);
+    return Number.isNaN(date.getTime()) ? 'the recorded expiry date' : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function normalizeWhatsAppPhone(value) {
+    let digits = String(value || '').replace(/\D/g, '');
+    if (digits.length === 10) digits = `91${digits}`;
+    return digits.length >= 11 && digits.length <= 15 ? digits : '';
+  }
+
+  function openWhatsAppReminder(item = {}) {
+    const phone = normalizeWhatsAppPhone(item.phone);
+    if (!phone) { flashMessage('Customer mobile number is missing or invalid.', 'error'); return false; }
+    const name = String(item.customerName || item.displayName || 'Member').trim() || 'Member';
+    const plan = String(item.planName || 'membership').trim() || 'membership';
+    const expiry = reminderDate(item.endsAt);
+    const expired = String(item.status || '').toLowerCase() === 'expired';
+    const message = expired
+      ? `Hi ${name}, this is Gravity Fitness. Your ${plan} membership expired on ${expiry}. We would be happy to help you renew it. Please reply here if you would like to continue your membership. Thank you - Gravity Fitness.`
+      : `Hi ${name}, this is Gravity Fitness. Your ${plan} membership will expire on ${expiry}. Please reply here if you would like to renew your membership. Thank you - Gravity Fitness.`;
+    const link = document.createElement('a');
+    link.href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    link.target = '_blank'; link.rel = 'noopener noreferrer';
+    document.body.appendChild(link); link.click(); link.remove();
+    return true;
   }
 
   function roleLabel(role) { return ROLE_GUIDANCE[role]?.label || String(role || 'Unknown'); }
@@ -220,7 +250,7 @@
   async function showView(view) {
     const allowed = new Set(['dashboard', 'enquiries', 'members', 'memberships', 'fees', 'coaching', 'notifications', 'readiness', 'admins', 'audit']);
     state.view = allowed.has(view) ? view : 'dashboard';
-    const titles = { dashboard: 'Dashboard', enquiries: 'Enquiries', members: 'Customers', memberships: 'Memberships', fees: 'Fees', coaching: 'Coaching', notifications: 'Notifications', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
+    const titles = { dashboard: 'Home', enquiries: 'Enquiries', members: 'Customers', memberships: 'Memberships', fees: 'Fees', coaching: 'Coaching', notifications: 'Follow-ups', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
     document.querySelectorAll('.view').forEach((node) => { node.hidden = node.id !== `${state.view}View`; });
     document.querySelectorAll('nav [data-view]').forEach((node) => node.classList.toggle('active', node.dataset.view === state.view));
     $('viewTitle').textContent = titles[state.view];
@@ -234,6 +264,7 @@
     if (state.view === 'memberships' && window.GravityMembershipAdmin) await window.GravityMembershipAdmin.renderWorkspace();
     if (state.view === 'fees' && window.GravityPaymentAdmin) await window.GravityPaymentAdmin.renderWorkspace();
     if (state.view === 'coaching' && window.GravityCoachingAdmin) await window.GravityCoachingAdmin.renderWorkspace();
+    if (state.view === 'notifications' && window.GravityFollowupAdmin) await window.GravityFollowupAdmin.renderWorkspace();
     if (state.view === 'notifications' && window.GravityNotificationAdmin) await window.GravityNotificationAdmin.renderWorkspace();
     if (state.view === 'readiness' && window.GravityReadinessAdmin) await window.GravityReadinessAdmin.renderWorkspace();
     if (state.view === 'admins') await renderAdmins();
@@ -263,6 +294,7 @@
     window.GravityMembershipAdmin?.setAdmin(admin);
     window.GravityPaymentAdmin?.setAdmin(admin);
     window.GravityCoachingAdmin?.setAdmin(admin);
+    window.GravityFollowupAdmin?.setAdmin(admin);
     window.GravityNotificationAdmin?.setAdmin(admin);
     window.GravityReadinessAdmin?.setAdmin(admin);
     setAuthScreen('app');
@@ -294,7 +326,7 @@
   }
 
   window.GravityAdminCore = {
-    api, flash: flashMessage, hasPermission, formatTime, badge,
+    api, flash: flashMessage, hasPermission, formatTime, badge, openWhatsAppReminder,
     openView(view) { return showView(view); },
     currentAdmin() { return state.admin; },
     refreshSession() { return loadSession(); },
