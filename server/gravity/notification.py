@@ -76,8 +76,8 @@ class NotificationService:
             return {"email": "BLOCKED_EXTERNAL_CONFIG", "sms": "BLOCKED_EXTERNAL_CONFIG", "whatsapp": "BLOCKED_EXTERNAL_CONFIG"}
         return {
             "email": "READY" if settings.smtp_configured else "BLOCKED_EXTERNAL_CONFIG",
-            "sms": "BLOCKED_ADAPTER_MISSING" if settings.sms_credentials_configured else "BLOCKED_EXTERNAL_CONFIG",
-            "whatsapp": "BLOCKED_ADAPTER_MISSING" if settings.whatsapp_credentials_configured else "BLOCKED_EXTERNAL_CONFIG",
+            "sms": "READY" if settings.sms_credentials_configured and settings.sms_adapter_supported else ("BLOCKED_ADAPTER_MISSING" if settings.sms_credentials_configured else "BLOCKED_EXTERNAL_CONFIG"),
+            "whatsapp": "READY" if settings.whatsapp_credentials_configured and settings.whatsapp_adapter_supported else ("BLOCKED_ADAPTER_MISSING" if settings.whatsapp_credentials_configured else "BLOCKED_EXTERNAL_CONFIG"),
         }
 
     def _has_renewal(self, connection, customer_id: str, membership_id: str, ends_at: int) -> bool:

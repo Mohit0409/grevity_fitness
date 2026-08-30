@@ -63,8 +63,8 @@ class ReadinessService:
         }
         notifications = {
             "email": self._state(s.smtp_configured, adapter_ready=True),
-            "sms": self._state(s.sms_credentials_configured, adapter_ready=False),
-            "whatsapp": self._state(s.whatsapp_credentials_configured, adapter_ready=False),
+            "sms": self._state(s.sms_credentials_configured, adapter_ready=s.sms_adapter_supported),
+            "whatsapp": self._state(s.whatsapp_credentials_configured, adapter_ready=s.whatsapp_adapter_supported),
         }
         tax_document_ready = (not s.tax_invoice_enabled) or s.tax_invoice_identity_configured
         business = {

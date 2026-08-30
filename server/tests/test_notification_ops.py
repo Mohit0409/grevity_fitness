@@ -194,11 +194,16 @@ class NotificationOperationsRunnerTests(unittest.TestCase):
                 "SMTP_USERNAME": "mailer",
                 "SMTP_PASSWORD": "smtp-secret",
                 "EMAIL_FROM": "not-an-output@example.test",
-                "SMS_PROVIDER": "sms-provider",
+                "SMS_PROVIDER": "msg91",
                 "SMS_API_KEY": "sms-secret",
-                "WHATSAPP_PROVIDER": "whatsapp-provider",
+                "SMS_CUSTOMER_FLOW_ID": "flow-customer",
+                "SMS_OWNER_FLOW_ID": "flow-owner",
+                "SMS_SENDER_ID": "GRAVTY",
+                "WHATSAPP_PROVIDER": "meta",
                 "WHATSAPP_ACCESS_TOKEN": "whatsapp-secret",
                 "WHATSAPP_PHONE_NUMBER_ID": "phone-id",
+                "WHATSAPP_CUSTOMER_TEMPLATE": "expiry_customer",
+                "WHATSAPP_OWNER_TEMPLATE": "expiry_owner",
                 "OWNER_EMAIL": "owner@example.test",
                 "OWNER_PHONE": "+911234567890",
                 "OWNER_WHATSAPP": "+919876543210",
@@ -210,8 +215,8 @@ class NotificationOperationsRunnerTests(unittest.TestCase):
         self.assertEqual(blocked["whatsapp"]["status"], "blocked_external_config")
         self.assertEqual(blocked["owner_email"]["status"], "missing_recipient")
         self.assertEqual(configured["email"]["status"], "ready")
-        self.assertEqual(configured["sms"]["status"], "blocked_adapter_missing")
-        self.assertEqual(configured["whatsapp"]["status"], "blocked_adapter_missing")
+        self.assertEqual(configured["sms"]["status"], "ready")
+        self.assertEqual(configured["whatsapp"]["status"], "ready")
         self.assertEqual(configured["owner_email"]["status"], "configured")
         self.assertEqual(configured["owner_phone"]["status"], "configured")
         self.assertEqual(configured["owner_whatsapp"]["status"], "configured")

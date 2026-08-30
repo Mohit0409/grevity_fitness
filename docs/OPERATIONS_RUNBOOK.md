@@ -186,9 +186,11 @@ The safe status report and `notifications.log` record only aggregate fields: sca
 Provider readiness is evaluated from the protected configuration each run:
 
 - email requires `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `EMAIL_FROM`;
-- SMS requires `SMS_PROVIDER` and `SMS_API_KEY`;
-- WhatsApp requires `WHATSAPP_PROVIDER`, `WHATSAPP_ACCESS_TOKEN`, and `WHATSAPP_PHONE_NUMBER_ID`;
+- SMS uses `SMS_PROVIDER=msg91` and requires `SMS_API_KEY`, `SMS_CUSTOMER_FLOW_ID`, `SMS_OWNER_FLOW_ID`, and `SMS_SENDER_ID`; the MSG91 flows must use variables named `name` and `expiry`, with India DLT approval/mapping completed before live sends;
+- WhatsApp uses `WHATSAPP_PROVIDER=meta` and requires `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, approved `WHATSAPP_CUSTOMER_TEMPLATE` / `WHATSAPP_OWNER_TEMPLATE`, and `WHATSAPP_TEMPLATE_LANGUAGE` (default `en_US`); the API version defaults to `WHATSAPP_GRAPH_VERSION=v26.0`;
 - owner routing is reported separately from `OWNER_EMAIL`, `OWNER_PHONE`, and `OWNER_WHATSAPP` without revealing values.
+
+The Meta templates must expose five body variables in this order: member name, plan, timing, expiry date, membership number. The MSG91/DLT SMS templates should keep the message body fixed and use only `name` and `expiry` variables.
 
 Do not put any of these values on a scheduled-task command line or in Git. A blocked provider is reported safely; a configured provider that fails delivery makes the cycle fail so the outbox can retry on the next run.
 

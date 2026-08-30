@@ -29,7 +29,7 @@ class FakeAdapter:
         self.channel = channel
         self.fail = fail
         self.sent: list[dict[str, str]] = []
-    def send(self, *, recipient: str, subject: str, body: str) -> str | None:
+    def send(self, *, recipient: str, subject: str, body: str, context: dict[str, object] | None = None) -> str | None:
         if self.fail:
             raise DeliveryAdapterError(f"{self.channel}_provider_down")
         self.sent.append({"recipient": recipient, "subject": subject, "body": body})

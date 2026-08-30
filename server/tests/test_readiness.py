@@ -75,7 +75,7 @@ def admin_headers(server, issue):
 
 
 class ReadinessServiceTests(unittest.TestCase):
-    def test_report_is_secret_safe_and_provider_adapters_remain_blocked(self):
+    def test_report_is_secret_safe_and_supported_provider_adapters_are_ready(self):
         secret_values = {
             "WHATSAPP_ACCESS_TOKEN": "wa-secret-value-123456789",
             "SMS_API_KEY": "sms-secret-value-123456789",
@@ -90,7 +90,12 @@ class ReadinessServiceTests(unittest.TestCase):
             "SECRET_KEY": TEST_SECRET,
             "WHATSAPP_PROVIDER": "meta",
             "WHATSAPP_PHONE_NUMBER_ID": "phone-id",
-            "SMS_PROVIDER": "example-sms",
+            "WHATSAPP_CUSTOMER_TEMPLATE": "expiry_customer",
+            "WHATSAPP_OWNER_TEMPLATE": "expiry_owner",
+            "SMS_PROVIDER": "msg91",
+            "SMS_CUSTOMER_FLOW_ID": "flow-customer",
+            "SMS_OWNER_FLOW_ID": "flow-owner",
+            "SMS_SENDER_ID": "GRAVTY",
             "SMTP_HOST": "smtp.example.test",
             "SMTP_USERNAME": "mailer",
             "EMAIL_FROM": "gym@example.test",
@@ -100,8 +105,8 @@ class ReadinessServiceTests(unittest.TestCase):
         encoded = json.dumps(report, sort_keys=True)
         for value in secret_values.values():
             self.assertNotIn(value, encoded)
-        self.assertEqual(report["notifications"]["whatsapp"]["status"], "blocked_adapter_missing")
-        self.assertEqual(report["notifications"]["sms"]["status"], "blocked_adapter_missing")
+        self.assertEqual(report["notifications"]["whatsapp"]["status"], "ready")
+        self.assertEqual(report["notifications"]["sms"]["status"], "ready")
         self.assertEqual(report["notifications"]["email"]["status"], "ready")
         self.assertFalse(report["productionReady"])
         self.assertIn("production_mode", report["blockers"])

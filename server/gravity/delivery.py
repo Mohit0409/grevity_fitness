@@ -4,6 +4,9 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import make_msgid
 from typing import Callable, Protocol
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+import json
 import smtplib
 
 from .config import Settings
@@ -26,7 +29,7 @@ class DeliveryAdapterError(Exception):
 class DeliveryAdapter(Protocol):
     channel: str
 
-    def send(self, *, recipient: str, subject: str, body: str) -> str | None:
+    def send(self, *, recipient: str, subject: str, body: str, context: dict[str, object] | None = None) -> str | None:
         ...
 
 
@@ -36,7 +39,7 @@ class SMTPEmailAdapter:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def send(self, *, recipient: str, subject: str, body: str) -> str | None:
+    def send(self, *, recipient: str, subject: str, body: str, context: dict[str, object] | None = None) -> str | None:
         if not self.settings.smtp_configured:
             raise DeliveryAdapterError("smtp_not_configured")
         message_id = make_msgid(domain=None)
@@ -76,7 +79,7 @@ class SMSDeliveryAdapter:
     def __init__(self, sender: Callable[[str, str], str | None]) -> None:
         self.sender = sender
 
-    def send(self, *, recipient: str, subject: str, body: str) -> str | None:
+    def send(self, *, recipient: str, subject: str, body: str, context: dict[str, object] | None = None) -> str | None:
         try:
             return self.sender(recipient, body)
         except DeliveryAdapterError:
@@ -93,13 +96,136 @@ class WhatsAppDeliveryAdapter:
     def __init__(self, sender: Callable[[str, str], str | None]) -> None:
         self.sender = sender
 
-    def send(self, *, recipient: str, subject: str, body: str) -> str | None:
+    def send(self, *, recipient: str, subject: str, body: str, context: dict[str, object] | None = None) -> str | None:
         try:
             return self.sender(recipient, body)
         except DeliveryAdapterError:
             raise
         except Exception:
             raise DeliveryAdapterError("whatsapp_delivery_failed") from None
+
+
+def _post_json(url: str, *, headers: dict[str, str], payload: dict[str, object], failure_code: str) -> dict[str, object]:
+    request = Request(
+        url,
+        data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=15) as response:
+            raw = response.read(65536)
+    except HTTPError as error:
+        raise DeliveryAdapterError(f"{failure_code}_http_{error.code}") from None
+    except (URLError, OSError, TimeoutError):
+        raise DeliveryAdapterError(f"{failure_code}_network") from None
+    try:
+        result = json.loads(raw.decode("utf-8")) if raw else {}
+    except (UnicodeDecodeError, ValueError):
+        raise DeliveryAdapterError(f"{failure_code}_invalid_response") from None
+    if not isinstance(result, dict):
+        raise DeliveryAdapterError(f"{failure_code}_invalid_response")
+    return result
+
+
+def _normalized_phone(value: str) -> str:
+    return value.strip().replace(" ", "").lstrip("+")
+
+
+def _provider_values(context: dict[str, object]) -> dict[str, str]:
+    payload = dict(context.get("payload") or {})
+    ends_at = int(payload.get("endsAt") or 0)
+    expiry = (
+        datetime.fromtimestamp(ends_at, tz=IST).strftime("%d %b %Y")
+        if ends_at > 0
+        else "the recorded end date"
+    )
+    days = int(context.get("triggerDays") or 0)
+    timing = "expired today" if days == 0 else f"expires in {days} day{'s' if days != 1 else ''}"
+    return {
+        "name": str(context.get("displayName") or "Member")[:80],
+        "plan": str(payload.get("planName") or "membership")[:80],
+        "timing": timing[:80],
+        "expiry": expiry[:80],
+        "number": str(payload.get("membershipNumber") or "-")[:80],
+    }
+
+
+class MetaWhatsAppAdapter:
+    channel = "whatsapp"
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+
+    def send(self, *, recipient: str, subject: str, body: str, context: dict[str, object] | None = None) -> str | None:
+        if context is None or not self.settings.whatsapp_credentials_configured:
+            raise DeliveryAdapterError("whatsapp_not_configured")
+        role = str(context.get("recipientRole") or "customer")
+        template = self.settings.whatsapp_owner_template if role == "owner" else self.settings.whatsapp_customer_template
+        values = _provider_values(context)
+        parameters = [
+            {"type": "text", "text": values[key]}
+            for key in ("name", "plan", "timing", "expiry", "number")
+        ]
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": _normalized_phone(recipient),
+            "type": "template",
+            "template": {
+                "name": template,
+                "language": {"code": self.settings.whatsapp_template_language},
+                "components": [{"type": "body", "parameters": parameters}],
+            },
+        }
+        result = _post_json(
+            f"https://graph.facebook.com/{self.settings.whatsapp_graph_version}/{self.settings.whatsapp_phone_number_id}/messages",
+            headers={"Authorization": f"Bearer {self.settings.whatsapp_access_token}", "Content-Type": "application/json"},
+            payload=payload,
+            failure_code="whatsapp",
+        )
+        messages = result.get("messages")
+        if not isinstance(messages, list) or not messages or not isinstance(messages[0], dict):
+            raise DeliveryAdapterError("whatsapp_provider_rejected")
+        message_id = str(messages[0].get("id") or "")
+        if not message_id:
+            raise DeliveryAdapterError("whatsapp_invalid_response")
+        return message_id
+
+
+class MSG91SMSAdapter:
+    channel = "sms"
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+
+    def send(self, *, recipient: str, subject: str, body: str, context: dict[str, object] | None = None) -> str | None:
+        if context is None or not self.settings.sms_credentials_configured:
+            raise DeliveryAdapterError("sms_not_configured")
+        role = str(context.get("recipientRole") or "customer")
+        flow_id = self.settings.sms_owner_flow_id if role == "owner" else self.settings.sms_customer_flow_id
+        values = _provider_values(context)
+        payload = {
+            "flow_id": flow_id,
+            "sender": self.settings.sms_sender_id,
+            "recipients": [{
+                "mobiles": _normalized_phone(recipient),
+                "name": values["name"],
+                "expiry": values["expiry"],
+            }],
+        }
+        result = _post_json(
+            "https://control.msg91.com/api/v5/flow",
+            headers={"authkey": self.settings.sms_api_key, "Content-Type": "application/json", "Accept": "application/json"},
+            payload=payload,
+            failure_code="sms",
+        )
+        response_type = str(result.get("type") or "").lower()
+        if response_type and response_type != "success":
+            raise DeliveryAdapterError("sms_provider_rejected")
+        message_id = str(result.get("message") or result.get("request_id") or result.get("requestId") or "")
+        if not message_id:
+            raise DeliveryAdapterError("sms_invalid_response")
+        return message_id
 
 
 class NotificationDispatcher:
@@ -112,8 +238,10 @@ class NotificationDispatcher:
         adapters: dict[str, DeliveryAdapter] = {}
         if settings.smtp_configured:
             adapters["email"] = SMTPEmailAdapter(settings)
-        # SMS and WhatsApp are intentionally not guessed here. Their settings
-        # remain readiness signals until an operator selects a concrete provider.
+        if settings.sms_credentials_configured and settings.sms_adapter_supported:
+            adapters["sms"] = MSG91SMSAdapter(settings)
+        if settings.whatsapp_credentials_configured and settings.whatsapp_adapter_supported:
+            adapters["whatsapp"] = MetaWhatsAppAdapter(settings)
         return cls(service, adapters)
 
     @staticmethod
@@ -179,6 +307,7 @@ class NotificationDispatcher:
                     recipient=str(context["recipient"]),
                     subject=subject,
                     body=body,
+                    context=context,
                 )
                 self.service.record_delivery_attempt(
                     delivery_id,

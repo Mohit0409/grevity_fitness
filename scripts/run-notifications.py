@@ -114,14 +114,10 @@ def _provider_readiness(root: Path, environ: Mapping[str, str] | None = None) ->
     return {
         "email": {"status": "ready" if settings.smtp_configured else "blocked_external_config"},
         "sms": {
-            "status": "blocked_adapter_missing"
-            if settings.sms_credentials_configured
-            else "blocked_external_config"
+            "status": "ready" if settings.sms_credentials_configured and settings.sms_adapter_supported else ("blocked_adapter_missing" if settings.sms_credentials_configured else "blocked_external_config")
         },
         "whatsapp": {
-            "status": "blocked_adapter_missing"
-            if settings.whatsapp_credentials_configured
-            else "blocked_external_config"
+            "status": "ready" if settings.whatsapp_credentials_configured and settings.whatsapp_adapter_supported else ("blocked_adapter_missing" if settings.whatsapp_credentials_configured else "blocked_external_config")
         },
         "owner_email": {"status": "configured" if settings.owner_email else "missing_recipient"},
         "owner_phone": {"status": "configured" if settings.owner_phone else "missing_recipient"},

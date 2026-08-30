@@ -82,8 +82,15 @@ class Settings:
     whatsapp_provider: str
     whatsapp_access_token: str
     whatsapp_phone_number_id: str
+    whatsapp_graph_version: str
+    whatsapp_customer_template: str
+    whatsapp_owner_template: str
+    whatsapp_template_language: str
     sms_provider: str
     sms_api_key: str
+    sms_customer_flow_id: str
+    sms_owner_flow_id: str
+    sms_sender_id: str
     smtp_host: str
     smtp_port: int
     smtp_security: str
@@ -138,6 +145,13 @@ class Settings:
         razorpay_mode = values.get("RAZORPAY_MODE", "test").strip().lower() or "test"
         if razorpay_mode not in {"test", "live"}:
             raise ValueError("RAZORPAY_MODE must be test or live")
+        whatsapp_graph_version = values.get("WHATSAPP_GRAPH_VERSION", "v26.0").strip() or "v26.0"
+        if not re.fullmatch(r"v\d+\.\d+", whatsapp_graph_version):
+            raise ValueError("WHATSAPP_GRAPH_VERSION must look like v26.0")
+        whatsapp_customer_template = values.get("WHATSAPP_CUSTOMER_TEMPLATE", "").strip()
+        whatsapp_owner_template = values.get("WHATSAPP_OWNER_TEMPLATE", "").strip() or whatsapp_customer_template
+        sms_customer_flow_id = values.get("SMS_CUSTOMER_FLOW_ID", "").strip()
+        sms_owner_flow_id = values.get("SMS_OWNER_FLOW_ID", "").strip() or sms_customer_flow_id
         smtp_port = int(values.get("SMTP_PORT", "587") or "587")
         if not 1 <= smtp_port <= 65535:
             raise ValueError("SMTP_PORT must be between 1 and 65535")
@@ -181,11 +195,18 @@ class Settings:
             razorpay_key_id=values.get("RAZORPAY_KEY_ID", "").strip(),
             razorpay_key_secret=values.get("RAZORPAY_KEY_SECRET", "").strip(),
             razorpay_webhook_secret=values.get("RAZORPAY_WEBHOOK_SECRET", "").strip(),
-            whatsapp_provider=values.get("WHATSAPP_PROVIDER", "").strip(),
+            whatsapp_provider=values.get("WHATSAPP_PROVIDER", "").strip().lower(),
             whatsapp_access_token=values.get("WHATSAPP_ACCESS_TOKEN", "").strip(),
             whatsapp_phone_number_id=values.get("WHATSAPP_PHONE_NUMBER_ID", "").strip(),
-            sms_provider=values.get("SMS_PROVIDER", "").strip(),
+            whatsapp_graph_version=whatsapp_graph_version,
+            whatsapp_customer_template=whatsapp_customer_template,
+            whatsapp_owner_template=whatsapp_owner_template,
+            whatsapp_template_language=values.get("WHATSAPP_TEMPLATE_LANGUAGE", "en_US").strip() or "en_US",
+            sms_provider=values.get("SMS_PROVIDER", "").strip().lower(),
             sms_api_key=values.get("SMS_API_KEY", "").strip(),
+            sms_customer_flow_id=sms_customer_flow_id,
+            sms_owner_flow_id=sms_owner_flow_id,
+            sms_sender_id=values.get("SMS_SENDER_ID", "").strip(),
             smtp_host=values.get("SMTP_HOST", "").strip(),
             smtp_port=smtp_port,
             smtp_security=smtp_security,
@@ -263,11 +284,19 @@ class Settings:
 
     @property
     def whatsapp_credentials_configured(self) -> bool:
-        return bool(self.whatsapp_provider and self.whatsapp_access_token and self.whatsapp_phone_number_id)
+        return bool(self.whatsapp_provider and self.whatsapp_access_token and self.whatsapp_phone_number_id and self.whatsapp_customer_template and self.whatsapp_owner_template and self.whatsapp_template_language)
+
+    @property
+    def whatsapp_adapter_supported(self) -> bool:
+        return self.whatsapp_provider == "meta"
 
     @property
     def sms_credentials_configured(self) -> bool:
-        return bool(self.sms_provider and self.sms_api_key)
+        return bool(self.sms_provider and self.sms_api_key and self.sms_customer_flow_id and self.sms_owner_flow_id and self.sms_sender_id)
+
+    @property
+    def sms_adapter_supported(self) -> bool:
+        return self.sms_provider == "msg91"
 
     @property
     def smtp_configured(self) -> bool:

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from server.gravity.config import Settings
 from server.gravity.database import Database
-from server.gravity.delivery import DeliveryAdapterError, NotificationDispatcher, SMTPEmailAdapter
+from server.gravity.delivery import DeliveryAdapterError, MSG91SMSAdapter, MetaWhatsAppAdapter, NotificationDispatcher, SMTPEmailAdapter
 from server.gravity.membership import MembershipService
 from server.gravity.notification import NotificationService
 
@@ -30,7 +30,7 @@ class FakeAdapter:
         self.fail = fail
         self.sent: list[dict[str, str]] = []
 
-    def send(self, *, recipient: str, subject: str, body: str) -> str | None:
+    def send(self, *, recipient: str, subject: str, body: str, context: dict[str, object] | None = None) -> str | None:
         if self.fail:
             raise DeliveryAdapterError("fake_provider_down")
         self.sent.append({"recipient": recipient, "subject": subject, "body": body})
@@ -119,6 +119,57 @@ class DeliveryTests(unittest.TestCase):
         client.login.assert_called_once_with("mailer", "secret-password")
         client.send_message.assert_called_once()
         self.assertTrue(str(message_id).startswith("<"))
+
+    def test_meta_whatsapp_adapter_sends_role_template_without_network(self) -> None:
+        settings = replace(
+            self.settings,
+            whatsapp_provider="meta",
+            whatsapp_access_token="meta-secret",
+            whatsapp_phone_number_id="phone-id",
+            whatsapp_graph_version="v26.0",
+            whatsapp_customer_template="gravity_expiry_customer",
+            whatsapp_owner_template="gravity_expiry_owner",
+            whatsapp_template_language="en_US",
+        )
+        context = {
+            "recipientRole": "customer", "displayName": "Member One", "triggerDays": 7,
+            "payload": {"planName": "Monthly", "endsAt": self.clock.value + 7 * 86400, "membershipNumber": "GF-1"},
+        }
+        with patch("server.gravity.delivery._post_json", return_value={"messages": [{"id": "wamid.test"}]}) as post:
+            message_id = MetaWhatsAppAdapter(settings).send(
+                recipient="+919999999999", subject="ignored", body="ignored", context=context,
+            )
+        self.assertEqual(message_id, "wamid.test")
+        request = post.call_args.kwargs
+        self.assertIn("/v26.0/phone-id/messages", post.call_args.args[0])
+        self.assertEqual(request["payload"]["to"], "919999999999")
+        self.assertEqual(request["payload"]["template"]["name"], "gravity_expiry_customer")
+        self.assertEqual(len(request["payload"]["template"]["components"][0]["parameters"]), 5)
+
+    def test_msg91_sms_adapter_sends_dlt_flow_without_network(self) -> None:
+        settings = replace(
+            self.settings,
+            sms_provider="msg91",
+            sms_api_key="msg91-secret",
+            sms_customer_flow_id="flow-customer",
+            sms_owner_flow_id="flow-owner",
+            sms_sender_id="GRAVTY",
+        )
+        context = {
+            "recipientRole": "owner", "displayName": "Member One", "triggerDays": 3,
+            "payload": {"planName": "Monthly", "endsAt": self.clock.value + 3 * 86400, "membershipNumber": "GF-1"},
+        }
+        with patch("server.gravity.delivery._post_json", return_value={"type": "success", "message": "request-1"}) as post:
+            message_id = MSG91SMSAdapter(settings).send(
+                recipient="+919888888888", subject="ignored", body="ignored", context=context,
+            )
+        self.assertEqual(message_id, "request-1")
+        request = post.call_args.kwargs
+        self.assertEqual(post.call_args.args[0], "https://control.msg91.com/api/v5/flow")
+        self.assertEqual(request["payload"]["flow_id"], "flow-owner")
+        self.assertEqual(request["payload"]["sender"], "GRAVTY")
+        self.assertEqual(request["payload"]["recipients"][0]["mobiles"], "919888888888")
+        self.assertEqual(set(request["payload"]["recipients"][0]), {"mobiles", "name", "expiry"})
 
     def test_dispatch_failure_uses_retry_state_without_leaking_exception(self) -> None:
         self.prepare_reminder()
