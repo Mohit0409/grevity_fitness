@@ -110,6 +110,7 @@ class Settings:
     session_idle_seconds: int
     session_absolute_seconds: int
     admin_require_second_factor: bool
+    admin_portal_root_redirect: bool
 
     @classmethod
     def load(
@@ -227,6 +228,7 @@ class Settings:
             session_idle_seconds=idle_seconds,
             session_absolute_seconds=absolute_seconds,
             admin_require_second_factor=_boolean(values.get("ADMIN_REQUIRE_SECOND_FACTOR"), True),
+            admin_portal_root_redirect=_boolean(values.get("ADMIN_PORTAL_ROOT_REDIRECT"), False),
         )
 
     @property

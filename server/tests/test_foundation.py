@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 import json
 import logging
 import sqlite3
@@ -22,10 +22,14 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 @contextmanager
-def running_server():
+def running_server(*, admin_portal_root_redirect: bool = False):
     with TemporaryDirectory() as temporary:
         runtime = Path(temporary)
-        base = Settings.load(root_dir=ROOT, environ={"GRAVITY_PORT": "0", "GRAVITY_LOG_LEVEL": "CRITICAL"})
+        base = Settings.load(root_dir=ROOT, environ={
+            "GRAVITY_PORT": "0",
+            "GRAVITY_LOG_LEVEL": "CRITICAL",
+            "ADMIN_PORTAL_ROOT_REDIRECT": "true" if admin_portal_root_redirect else "false",
+        })
         settings = replace(
             base,
             data_dir=runtime / "data",
@@ -51,6 +55,20 @@ def fetch(base: str, path: str, *, method: str = "GET", data: bytes | None = Non
     request = Request(base + path, method=method, data=data)
     try:
         response = urlopen(request, timeout=5)
+        return response.status, dict(response.headers), response.read()
+    except HTTPError as error:
+        return error.code, dict(error.headers), error.read()
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, message, headers, newurl):
+        return None
+
+
+def fetch_without_redirect(base: str, path: str):
+    request = Request(base + path)
+    try:
+        response = build_opener(_NoRedirect()).open(request, timeout=5)
         return response.status, dict(response.headers), response.read()
     except HTTPError as error:
         return error.code, dict(error.headers), error.read()
@@ -124,6 +142,19 @@ class HttpFoundationTests(unittest.TestCase):
                 status, _headers, body = fetch(base, path)
                 self.assertEqual(status, 200, path)
                 self.assertIn(marker, body, path)
+
+    def test_admin_only_runtime_redirects_root_without_breaking_admin_assets(self):
+        with running_server(admin_portal_root_redirect=True) as (base, _settings):
+            status, headers, body = fetch_without_redirect(base, "/")
+            self.assertEqual(status, 302)
+            self.assertEqual(headers["Location"], "/admin")
+            self.assertEqual(body, b"")
+            status, _headers, body = fetch(base, "/admin")
+            self.assertEqual(status, 200)
+            self.assertIn(b"Control Room", body)
+            status, _headers, body = fetch(base, "/css/admin.css")
+            self.assertEqual(status, 200)
+            self.assertIn(b".app-sidebar", body)
 
     def test_only_public_allowlisted_files_are_exposed(self):
         with running_server() as (base, _settings):

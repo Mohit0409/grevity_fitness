@@ -273,6 +273,15 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
             if self.command not in {"GET", "HEAD"}:
                 status = self._discard_bounded_body(request_id=request_id, send_body=send_body)
                 return
+            if path == "/" and self.server.settings.admin_portal_root_redirect:
+                status = HTTPStatus.FOUND
+                self.send_response(status)
+                self._security_headers(request_id)
+                self.send_header("Location", "/admin")
+                self.send_header("Content-Length", "0")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                return
             status = self._static_response(path, request_id=request_id, send_body=send_body)
         except (BrokenPipeError, ConnectionResetError):
             status = 499
