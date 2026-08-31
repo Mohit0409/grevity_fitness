@@ -199,6 +199,7 @@ def provision_customer(
     phone: str | None = None,
     phone_verified: bool = False,
     display_name: str = "Gravity Member",
+    person_type: str = "member",
 ) -> str:
     normalized_email = normalize_email(email) if email and email_verified else None
     normalized_phone = normalize_phone(phone) if phone else None
@@ -207,10 +208,10 @@ def provision_customer(
         connection.execute("BEGIN IMMEDIATE")
         connection.execute(
             "INSERT INTO customers(id,status,display_name,email,normalized_email,email_verified,phone_e164,"
-            "phone_verified,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            "phone_verified,person_type,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (
                 customer_id, "active", display_name, email if normalized_email else None, normalized_email,
-                1 if normalized_email else 0, normalized_phone, 1 if phone_verified else 0, now, now,
+                1 if normalized_email else 0, normalized_phone, 1 if phone_verified else 0, person_type, now, now,
             ),
         )
         connection.execute(
@@ -330,6 +331,27 @@ class CustomerAuthHttpTests(unittest.TestCase):
                 self.assertEqual(connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0], 1)
                 self.assertEqual(connection.execute("SELECT COUNT(*) FROM firebase_identities").fetchone()[0], 1)
                 self.assertEqual(connection.execute("SELECT phone_verified FROM customers").fetchone()[0], 1)
+
+    def test_staff_phone_is_never_provisioned_for_customer_login(self):
+        clock = MutableClock()
+        verifier = FakeVerifier({
+            "staff": identity(
+                clock, "uid-staff", provider="phone", phone="+919876543211", subject="+919876543211"
+            )
+        })
+        with running_auth_server(verifier, clock) as app:
+            provision_customer(
+                app,
+                customer_id="staff-directory-record",
+                phone="+919876543211",
+                display_name="Staff Record",
+                person_type="staff",
+            )
+            status, _headers, body = app.exchange("staff")
+            self.assertEqual((status, body["error"]), (403, "account_not_provisioned"))
+            with closing(sqlite3.connect(app.settings.database_path)) as connection:
+                self.assertEqual(connection.execute("SELECT COUNT(*) FROM firebase_identities").fetchone()[0], 0)
+                self.assertEqual(connection.execute("SELECT COUNT(*) FROM customer_sessions").fetchone()[0], 0)
 
     def test_unverified_identifier_never_auto_links_or_blocks(self):
         clock = MutableClock()

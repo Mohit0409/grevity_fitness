@@ -905,6 +905,17 @@ Current local service remains pinned v9 / migration 009 until Chat 1 records Adm
 12. On critical failure, rollback to the fresh migration-009 backup plus pinned v9; no ad-hoc DB edits.
 
 Until step 8 records GO, the live database remains migration 009 and current runtime remains pinned v9. The only active product is the Admin Portal software.
+
+## ADMIN USABILITY V2 RELEASE CANDIDATE - 2026-08-31
+
+- Admin-only work is complete on `feature/admin-usability-v2`, based on live SHA `aff913a6084c0be8759c9e9848190c1545f89d7d`. The prior immutable live RC was not modified.
+- The deep audit recorded 21 findings in `docs/ADMIN_USABILITY_V2_AUDIT.md`; all 20 actionable product/code findings are fixed. The remaining item documents a non-elevated protected-runtime status false negative for cutover awareness.
+- Migration 011 adds persistent Member/Staff separation and joining metadata, defaults existing rows to Member, and enforces Staff-without-membership invariants in SQLite and services.
+- Historical member starts, including already-expired memberships, are server-authoritative. Staff is excluded from memberships, fees, expiry/follow-up, coaching, customer auth, and implicit Team Access.
+- Owner UI is now People-focused, Home cards route to actionable filters, manual WhatsApp remains review-before-send, and automatic provider diagnostics are collapsed/deferred.
+- Pre-commit gates: backend 202/202 PASS; browser 57/57 PASS; focused backend 4/4 PASS; focused browser 3/3 PASS; Admin QA at 1/50/200/500/1000 rows ready with zero blockers; syntax/compile/HTML/diff checks PASS.
+- Exact implementation/API/release evidence is in `docs/ADMIN_SOFTWARE_API_CONTRACT.md` and `docs/ADMIN_USABILITY_V2_RELEASE_CANDIDATE.md`.
+- Next owner is the release sequence: commit/push branch, integrate only if green, create a new detached clean immutable RC from the exact final SHA, rerun full backend/browser suites there, create/recovery-drill a fresh pre-cutover backup, guarded cutover, and authoritative live/task verification. Preserve password-only login and do not mutate real business data for acceptance.
 ## CHAT 1 STATUS - 2026-08-29 after 22:01 queue review
 
 - Chat 1 re-read the authoritative `NEW TASK ASSIGNMENTS - 2026-08-29 22:01 IST` queue and is working only on Gravity Fitness Admin Portal software. Customer/public website, domain/DNS, Firebase Hosting, ngrok/tunnel, public hostname, and public redesign remain deferred.

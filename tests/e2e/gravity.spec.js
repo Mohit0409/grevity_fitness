@@ -727,6 +727,7 @@ test('admin expiry notifications separate customer and owner delivery truthfully
   await expect(page.locator('#app')).toBeVisible();
   if (await page.locator('#sidebarOpen').isVisible()) await page.locator('#sidebarOpen').click();
   await page.locator('#notificationsNav').click();
+  await page.locator('#automaticMessagingPanel > summary').click();
   await expect(page.locator('#notificationsList')).toHaveAttribute('aria-busy', 'false');
   await expect(page.locator('.notification-admin-card')).toHaveCount(5);
 
@@ -845,6 +846,7 @@ test('admin notifications handle all providers blocked, empty data and API failu
       : { status: 503, body: JSON.stringify({ error: 'raw_backend_error_should_not_render' }) });
   await page.goto('/admin');
   await page.locator('#notificationsNav').click();
+  await page.locator('#automaticMessagingPanel > summary').click();
   await expect(page.locator('.notification-provider--blocked')).toHaveCount(3);
   await expect(page.locator('#notificationsList')).toHaveText('No membership expiry reminders yet.');
   await expect(page.locator('#notificationsView')).not.toContainText('BLOCKED_EXTERNAL_CONFIG');
@@ -875,9 +877,10 @@ async function mockAdminSoftware(page, options = {}) {
     { id: 'plan-pro', code: 'pro', name: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'active', sortOrder: 2 },
   ];
   const customers = [
-    { id: 'cust-asha', displayName: 'Asha Sharma', phone: '+919876543210', phoneVerified: true, email: 'asha@example.com', status: 'active', createdAt: now - 200 * day, lastLoginAt: now - 3600 },
-    { id: 'cust-ravi', displayName: 'Ravi Patel', phone: '+919812345678', phoneVerified: true, email: null, status: 'active', createdAt: now - 20 * day, lastLoginAt: null },
-    { id: 'cust-disabled', displayName: 'Disabled Member', phone: '+919800001111', phoneVerified: false, email: null, status: 'disabled', createdAt: now - 300 * day, lastLoginAt: null },
+    { id: 'cust-asha', displayName: 'Asha Sharma', phone: '+919876543210', phoneVerified: true, email: 'asha@example.com', status: 'active', personType: 'member', joinedAt: now - 200 * day, designation: null, note: null, createdAt: now - 200 * day, lastLoginAt: now - 3600 },
+    { id: 'cust-ravi', displayName: 'Ravi Patel', phone: '+919812345678', phoneVerified: true, email: null, status: 'active', personType: 'member', joinedAt: now - 20 * day, designation: null, note: null, createdAt: now - 20 * day, lastLoginAt: null },
+    { id: 'cust-disabled', displayName: 'Disabled Member', phone: '+919800001111', phoneVerified: false, email: null, status: 'disabled', personType: 'member', joinedAt: now - 300 * day, designation: null, note: null, createdAt: now - 300 * day, lastLoginAt: null },
+    { id: 'staff-asha', displayName: 'Asha Trainer', phone: '+919800002222', phoneVerified: false, email: null, status: 'active', personType: 'staff', joinedAt: now - 400 * day, designation: 'personal_trainer', note: 'Evening shift', createdAt: now - 400 * day, lastLoginAt: null },
   ];
   const memberships = {
     'cust-asha': [
@@ -890,6 +893,7 @@ async function mockAdminSoftware(page, options = {}) {
       { id: 'mem-ravi-next', membershipNumber: 'GF-RAVI-NEXT', customerId: 'cust-ravi', planId: 'plan-pro', planName: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'scheduled', startsAt: now + 3 * day, endsAt: now + 93 * day, daysRemaining: 0, source: 'admin_manual', createdAt: now - day, payment: { totalPaise: 149900, paidPaise: 0, pendingPaise: 149900 } },
     ],
     'cust-disabled': [],
+    'staff-asha': [],
   };
   const payments = [
     { id: 'pay-asha-1', membershipId: 'mem-asha-live', membershipNumber: 'GF-2026-ASHA', customerId: 'cust-asha', customerName: 'Asha Sharma', amountPaise: 50000, currency: 'INR', method: 'upi', note: 'Opening payment', paidAt: now - day, status: 'recorded' },
@@ -925,10 +929,11 @@ async function mockAdminSoftware(page, options = {}) {
     const rows = memberships[customerId] || [];
     return rows.find((item) => item.status === 'active') || rows.find((item) => item.status === 'scheduled') || rows.find((item) => item.status === 'expired') || rows.find((item) => item.status === 'cancelled') || null;
   };
-  const customerListItem = (customer) => ({ ...customer, membership: currentForList(customer.id) });
+  const customerListItem = (customer) => ({ ...customer, membership: customer.personType === 'staff' ? null : currentForList(customer.id) });
   const customerDetail = (customerId) => {
     const customer = findCustomer(customerId);
     const rows = memberships[customerId] || [];
+    if (customer?.personType === 'staff') return { customer: { ...customer } };
     return {
       customer: { ...customer },
       membership: {
@@ -941,15 +946,19 @@ async function mockAdminSoftware(page, options = {}) {
       notifications: notifications.filter((item) => item.customerId === customerId),
     };
   };
-  const feeRows = (query = '', pendingOnly = false) => {
+  const feeRows = (query = '', balance = '') => {
     const needle = query.toLowerCase();
     return allMemberships().filter((membership) => membership.status !== 'cancelled').map((membership) => {
       const customer = findCustomer(membership.customerId);
       return { customerId: customer?.id, customerName: customer?.displayName, phone: customer?.phone, membership };
-    }).filter((item) => (!needle || `${item.customerName || ''} ${item.phone || ''}`.toLowerCase().includes(needle)) && (!pendingOnly || Number(item.membership.payment?.pendingPaise || 0) > 0)).sort((a, b) => Number(b.membership.payment?.pendingPaise || 0) - Number(a.membership.payment?.pendingPaise || 0));
+    }).filter((item) => {
+      const pending = Number(item.membership.payment?.pendingPaise || 0);
+      const matchesSearch = !needle || `${item.customerName || ''} ${item.phone || ''} ${item.membership.membershipNumber || ''}`.toLowerCase().includes(needle);
+      return matchesSearch && (!balance || (balance === 'pending' ? pending > 0 : pending === 0));
+    }).sort((a, b) => Number(b.membership.payment?.pendingPaise || 0) - Number(a.membership.payment?.pendingPaise || 0));
   };
   const dashboardPayload = () => {
-    const pending = feeRows('', true);
+    const pending = feeRows('', 'pending');
     const active = allMemberships().filter((item) => item.status === 'active');
     const expiring = { expired: [], today: [], tomorrow: [], threeDays: [], sevenDays: [] };
     for (const membership of active) {
@@ -960,7 +969,7 @@ async function mockAdminSoftware(page, options = {}) {
       else if (membership.daysRemaining <= 3) expiring.threeDays.push(row);
       else expiring.sevenDays.push(row);
     }
-    for (const customer of customers) {
+    for (const customer of customers.filter((item) => item.personType === 'member')) {
       const rows = memberships[customer.id] || [];
       if (rows.some((item) => ['active', 'scheduled'].includes(item.status))) continue;
       const membership = rows.filter((item) => item.status === 'expired').sort((a, b) => b.endsAt - a.endsAt)[0];
@@ -970,19 +979,20 @@ async function mockAdminSoftware(page, options = {}) {
     const pendingFees = pending.map((item) => ({ customerId: item.customerId, customerName: item.customerName, membershipId: item.membership.id, membershipNumber: item.membership.membershipNumber, planName: item.membership.planName, endsAt: item.membership.endsAt, ...item.membership.payment }));
     return {
       stats: {
-        totalCustomers: customers.length,
+        totalCustomers: customers.filter((item) => item.personType === 'member').length,
+        totalStaff: customers.filter((item) => item.personType === 'staff').length,
         activeMembers: active.length,
         expiringSoon: ['today', 'tomorrow', 'threeDays', 'sevenDays'].flatMap((key) => expiring[key]).length,
-        expiredMembers: customers.filter((customer) => (memberships[customer.id] || []).some((m) => m.status === 'expired') && !(memberships[customer.id] || []).some((m) => ['active', 'scheduled'].includes(m.status))).length,
+        expiredMembers: customers.filter((customer) => customer.personType === 'member' && (memberships[customer.id] || []).some((m) => m.status === 'expired') && !(memberships[customer.id] || []).some((m) => ['active', 'scheduled'].includes(m.status))).length,
         pendingFeesTotalPaise: pending.reduce((sum, item) => sum + Number(item.membership.payment?.pendingPaise || 0), 0),
-        newCustomersThisMonth: customers.filter((customer) => customer.createdAt >= now - 31 * day).length,
+        newCustomersThisMonth: customers.filter((customer) => customer.personType === 'member' && customer.joinedAt >= now - 31 * day).length,
         paymentsReceivedTodayPaise: payments.filter((item) => item.paidAt >= now - day).reduce((sum, item) => sum + item.amountPaise, 0),
         paymentsReceivedThisMonthPaise: payments.filter((item) => item.paidAt >= now - 31 * day).reduce((sum, item) => sum + item.amountPaise, 0),
       },
       expiring,
       pendingFees: pendingFees.slice(0, 12),
       recentPayments: [...payments].sort((a, b) => b.paidAt - a.paidAt).slice(0, 8),
-      recentCustomers: [...customers].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8).map(customerListItem),
+      recentCustomers: [...customers].filter((item) => item.personType === 'member').sort((a, b) => b.createdAt - a.createdAt).slice(0, 8).map(customerListItem),
     };
   };
   const json = (route, status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -1006,19 +1016,30 @@ async function mockAdminSoftware(page, options = {}) {
       const body = route.request().postDataJSON(); createBodies.push(body);
       if (customers.some((item) => item.phone === body.phone)) return json(route, 409, { error: 'admin_software_conflict' });
       if (!body.displayName || String(body.displayName).trim().length < 2 || !String(body.phone || '').startsWith('+')) return json(route, 422, { error: 'admin_software_validation', fields: { phone: 'Use an international mobile number such as +919876543210' } });
+      const personType = body.personType || 'member';
+      const id = `cust-new-${createBodies.length}`;
+      const customer = { id, displayName: body.displayName, phone: body.phone, phoneVerified: false, email: null, status: body.status || 'active', personType, joinedAt: Number(body.joinedAt || body.startsAt || now), designation: body.designation || null, note: body.note || null, createdAt: now, lastLoginAt: null };
+      if (personType === 'staff') {
+        if (!body.designation || !body.joinedAt) return json(route, 422, { error: 'admin_software_validation', fields: { designation: 'Select a staff designation' } });
+        customers.unshift(customer); memberships[id] = [];
+        return json(route, 201, { customer, membership: null, payment: null, paymentSummary: null });
+      }
       const plan = plans.find((item) => item.id === body.planId); if (!plan) return json(route, 404, { error: 'admin_software_not_found' });
       const paid = Number(body.amountPaidPaise || 0); if (paid > plan.pricePaise) return json(route, 409, { error: 'admin_software_conflict' });
-      const id = `cust-new-${createBodies.length}`; const customer = { id, displayName: body.displayName, phone: body.phone, phoneVerified: false, email: null, status: 'active', createdAt: now, lastLoginAt: null };
       customers.unshift(customer);
       const startsAt = Number(body.startsAt || now); const membership = { id: `mem-new-${createBodies.length}`, membershipNumber: `GF-NEW-${createBodies.length}`, customerId: id, planId: plan.id, planName: plan.name, pricePaise: plan.pricePaise, currency: plan.currency, durationMonths: plan.durationMonths, status: 'active', startsAt, endsAt: startsAt + plan.durationMonths * 30 * day, daysRemaining: plan.durationMonths * 30, source: 'admin_manual', createdAt: now, payment: { totalPaise: plan.pricePaise, paidPaise: paid, pendingPaise: plan.pricePaise - paid } };
       memberships[id] = [membership]; let payment = null;
       if (paid > 0) { payment = { id: `pay-new-${createBodies.length}`, membershipId: membership.id, membershipNumber: membership.membershipNumber, customerId: id, customerName: customer.displayName, amountPaise: paid, currency: plan.currency, method: body.paymentMethod, note: body.note || null, paidAt: now, status: 'recorded' }; payments.unshift(payment); }
       return json(route, 201, { customer, membership, payment, paymentSummary: membership.payment });
     }
-    const params = new URL(route.request().url()).searchParams; const q = (params.get('q') || '').toLowerCase(); customerQueries.push(q); const status = params.get('status') || ''; const membershipStatus = params.get('membershipStatus') || ''; const planId = params.get('planId') || '';
+    const params = new URL(route.request().url()).searchParams; const q = (params.get('q') || '').toLowerCase(); customerQueries.push(q); const status = params.get('status') || ''; const personType = params.get('personType') || ''; const membershipStatus = params.get('membershipStatus') || ''; const planId = params.get('planId') || '';
     const delay = Number(customerDelays[q] || 0); if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
     if (customerMode === 'error') return json(route, 503, { error: 'temporary_failure' });
-    let rows = customers.filter((customer) => (!q || `${customer.displayName} ${customer.phone || ''}`.toLowerCase().includes(q)) && (!status || customer.status === status)).map(customerListItem);
+    let rows = customers.filter((customer) => {
+      const membershipNumbers = (memberships[customer.id] || []).map((item) => item.membershipNumber).join(' ');
+      const searchable = `${customer.displayName} ${customer.phone || ''} ${customer.designation || ''} ${membershipNumbers}`.toLowerCase();
+      return (!q || searchable.includes(q)) && (!status || customer.status === status) && (!personType || customer.personType === personType);
+    }).map(customerListItem);
     if (membershipStatus) rows = rows.filter((item) => (item.membership?.status || 'none') === membershipStatus);
     if (planId) rows = rows.filter((item) => item.membership?.planId === planId);
     return json(route, 200, { customers: customerMode === 'empty' ? [] : rows });
@@ -1041,7 +1062,7 @@ async function mockAdminSoftware(page, options = {}) {
     if (route.request().method() === 'PATCH') {
       const body = route.request().postDataJSON(); editBodies.push({ customerId, ...body });
       if (body.phone && customers.some((item) => item.id !== customerId && item.phone === body.phone)) return json(route, 409, { error: 'admin_software_conflict' });
-      Object.assign(customer, { ...(body.displayName !== undefined ? { displayName: body.displayName } : {}), ...(body.phone !== undefined ? { phone: body.phone, phoneVerified: false } : {}), ...(body.status !== undefined ? { status: body.status } : {}) });
+      Object.assign(customer, { ...(body.displayName !== undefined ? { displayName: body.displayName } : {}), ...(body.phone !== undefined ? { phone: body.phone, phoneVerified: false } : {}), ...(body.status !== undefined ? { status: body.status } : {}), ...(body.designation !== undefined ? { designation: body.designation } : {}), ...(body.joinedAt !== undefined ? { joinedAt: body.joinedAt } : {}), ...(body.note !== undefined ? { note: body.note } : {}) });
       return json(route, 200, { customer: { ...customer } });
     }
     return json(route, 200, customerDetail(customerId));
@@ -1071,10 +1092,10 @@ async function mockAdminSoftware(page, options = {}) {
     const rows = payments.filter((item) => (!customerId || item.customerId === customerId) && (!membershipId || item.membershipId === membershipId)); return json(route, 200, { payments: rows });
   });
   await page.route(/\/api\/admin\/fees(?:\?.*)?$/, async (route) => {
-    const params = new URL(route.request().url()).searchParams; const q = (params.get('q') || '').toLowerCase(); const pendingOnly = params.get('pendingOnly') === '1';
-    feeQueries.push({ q, pendingOnly });
+    const params = new URL(route.request().url()).searchParams; const q = (params.get('q') || '').toLowerCase(); const balance = params.get('balance') || (params.get('pendingOnly') === '1' ? 'pending' : '');
+    feeQueries.push({ q, balance });
     const delay = Number(feeDelays[q] || 0); if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-    const rows = feeRows(q, pendingOnly);
+    const rows = feeRows(q, balance);
     return json(route, 200, { pendingFeesTotalPaise: rows.reduce((sum, item) => sum + Number(item.membership.payment?.pendingPaise || 0), 0), rows });
   });
 
@@ -1107,7 +1128,7 @@ test('admin password-only login enters the operational gym dashboard', async ({ 
   await expect(page.locator('#factorForm')).toBeHidden();
   await expect(page.locator('#app')).toBeVisible();
   await expect(page.locator('#viewTitle')).toHaveText('Home');
-  for (const label of ['Total Customers', 'Active Members', 'Expiring Soon', 'Expired Members', 'Pending Fees', 'New This Month', 'Payments Today', 'Payments This Month']) {
+  for (const label of ['Total Members', 'Staff', 'Active Members', 'Expiring Today', 'Expiring Soon', 'Expired Members', 'Pending Fees', 'New Members This Month', 'Payments Today', 'Payments This Month']) {
     await expect(page.locator('#stats')).toContainText(label);
   }
   await expect(page.locator('#dashboardExpiringBody')).toContainText('Asha Sharma');
@@ -1146,7 +1167,7 @@ test('manual follow-ups open a ready WhatsApp message for expiring and expired m
 });
 
 
-test('customers workspace supports search filters detail history and status changes', async ({ page }) => {
+test('people workspace supports member search filters detail history and status changes', async ({ page }) => {
   test.setTimeout(60_000);
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page);
@@ -1156,7 +1177,6 @@ test('customers workspace supports search filters detail history and status chan
   await page.locator('#memberSearch').fill('Asha');
   await expect(page.locator('#membersBody tr')).toHaveCount(1);
   await expect(page.locator('#membersBody')).toContainText('Pro');
-  await expect(page.locator('#membersBody')).toContainText(/999/);
   await page.locator('#memberSearch').fill('');
   await page.locator('#customerMembershipFilter').selectOption('none');
   await expect(page.locator('#membersBody')).toContainText('Disabled Member');
@@ -1173,7 +1193,7 @@ test('customers workspace supports search filters detail history and status chan
   await expect(drawer).toContainText('Payment history');
   await expect(drawer).toContainText('Opening payment');
   await expect(drawer).toContainText('7-day expiry reminder');
-  await drawer.getByRole('button', { name: 'Edit Customer' }).click();
+  await drawer.getByRole('button', { name: 'Edit Member' }).click();
   await page.locator('#editCustomerName').fill('Asha Sharma Updated');
   await page.locator('#submitEditCustomer').click();
   await expect(page.locator('#editCustomerDialog')).not.toBeVisible();
@@ -1191,13 +1211,13 @@ test('customers workspace supports search filters detail history and status chan
   await expect(drawer.getByRole('button', { name: 'Disable account' })).toBeFocused();
   expect(fixture.editBodies.length).toBe(editsAfterName);
   await drawer.getByRole('button', { name: 'Disable account' }).click();
-  await accessDialog.getByRole('button', { name: 'Disable customer' }).click();
+  await accessDialog.getByRole('button', { name: 'Disable member' }).click();
   await expect(accessDialog).not.toBeVisible();
-  await expect(drawer).toContainText('disabled');
+  await expect(page.locator('#customerDrawerMeta')).toContainText('inactive');
   await expect(drawer.getByRole('button', { name: 'Enable account' })).toBeFocused();
   await drawer.getByRole('button', { name: 'Enable account' }).click();
   await expect(drawer).toContainText('active');
-  await drawer.getByRole('button', { name: 'Edit Customer' }).click();
+  await drawer.getByRole('button', { name: 'Edit Member' }).click();
   const editDialog = page.locator('#editCustomerDialog');
   const editsBeforeMobile = fixture.editBodies.length;
   await page.locator('#editCustomerStatus').selectOption('disabled');
@@ -1220,7 +1240,7 @@ test('customers workspace supports search filters detail history and status chan
   expect(runtimeProblems).toEqual([]);
 });
 
-test('add customer is transactional accessible and rejects duplicate mobile', async ({ page }) => {
+test('add member is transactional accessible and rejects duplicate mobile', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1235,6 +1255,10 @@ test('add customer is transactional accessible and rejects duplicate mobile', as
   await page.locator('#newCustomerReceived').fill('300');
   await page.locator('#newCustomerPaymentMethod').selectOption('upi');
   await page.locator('#newCustomerNote').fill('Reception onboarding');
+  await page.locator('#newCustomerStart').fill('2026-01-31');
+  await expect(page.locator('#newCustomerExpiry')).toHaveText('28 Feb 2026');
+  const historicalStart = new Date(Date.now() - 20 * 86400 * 1000).toISOString().slice(0, 10);
+  await page.locator('#newCustomerStart').fill(historicalStart);
   await expect(page.locator('#newCustomerFee')).toHaveValue(/999/);
   await expect(page.locator('#newCustomerPending')).toContainText(/699/);
   await expect(dialog).toContainText('Final membership dates and balances are calculated by the server.');
@@ -1249,16 +1273,82 @@ test('add customer is transactional accessible and rejects duplicate mobile', as
   await expect(page.locator('#customerDrawerBody')).toContainText(/699/);
   expect(fixture.createBodies[0].phone).toBe('+919876500000');
   expect(fixture.createBodies[0].amountPaidPaise).toBe(30000);
-  await page.locator('#customerDrawer [aria-label="Close customer profile"]').click();
+  expect(fixture.createBodies[0].startsAt).toBeLessThan(Math.floor(Date.now() / 1000) - 86400);
+  await page.locator('#customerDrawer [aria-label="Close person profile"]').click();
   await trigger.click();
   await page.locator('#newCustomerName').fill('Duplicate Asha');
   await page.locator('#newCustomerMobile').fill('9876543210');
   await page.locator('#submitNewCustomer').click();
-  await expect(page.locator('#addCustomerError')).toHaveText('A customer with this mobile number already exists.');
+  await expect(page.locator('#addCustomerError')).toHaveText('A person with this mobile number already exists.');
   await expect(dialog).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible();
   expect(runtimeProblems.filter((problem) => !problem.includes('409 (Conflict)'))).toEqual([]);
+});
+
+test('staff records stay separate from memberships, fees, follow-ups and portal access', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  await page.goto('/admin');
+  await page.locator('#membersNav').click();
+  await expect(page.locator('#membersBody')).not.toContainText('Asha Trainer');
+  await page.locator('#personTypeFilter').selectOption('staff');
+  await expect(page.locator('#membersBody')).toContainText('Asha Trainer');
+  await expect(page.locator('#membersBody')).toContainText('Personal trainer');
+  await expect(page.locator('[data-member-filter]').first()).toBeHidden();
+  await page.locator('#membersBody').getByRole('button', { name: 'Open' }).click();
+  const drawer = page.locator('#customerDrawer');
+  await expect(drawer).toContainText('Staff record');
+  await expect(drawer).toContainText('Portal access');
+  await expect(drawer).toContainText('Not granted by this record');
+  await expect(drawer.getByRole('button', { name: 'Record Payment' })).toHaveCount(0);
+  await expect(drawer.getByRole('button', { name: 'Renew Membership' })).toHaveCount(0);
+  await expect(drawer.getByRole('button', { name: 'Send WhatsApp' })).toHaveCount(0);
+  await drawer.getByRole('button', { name: 'Edit Staff' }).click();
+  await expect(page.locator('#editStaffFields')).toBeVisible();
+  await page.locator('#editStaffDesignation').selectOption('manager');
+  await page.locator('#editCustomerNote').fill('Promoted to manager');
+  await page.locator('#submitEditCustomer').click();
+  await expect(drawer).toContainText('Manager');
+  await drawer.getByLabel('Close person profile').click();
+
+  await page.locator('#headerAddCustomer').click();
+  await page.locator('#newPersonType').selectOption('staff');
+  await expect(page.locator('[data-person-fields="member"]')).toBeHidden();
+  await expect(page.locator('[data-person-fields="staff"]')).toBeVisible();
+  await expect(page.locator('#addPersonHint')).toContainText('does not grant portal login access');
+  await page.locator('#newCustomerName').fill('New Receptionist');
+  await page.locator('#newCustomerMobile').fill('9876500011');
+  await page.locator('#newStaffDesignation').selectOption('receptionist');
+  await page.locator('#newCustomerNote').fill('Morning shift');
+  await page.locator('#submitNewCustomer').click();
+  await expect(drawer).toContainText('New Receptionist');
+  const body = fixture.createBodies.at(-1);
+  expect(body.personType).toBe('staff');
+  expect(body.designation).toBe('receptionist');
+  expect(body).not.toHaveProperty('planId');
+  expect(body).not.toHaveProperty('amountPaidPaise');
+  await expect(page.locator('#adminsView')).toContainText('Portal login accounts are separate from operational staff records');
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('home stat cards open their matching operational filters', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  await mockAdminSoftware(page);
+  await page.goto('/admin');
+  await page.locator('#stats').getByRole('button', { name: /^Staff:/ }).click();
+  await expect(page.locator('#viewTitle')).toHaveText('People');
+  await expect(page.locator('#personTypeFilter')).toHaveValue('staff');
+  await expect(page.locator('#membersBody')).toContainText('Asha Trainer');
+  await page.evaluate(() => window.GravityAdminCore.openView('dashboard'));
+  await page.locator('#stats').getByRole('button', { name: /^Expiring Soon:/ }).click();
+  await expect(page.locator('#viewTitle')).toHaveText('Follow-ups');
+  await expect(page.locator('#followupFilter')).toHaveValue('next7');
+  await page.evaluate(() => window.GravityAdminCore.openView('dashboard'));
+  await page.locator('#stats').getByRole('button', { name: /^Pending Fees:/ }).click();
+  await expect(page.locator('#viewTitle')).toHaveText('Fees');
+  await expect(page.locator('#feeBalanceFilter')).toHaveValue('pending');
+  expect(runtimeProblems).toEqual([]);
 });
 
 test('renewal is server-backed with opening payment and preserved history', async ({ page }) => {
@@ -1483,16 +1573,16 @@ test('admin software stays usable across desktop tablet mobile zoom keyboard and
   expect(runtimeProblems).toEqual([]);
 });
 
-test('admin customer empty and API failure states are explicit and console-safe', async ({ page }) => {
+test('admin people empty and API failure states are explicit and console-safe', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page, { customerMode: 'empty' });
   await page.goto('/admin');
   await page.locator('#membersNav').click();
-  await expect(page.locator('#membersBody')).toContainText('No customers match these filters.');
+  await expect(page.locator('#membersBody')).toContainText('No people match these filters.');
   fixture.setCustomerMode('error');
   await page.locator('#memberSearch').fill('failure');
   await expect(page.locator('#flash')).toBeVisible();
-  await expect(page.locator('#flash')).toContainText('Customer list is temporarily unavailable.');
+  await expect(page.locator('#flash')).toContainText('People directory is temporarily unavailable.');
   expect(runtimeProblems.filter((problem) => !problem.includes('503 (Service Unavailable)'))).toEqual([]);
 });
 
@@ -1519,7 +1609,7 @@ test('trainer sees coaching and read-only member operations without financial or
   await expect(page.locator('#dashboardFeesPanel')).toBeHidden();
   await expect(page.locator('#dashboardPaymentsPanel')).toBeHidden();
   await page.locator('#membersNav').click();
-  await expect(page.locator('#membersBody')).toContainText('Restricted');
+  await expect(page.locator('#membersBody')).not.toContainText('₹');
   await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
   const drawer = page.locator('#customerDrawer');
   await expect(drawer).not.toContainText('Payment summary');
@@ -1549,7 +1639,7 @@ test('reception gets customer membership fee and enquiry operations but not adva
   await expect(page.locator('#adminsNav')).toBeHidden();
   await expect(page.locator('#headerAddCustomer')).toBeVisible();
   await page.locator('#membersNav').click();
-  await expect(page.locator('#membersBody')).toContainText('₹999');
+  await expect(page.locator('#membersBody')).toContainText('Pro');
   await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
   const drawer = page.locator('#customerDrawer');
   await expect(drawer).toContainText('Payment summary');
@@ -1703,7 +1793,7 @@ test('dashboard failure renders an inline retry state and recovers without navig
   await expect(retry).toBeVisible();
   fixture.setDashboardMode('ok');
   await retry.click();
-  await expect(page.locator('#stats')).toContainText('Total Customers');
+  await expect(page.locator('#stats')).toContainText('Total Members');
   fixture.setDashboardMode('forbidden');
   await page.evaluate(() => window.GravityAdminDashboard.renderWorkspace());
   await expect(page.locator('#stats')).toContainText('Dashboard access denied');
@@ -1734,7 +1824,7 @@ test('owner Team access explains least-privilege staff roles before creation', a
   await page.locator('#advancedNav summary').click();
   await page.locator('#adminsNav').click();
   await expect(page.locator('#adminsView')).toBeVisible();
-  await expect(page.locator('#adminsView')).toContainText('Give each staff member only the access needed');
+  await expect(page.locator('#adminsView')).toContainText('Portal login accounts are separate from operational staff records');
   await expect(page.locator('#adminsBody')).toContainText('Owner');
   await page.locator('#newAdmin').click();
   await expect(page.locator('#newRole')).toHaveValue('reception');
@@ -1843,7 +1933,7 @@ test('admin long content stays contained at 320px and low-height dialogs stay us
   const bounds = await dialog.boundingBox();
   expect(bounds.y).toBeGreaterThanOrEqual(0);
   expect(bounds.y + bounds.height).toBeLessThanOrEqual(568);
-  await expect(dialog.getByRole('button', { name: 'Add Customer', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Add Member', exact: true })).toBeVisible();
   await expectNoOverflow(page);
   expect(runtimeProblems).toEqual([]);
 });
@@ -1856,7 +1946,7 @@ test('admin deterministic 0 1 50 200 row datasets stay bounded without duplicate
   await page.route('**/api/admin/notifications?limit=100', (route) => json(route, { providerBlockers: {}, notifications: notificationRows }));
   await page.route('**/api/admin/enquiries*', (route) => json(route, { enquiries: enquiryRows }));
   await page.route('**/api/admin/admins', (route) => json(route, { admins: staffRows }));
-  await page.route('**/api/admin/members?q=*', (route) => json(route, { members: coachingRows }));
+  await page.route('**/api/admin/customers?personType=member&status=active&limit=500', (route) => json(route, { customers: coachingRows }));
   await page.route(/\/api\/admin\/coaching\/members\/[^/]+$/, (route) => json(route, { coaching: { latestMeasurements: {}, goals: [], currentDiet: null } }));
   await page.route('**/api/admin/coaching/diets', (route) => json(route, { templates: [] }));
   await page.route('**/api/admin/readiness', (route) => json(route, { readiness: {
@@ -1877,7 +1967,7 @@ test('admin deterministic 0 1 50 200 row datasets stay bounded without duplicate
     for (let index = 0; index < size; index += 1) {
       const id = `stress-customer-${index}`; const membershipId = `stress-membership-${index}`;
       const displayName = `Stress Customer ${String(index).padStart(3, '0')}`;
-      fixture.customers.push({ id, displayName, phone: `+9197${String(index).padStart(8, '0')}`, phoneVerified: true, email: null, status: 'active', createdAt: 1787990000 - index, lastLoginAt: null });
+      fixture.customers.push({ id, displayName, phone: `+9197${String(index).padStart(8, '0')}`, phoneVerified: true, email: null, status: 'active', personType: 'member', joinedAt: 1787990000 - index, designation: null, note: null, createdAt: 1787990000 - index, lastLoginAt: null });
       fixture.memberships[id] = [{ id: membershipId, membershipNumber: `GF-STRESS-${index}`, customerId: id, planId: 'plan-pro', planName: 'Pro', pricePaise: 999999900, currency: 'INR', durationMonths: 3, status: 'active', startsAt: 1787000000, endsAt: 1789000000, daysRemaining: index % 8, source: 'admin_manual', createdAt: 1787000000, payment: { totalPaise: 999999900, paidPaise: 10000, pendingPaise: 999989900 } }];
       fixture.payments.push({ id: `stress-payment-${index}`, membershipId, membershipNumber: `GF-STRESS-${index}`, customerId: id, customerName: displayName, amountPaise: 10000, currency: 'INR', method: 'upi', note: null, paidAt: 1787990000 - index, status: 'recorded' });
       fixture.auditEvents.push({ id: index + 1, username: `staff-${index}`, action: 'admin_login', targetType: 'admin_session', targetId: `session-${index}`, result: 'success', metadata: { requestId: `req-${index}` }, createdAt: 1787990000 - index });
@@ -1887,7 +1977,7 @@ test('admin deterministic 0 1 50 200 row datasets stay bounded without duplicate
       coachingRows.push({ id, displayName, phone: `+9197${String(index).padStart(8, '0')}` });
     }
     await page.evaluate(() => window.GravityAdminCore.openView('dashboard'));
-    await expect(page.locator('#stats')).toContainText(`Total Customers${size}`);
+    await expect(page.locator('#stats')).toContainText(`Total Members${size}`);
     await expect(page.locator('#dashboardFeesState .activity-row')).toHaveCount(Math.min(size, 6));
     await expect(page.locator('#recentCustomers .activity-row')).toHaveCount(Math.min(size, 8));
     await page.evaluate(() => window.GravityAdminCore.openView('members'));
@@ -1901,6 +1991,10 @@ test('admin deterministic 0 1 50 200 row datasets stay bounded without duplicate
     await page.evaluate(() => window.GravityAdminCore.openView('fees'));
     await expect(page.locator('#feesBody tr')).toHaveCount(size || 1);
     await page.evaluate(() => window.GravityAdminCore.openView('notifications'));
+    await page.evaluate(async () => {
+      document.querySelector('#automaticMessagingPanel').open = true;
+      await window.GravityNotificationAdmin.renderWorkspace();
+    });
     await expect(page.locator('.notification-admin-card')).toHaveCount(size);
     await page.evaluate(() => window.GravityAdminCore.openView('enquiries'));
     await expect(page.locator('#enquiriesBody tr')).toHaveCount(size || 1);
@@ -1935,7 +2029,7 @@ test('admin advanced workspaces contain long content on low-height mobile and 20
   await page.route('**/api/admin/enquiries*', (route) => json(route, { enquiries: [longEnquiry] }));
   await page.route('**/api/admin/enquiries/long-enquiry', (route) => json(route, { enquiry: longEnquiry }));
   await page.route('**/api/admin/admins', (route) => json(route, { admins: [{ id: 'long-staff', username: longWord, role: 'admin', status: 'active' }] }));
-  await page.route('**/api/admin/members?q=*', (route) => json(route, { members: [{ id: 'long-member', displayName: longWord, phone: '+919876543210' }] }));
+  await page.route('**/api/admin/customers?personType=member&status=active&limit=500', (route) => json(route, { customers: [{ id: 'long-member', displayName: longWord, phone: '+919876543210', personType: 'member', status: 'active' }] }));
   await page.route(/\/api\/admin\/coaching\/members\/[^/]+$/, (route) => json(route, { coaching: { latestMeasurements: { long: { metricKey: longWord, value: 123, unit: longWord } }, goals: [{ metricKey: longWord, targetValue: 456, unit: longWord, status: 'active' }], currentDiet: { plan: { title: longWord, version: 99 } } } }));
   await page.route('**/api/admin/coaching/diets', (route) => json(route, { templates: [] }));
   await page.route('**/api/admin/readiness', (route) => json(route, { readiness: {
@@ -1985,7 +2079,7 @@ test('admin coaching creates versions and assigns them after async form submissi
   const fixture = await mockAdminSoftware(page);
   const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   let templates = []; let versions = []; let assigned = null;
-  await page.route('**/api/admin/members?q=*', (route) => json(route, { members: fixture.customers.filter((item) => item.status === 'active').map((item) => ({ id: item.id, displayName: item.displayName, phone: item.phone })) }));
+  await page.route('**/api/admin/customers?personType=member&status=active&limit=500', (route) => json(route, { customers: fixture.customers.filter((item) => item.status === 'active' && item.personType === 'member').map((item) => ({ id: item.id, displayName: item.displayName, phone: item.phone, personType: 'member', status: 'active' })) }));
   await page.route('**/api/admin/coaching/diets', (route) => {
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON();

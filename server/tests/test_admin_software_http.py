@@ -180,6 +180,35 @@ class AdminSoftwareHttpTests(unittest.TestCase):
             self.assertEqual(dashboard["stats"]["totalCustomers"], 1)
             self.assertEqual(dashboard["stats"]["activeMembers"], 1)
 
+            status, staff = request_json(
+                base,
+                "/api/admin/customers",
+                method="POST",
+                body={
+                    "personType": "staff",
+                    "displayName": "Asha Trainer",
+                    "phone": "+919876500010",
+                    "designation": "trainer",
+                    "joinedAt": int(time.time()) - 86400,
+                    "note": "Operational record only",
+                },
+                headers=headers,
+            )
+            self.assertEqual(status, 201)
+            self.assertIsNone(staff["membership"])
+            self.assertIsNone(staff["payment"])
+            status, staff_rows = request_json(base, "/api/admin/customers?personType=staff", headers=headers)
+            self.assertEqual(status, 200)
+            self.assertEqual([row["id"] for row in staff_rows["customers"]], [staff["customer"]["id"]])
+            status, staff_detail = request_json(
+                base, f"/api/admin/customers/{staff['customer']['id']}", headers=headers
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(set(staff_detail), {"customer"})
+            status, dashboard = request_json(base, "/api/admin/dashboard", headers=headers)
+            self.assertEqual(dashboard["stats"]["totalCustomers"], 1)
+            self.assertEqual(dashboard["stats"]["totalStaff"], 1)
+
     def test_mutations_require_origin_csrf_and_duplicate_phone_is_conflict(self):
         with running_server() as (server, base):
             issue, headers = prepare_owner(server, base)

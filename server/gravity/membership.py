@@ -15,6 +15,8 @@ PLAN_CODE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{2,49}$")
 CURRENCY_PATTERN = re.compile(r"^[A-Z]{3}$")
 PLAN_STATUSES = {"active", "inactive"}
 LIVE_MEMBERSHIP_STATUSES = {"scheduled", "active"}
+HISTORICAL_START_LIMIT_SECONDS = 30 * 366 * 86400
+FUTURE_START_LIMIT_SECONDS = 366 * 86400
 
 
 class MembershipError(Exception):
@@ -390,13 +392,15 @@ class MembershipService:
 
     def _customer_exists(self, connection, customer_id: str) -> None:
         row = connection.execute(
-            "SELECT status FROM customers WHERE id=?",
+            "SELECT status,person_type FROM customers WHERE id=?",
             (customer_id,),
         ).fetchone()
         if row is None or row["status"] == "deleted":
             raise MembershipNotFound("Customer not found")
         if row["status"] != "active":
             raise MembershipConflict("Customer account is not active")
+        if row["person_type"] != "member":
+            raise MembershipConflict("Staff records cannot have memberships")
     def _create_membership_connection(
         self,
         connection,
@@ -435,8 +439,10 @@ class MembershipService:
                 start = int(starts_at)
             except (TypeError, ValueError) as error:
                 raise MembershipValidationError({"startsAt": "Start time must be a Unix timestamp"}) from error
-            if start < now - 86400:
-                raise MembershipValidationError({"startsAt": "Start time cannot be more than one day in the past"})
+            if start <= 0 or start < now - HISTORICAL_START_LIMIT_SECONDS:
+                raise MembershipValidationError({"startsAt": "Membership start date is outside the supported 30-year history"})
+            if start > now + FUTURE_START_LIMIT_SECONDS:
+                raise MembershipValidationError({"startsAt": "Membership start date cannot be more than one year in the future"})
         end = _add_months(start, int(plan["duration_months"]))
         if connection.execute(
             "SELECT 1 FROM memberships WHERE customer_id=? AND status IN ('scheduled','active') "
@@ -445,7 +451,7 @@ class MembershipService:
         ).fetchone():
             raise MembershipConflict("Membership period overlaps an existing live membership")
         membership_id = uuid4().hex
-        status = "active" if start <= now < end else "scheduled"
+        status = "expired" if end <= now else ("active" if start <= now else "scheduled")
         number = _membership_number(now)
         connection.execute(
             "INSERT INTO memberships(id,membership_number,customer_id,plan_id,plan_name_snapshot,"
@@ -472,6 +478,14 @@ class MembershipService:
                 "activated",
                 actor_admin_user_id=actor_admin_user_id,
                 metadata={"automatic": False},
+            )
+        elif status == "expired":
+            self._event(
+                connection,
+                membership_id,
+                "expired",
+                actor_admin_user_id=actor_admin_user_id,
+                metadata={"automatic": False, "historical": True},
             )
         row = connection.execute("SELECT * FROM memberships WHERE id=?", (membership_id,)).fetchone()
         return self._safe_membership(row, now=now)

@@ -15,7 +15,7 @@
     const body = $('feesBody'); const panel = $('feesPanel'); panel?.setAttribute('aria-busy', 'true'); body.replaceChildren(emptyRow('Loading fee balances...', 8));
     if (!hasPermission('payments.read')) { body.replaceChildren(emptyRow('You do not have permission to view fee balances.', 8)); $('feesPendingTotal').textContent = '--'; panel?.setAttribute('aria-busy', 'false'); return; }
     const query = $('feeSearch').value.trim(); const mode = $('feeBalanceFilter').value;
-    const params = new URLSearchParams(); if (query) params.set('q', query); if (mode === 'pending') params.set('pendingOnly', '1');
+    const params = new URLSearchParams(); if (query) params.set('q', query); params.set('balance', mode === 'all' ? '' : mode);
     let result;
     try { result = await core().api(`/api/admin/fees?${params.toString()}`); }
     catch (error) { if (requestId !== state.requestId) return; body.replaceChildren(emptyRow('Fee balances are temporarily unavailable. Retry or change the filters.', 8)); $('feesPendingTotal').textContent = '--'; throw error; }
@@ -23,8 +23,7 @@
     if (requestId !== state.requestId) return;
     body.replaceChildren();
     $('feesPendingTotal').textContent = moneyPaise(result.pendingFeesTotalPaise);
-    let rows = Array.isArray(result.rows) ? result.rows : [];
-    if (mode === 'paid') rows = rows.filter((item) => Number(item.membership?.payment?.pendingPaise || 0) === 0);
+    const rows = Array.isArray(result.rows) ? result.rows : [];
     for (const item of rows) {
       const membership = item.membership || {}; const payment = membership.payment || {};
       const row = document.createElement('tr');
@@ -60,5 +59,11 @@
   $('feeBalanceFilter').addEventListener('change', renderNow);
   $('refreshFees').addEventListener('click', renderNow);
 
-  window.GravityPaymentAdmin = { setAdmin(admin) { state.admin = admin; }, renderWorkspace };
+  window.GravityPaymentAdmin = {
+    setAdmin(admin) { state.admin = admin; }, renderWorkspace,
+    async setBalance(balance) {
+      $('feeBalanceFilter').value = ['pending', 'paid', 'all'].includes(balance) ? balance : 'all';
+      await renderWorkspace();
+    },
+  };
 })();

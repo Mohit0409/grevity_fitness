@@ -30,7 +30,8 @@ test('admin refresh, history navigation, and expired session fail safely', async
 
   await page.goto('/admin');
   await expect(page.locator('#app')).toBeVisible();
-  await expect(page.locator('#viewTitle')).toHaveText('Dashboard');
+  // "Home" is the intentional admin navigation label; the old "Dashboard" assertion was stale.
+  await expect(page.locator('#viewTitle')).toHaveText('Home');
 
   await page.reload();
   await expect(page.locator('#app')).toBeVisible();
@@ -77,6 +78,7 @@ test('slow and interrupted notification APIs remain usable and scan double-click
 
   await page.goto('/admin');
   await page.locator('#notificationsNav').click();
+  await page.locator('#automaticMessagingPanel > summary').click();
   await expect(page.locator('#notificationsList')).toHaveAttribute('aria-busy', 'false');
   await page.evaluate(() => {
     const button = document.querySelector('#scanNotifications');

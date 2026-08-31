@@ -13,13 +13,6 @@
     return hasPermission('progress.manage') && hasPermission('diet.manage');
   }
 
-  function csrfToken() {
-    const part = document.cookie.split(';').map((item) => item.trim()).find((item) =>
-      item.startsWith('gravity_admin_csrf=') || item.startsWith('__Host-gravity_admin_csrf=')
-    );
-    return part ? decodeURIComponent(part.slice(part.indexOf('=') + 1)) : '';
-  }
-
   function flash(message, kind = 'ok') {
     const node = $('flash');
     node.textContent = message;
@@ -30,26 +23,8 @@
   }
 
   async function api(path, options = {}) {
-    const request = { credentials: 'same-origin', ...options };
-    request.headers = { Accept: 'application/json', ...(options.headers || {}) };
-    if (options.body && typeof options.body !== 'string') {
-      request.body = JSON.stringify(options.body);
-      request.headers['Content-Type'] = 'application/json';
-    }
-    if (request.method && !['GET', 'HEAD'].includes(request.method)) {
-      const csrf = csrfToken();
-      if (csrf) request.headers['X-CSRF-Token'] = csrf;
-    }
-    const response = await fetch(path, request);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      if (response.status === 401) await window.GravityAdminCore?.refreshSession?.();
-      const error = new Error(data.error || `HTTP ${response.status}`);
-      error.status = response.status;
-      error.data = data;
-      throw error;
-    }
-    return data;
+    if (!window.GravityAdminCore?.api) throw new Error('Admin session is unavailable');
+    return window.GravityAdminCore.api(path, options);
   }
 
   function selectedMember() {
@@ -60,17 +35,9 @@
     return state.templates.find((item) => item.id === $('dietTemplateSelect').value) || null;
   }
 
-  async function syncAdmin() {
-    const session = await api('/api/admin/session');
-    if (!session.authenticated || !session.admin) return null;
-    state.admin = session.admin;
-    $('coachingNav').hidden = !canCoach();
-    return state.admin;
-  }
-
   async function loadMembers() {
-    const payload = await api('/api/admin/members?q=');
-    state.members = payload.members || [];
+    const payload = await api('/api/admin/customers?personType=member&status=active&limit=500');
+    state.members = payload.customers || [];
     const select = $('coachingMember');
     const previous = select.value || state.memberId;
     select.replaceChildren();
@@ -261,7 +228,6 @@
   }
 
   async function renderWorkspace() {
-    if (!state.admin) await syncAdmin();
     if (!canCoach()) return;
     await Promise.all([loadMembers(), loadTemplates()]);
     await renderMember();
@@ -293,10 +259,4 @@
     },
   };
 
-  const app = $('app');
-  const observer = new MutationObserver(() => {
-    if (!app.hidden) syncAdmin().catch(() => {});
-  });
-  observer.observe(app, { attributes: true, attributeFilter: ['hidden'] });
-  syncAdmin().catch(() => {});
 })();

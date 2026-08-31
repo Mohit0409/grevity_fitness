@@ -179,10 +179,10 @@ class PaymentService:
 
     def _plan_and_customer(self, connection, customer_id: str, plan_id: str):
         customer = connection.execute(
-            "SELECT id,status,display_name,email,phone_e164 FROM customers WHERE id=?",
+            "SELECT id,status,display_name,email,phone_e164,person_type FROM customers WHERE id=?",
             (customer_id,),
         ).fetchone()
-        if customer is None or customer["status"] != "active":
+        if customer is None or customer["status"] != "active" or customer["person_type"] != "member":
             raise PaymentValidationError({"customer": "Active customer account is required"})
         plan = connection.execute(
             "SELECT * FROM membership_plans WHERE id=? AND status='active'",

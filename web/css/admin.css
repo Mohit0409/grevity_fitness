@@ -470,8 +470,23 @@ button:disabled { cursor: not-allowed; opacity: .52; filter: none; }
 .followup-actions button { min-height: 40px; }
 .followup-empty { grid-column: 1 / -1; margin: 0; padding: 22px; border: 1px dashed #303a47; border-radius: 8px; color: #8994a3; text-align: center; }
 .automatic-delivery-panel { margin-top: 12px; border-style: dashed; background: #0b1015; }
+.people-filters { grid-template-columns: minmax(240px,1.4fr) repeat(4,minmax(125px,.55fr)); }
+.person-fields { display: contents; }
+.software-stat:is(button) { width: 100%; color: inherit; text-align: left; cursor: pointer; }
+.software-stat:is(button):hover { border-color: #526a32; background: #141c18; }
+.software-stat:is(button):focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.badge--inactive { color: #ff9ca6; border-color: #60333a; background: #241318; }
+.plan-form label, .inlineform label { display: grid; gap: 5px; min-width: 0; color: var(--muted); font-size: .69rem; }
+.plan-form label > input, .plan-form label > select, .inlineform label > input, .inlineform label > select { width: 100%; min-width: 0; }
+.automatic-delivery-panel { padding: 0; }
+.automatic-delivery-panel > summary { min-height: 56px; display: flex; align-items: center; padding: 0 16px; cursor: pointer; list-style: none; }
+.automatic-delivery-panel > summary::-webkit-details-marker { display: none; }
+.automatic-delivery-panel > summary span { display: grid; gap: 3px; }
+.automatic-delivery-panel > summary small { color: #7c8795; font-size: .65rem; }
+.automatic-delivery-panel > .panel-content { padding: 16px; border-top: 1px solid #202936; }
 @media (max-width: 900px) {
   .followup-list { grid-template-columns: 1fr; }
+  .people-filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media (max-width: 560px) {
   .followup-toolbar { align-items: stretch; flex-direction: column; }
@@ -480,4 +495,5 @@ button:disabled { cursor: not-allowed; opacity: .52; filter: none; }
   .followup-card-head { flex-direction: column; }
   .followup-facts { grid-template-columns: 1fr 1fr; }
   .followup-actions button { width: 100%; min-height: 44px; }
+  .people-filters { grid-template-columns: 1fr; }
 }

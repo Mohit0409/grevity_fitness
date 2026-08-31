@@ -36,6 +36,16 @@
     return ({ cash: 'Cash', upi: 'UPI', card: 'Card', bank_transfer: 'Bank transfer', other: 'Other' })[key] || (key ? key.replaceAll('_', ' ') : '--');
   }
 
+  function designationLabel(value) {
+    const key = String(value || '').toLowerCase();
+    return ({
+      trainer: 'Trainer', receptionist: 'Receptionist', manager: 'Manager', cleaner: 'Cleaner',
+      floor_trainer: 'Floor trainer', personal_trainer: 'Personal trainer', other: 'Other',
+    })[key] || (key ? key.replaceAll('_', ' ') : '--');
+  }
+
+  function isStaff(person = state.selected) { return person?.personType === 'staff'; }
+
   function normalizePhoneInput(value) {
     const raw = String(value || '').trim();
     const digits = raw.replace(/\D/g, '');
@@ -97,12 +107,12 @@
       if (message) return message;
     }
     if (error?.status === 409) {
-      if (context === 'add' || context === 'edit') return 'A customer with this mobile number already exists.';
+      if (context === 'add' || context === 'edit') return 'A person with this mobile number already exists.';
       if (context === 'payment') return 'Payment is higher than the server-calculated pending balance.';
       return 'The requested change conflicts with the current membership state.';
     }
     if (error?.status === 403) return 'Your admin role does not have permission for this action.';
-    if (error?.status === 404) return 'This customer or membership no longer exists.';
+    if (error?.status === 404) return 'This person or membership no longer exists.';
     return 'The operation could not be completed. Please retry.';
   }
 
@@ -137,44 +147,58 @@
     const mobile = $('customersMobileList'); mobile.replaceChildren();
     for (const member of state.customers) {
       const membership = member.membership;
+      const staff = isStaff(member);
       const payment = membership?.payment || {};
       const row = document.createElement('tr');
       const name = document.createElement('td');
-      const strong = document.createElement('strong'); strong.textContent = member.displayName || 'Customer';
-      const created = document.createElement('small'); created.textContent = `Since ${formatDate(member.createdAt)}`;
+      const strong = document.createElement('strong'); strong.textContent = member.displayName || 'Person';
+      const created = document.createElement('small'); created.textContent = `${staff ? 'Joined' : 'Member since'} ${formatDate(member.joinedAt || member.createdAt)}`;
       name.append(strong, document.createElement('br'), created);
       const phone = document.createElement('td'); phone.textContent = maskPhone(member.phone);
-      const plan = document.createElement('td'); plan.textContent = membership?.planName || '--';
+      const type = document.createElement('td'); type.textContent = staff ? 'Staff' : 'Member';
+      const plan = document.createElement('td'); plan.textContent = staff ? designationLabel(member.designation) : (membership?.planName || '--');
       const expiry = document.createElement('td'); expiry.textContent = membership ? formatDate(membership.endsAt) : '--';
-      const pending = document.createElement('td'); pending.textContent = !hasPermission('payments.read') ? 'Restricted' : (membership ? moneyPaise(payment.pendingPaise, membership.currency) : '--');
-      const status = document.createElement('td'); status.appendChild(statusBadge(member.status));
+      const status = document.createElement('td'); status.appendChild(statusBadge(member.status === 'disabled' ? 'inactive' : member.status));
       const action = document.createElement('td');
       const open = document.createElement('button'); open.type = 'button'; open.className = 'table-action'; open.textContent = 'Open';
       open.addEventListener('click', () => openCustomerById(member.id, open)); action.appendChild(open);
-      row.append(name, phone, plan, expiry, pending, status, action); body.appendChild(row);
+      row.append(name, phone, type, plan, expiry, status, action); body.appendChild(row);
 
       const card = document.createElement('article'); card.className = 'mobile-record'; card.setAttribute('role', 'listitem');
       const head = document.createElement('div'); head.className = 'mobile-record-head';
-      const label = document.createElement('div'); const cname = document.createElement('strong'); cname.textContent = member.displayName || 'Customer'; const cphone = document.createElement('small'); cphone.textContent = maskPhone(member.phone); label.append(cname, cphone); head.append(label, statusBadge(member.status));
+      const label = document.createElement('div'); const cname = document.createElement('strong'); cname.textContent = member.displayName || 'Person'; const cphone = document.createElement('small'); cphone.textContent = maskPhone(member.phone); label.append(cname, cphone); head.append(label, statusBadge(member.status === 'disabled' ? 'inactive' : member.status));
       const meta = document.createElement('dl'); meta.className = 'mobile-record-facts';
-      const facts = [['Plan', membership?.planName || '--'], ['Expiry', membership ? formatDate(membership.endsAt) : '--']];
-      if (hasPermission('payments.read')) facts.push(['Pending', membership ? moneyPaise(payment.pendingPaise, membership.currency) : '--']);
+      const facts = staff
+        ? [['Type', 'Staff'], ['Designation', designationLabel(member.designation)], ['Joined', formatDate(member.joinedAt)]]
+        : [['Type', 'Member'], ['Plan', membership?.planName || '--'], ['Expiry', membership ? formatDate(membership.endsAt) : '--']];
+      if (!staff && hasPermission('payments.read')) facts.push(['Pending', membership ? moneyPaise(payment.pendingPaise, membership.currency) : '--']);
       facts.forEach(([key, value]) => { const div = document.createElement('div'); const dt = document.createElement('dt'); dt.textContent = key; const dd = document.createElement('dd'); dd.textContent = value; div.append(dt, dd); meta.appendChild(div); });
-      const mobileOpen = document.createElement('button'); mobileOpen.type = 'button'; mobileOpen.className = 'table-action full-width'; mobileOpen.textContent = 'Open customer'; mobileOpen.addEventListener('click', () => openCustomerById(member.id, mobileOpen));
+      const mobileOpen = document.createElement('button'); mobileOpen.type = 'button'; mobileOpen.className = 'table-action full-width'; mobileOpen.textContent = 'Open person'; mobileOpen.addEventListener('click', () => openCustomerById(member.id, mobileOpen));
       card.append(head, meta, mobileOpen); mobile.appendChild(card);
     }
-    if (!body.children.length) body.appendChild(emptyRow('No customers match these filters.', 7));
-    if (!mobile.children.length) { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No customers match these filters.'; mobile.appendChild(empty); }
+    if (!body.children.length) body.appendChild(emptyRow('No people match these filters.', 7));
+    if (!mobile.children.length) { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No people match these filters.'; mobile.appendChild(empty); }
+  }
+
+  function syncPersonFilters() {
+    const value = $('personTypeFilter').value;
+    const memberOnly = value === 'member';
+    document.querySelectorAll('[data-member-filter]').forEach((node) => { node.hidden = !memberOnly; });
+    if (!memberOnly) {
+      $('customerMembershipFilter').value = '';
+      $('customerPlanFilter').value = '';
+    }
   }
 
   async function renderWorkspace() {
     await loadPlans();
     const requestId = ++state.listRequestId;
     const panel = $('customersPanel'); panel?.setAttribute('aria-busy', 'true');
-    $('membersBody').replaceChildren(emptyRow('Loading customers...', 7));
+    $('membersBody').replaceChildren(emptyRow('Loading people...', 7));
     const params = new URLSearchParams();
     const query = $('memberSearch').value.trim();
     if (query) params.set('q', query);
+    params.set('personType', $('personTypeFilter').value);
     if ($('customerStatusFilter').value) params.set('status', $('customerStatusFilter').value);
     if ($('customerMembershipFilter').value) params.set('membershipStatus', $('customerMembershipFilter').value);
     if ($('customerPlanFilter').value) params.set('planId', $('customerPlanFilter').value);
@@ -185,7 +209,7 @@
       renderCustomers();
     } catch (error) {
       if (requestId !== state.listRequestId) return;
-      $('membersBody').replaceChildren(emptyRow('Customer list is temporarily unavailable. Retry or change the filters.', 7));
+      $('membersBody').replaceChildren(emptyRow('People directory is temporarily unavailable. Retry or change the filters.', 7));
       throw error;
     } finally { if (requestId === state.listRequestId) panel?.setAttribute('aria-busy', 'false'); }
   }
@@ -244,20 +268,46 @@
   function renderCustomerProfile() {
     const detail = state.detail; if (!detail?.customer) return;
     const member = detail.customer;
+    const staff = isStaff(member);
     const current = detail.membership?.current || null;
     const upcoming = detail.membership?.upcoming || null;
     const body = $('customerDrawerBody'); body.replaceChildren();
-    $('customerDrawerName').textContent = member.displayName || 'Customer';
-    $('customerDrawerMeta').textContent = [member.phone || 'No mobile', `Customer since ${formatDate(member.createdAt)}`, String(member.status || 'unknown')].join(' | ');
+    $('customerDrawerName').textContent = member.displayName || 'Person';
+    $('customerDrawerMeta').textContent = [member.phone || 'No mobile', staff ? designationLabel(member.designation) : 'Member', member.status === 'disabled' ? 'inactive' : String(member.status || 'unknown')].join(' | ');
+
+    if (staff) {
+      const top = document.createElement('div'); top.className = 'profile-summary-grid';
+      const record = document.createElement('section'); record.className = 'profile-summary-card';
+      const heading = document.createElement('h4'); heading.textContent = 'Staff record';
+      const facts = document.createElement('div'); facts.className = 'profile-facts';
+      appendFact(facts, 'Designation', designationLabel(member.designation));
+      appendFact(facts, 'Joining date', formatDate(member.joinedAt));
+      appendFact(facts, 'Record status', member.status === 'disabled' ? 'Inactive' : 'Active');
+      appendFact(facts, 'Portal access', 'Not granted by this record');
+      if (member.note) appendFact(facts, 'Internal note', member.note);
+      record.append(heading, facts); top.appendChild(record); body.appendChild(top);
+      const notice = document.createElement('p'); notice.className = 'field-hint';
+      notice.textContent = 'Staff records never receive memberships, fees, customer login, coaching, reminders or WhatsApp follow-ups. Portal login accounts are managed separately in Team access.';
+      body.appendChild(notice);
+      const actions = document.createElement('div'); actions.className = 'profile-actions';
+      const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'ghost'; edit.textContent = 'Edit Staff'; edit.disabled = !hasPermission('members.manage'); edit.addEventListener('click', openEdit);
+      const toggle = document.createElement('button'); toggle.type = 'button'; toggle.id = 'customerAccessToggle'; toggle.className = 'ghost'; toggle.textContent = member.status === 'active' ? 'Mark inactive' : 'Mark active'; toggle.disabled = !hasPermission('members.manage'); toggle.addEventListener('click', () => toggleStatus(toggle));
+      actions.append(edit, toggle); body.appendChild(actions);
+      return;
+    }
 
     const top = document.createElement('div'); top.className = 'profile-summary-grid';
     const membership = document.createElement('section'); membership.className = 'profile-summary-card';
     const mh = document.createElement('h4'); mh.textContent = 'Current membership'; const facts = document.createElement('div'); facts.className = 'profile-facts';
+    const latestExpired = allMemberships().filter((item) => item.status === 'expired').sort((a, b) => Number(b.endsAt || 0) - Number(a.endsAt || 0))[0] || null;
     if (current) {
       appendFact(facts, 'Plan', current.planName || '--'); appendFact(facts, 'Membership', current.membershipNumber || '--'); appendFact(facts, 'Start', formatDate(current.startsAt)); appendFact(facts, 'Expiry', formatDate(current.endsAt)); appendFact(facts, 'Days remaining', String(current.daysRemaining ?? 0)); appendFact(facts, 'Status', String(current.status || '--'));
     } else if (upcoming) {
       appendFact(facts, 'Upcoming plan', upcoming.planName || '--'); appendFact(facts, 'Membership', upcoming.membershipNumber || '--'); appendFact(facts, 'Starts', formatDate(upcoming.startsAt)); appendFact(facts, 'Expiry', formatDate(upcoming.endsAt)); appendFact(facts, 'Status', 'scheduled');
-    } else { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No active or scheduled membership.'; facts.appendChild(empty); }
+    } else if (latestExpired) {
+      mh.textContent = 'Latest membership — expired';
+      appendFact(facts, 'Plan', latestExpired.planName || '--'); appendFact(facts, 'Membership', latestExpired.membershipNumber || '--'); appendFact(facts, 'Start', formatDate(latestExpired.startsAt)); appendFact(facts, 'Expired', formatDate(latestExpired.endsAt)); appendFact(facts, 'Status', 'expired');
+    } else { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No membership yet.'; facts.appendChild(empty); }
     membership.append(mh, facts);
 
     const payMembership = current || upcoming;
@@ -269,14 +319,13 @@
     payment.append(ph, pf); top.appendChild(membership); if (hasPermission('payments.read')) top.appendChild(payment); body.appendChild(top);
 
     const actions = document.createElement('div'); actions.className = 'profile-actions';
-    const latestExpired = allMemberships().filter((item) => item.status === 'expired').sort((a, b) => Number(b.endsAt || 0) - Number(a.endsAt || 0))[0] || null;
     const followupMembership = current && Number(current.daysRemaining ?? 999) <= 7 ? current : (!current && !upcoming ? latestExpired : null);
     if (followupMembership) { const whatsapp = document.createElement('button'); whatsapp.type = 'button'; whatsapp.className = 'whatsapp-action'; whatsapp.textContent = 'Send WhatsApp'; whatsapp.addEventListener('click', () => core()?.openWhatsAppReminder({ customerName: member.displayName, phone: member.phone, planName: followupMembership.planName, endsAt: followupMembership.endsAt, status: followupMembership.status, membershipNumber: followupMembership.membershipNumber })); actions.appendChild(whatsapp); }
     const pay = document.createElement('button'); pay.type = 'button'; pay.className = 'primary-action'; pay.textContent = 'Record Payment';
     const target = paymentTarget(); pay.disabled = !target || !hasPermission('payments.record'); pay.title = !target ? 'No pending membership balance' : '';
     pay.addEventListener('click', () => openRecordPayment(target, member));
     const renew = document.createElement('button'); renew.type = 'button'; renew.textContent = 'Renew Membership'; renew.disabled = !hasPermission('memberships.manage'); renew.addEventListener('click', openRenew);
-    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'ghost'; edit.textContent = 'Edit Customer'; edit.disabled = !hasPermission('members.manage'); edit.addEventListener('click', openEdit);
+    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'ghost'; edit.textContent = 'Edit Member'; edit.disabled = !hasPermission('members.manage'); edit.addEventListener('click', openEdit);
     const toggle = document.createElement('button'); toggle.type = 'button'; toggle.id = 'customerAccessToggle'; toggle.className = 'ghost'; toggle.textContent = member.status === 'active' ? 'Disable account' : 'Enable account'; toggle.disabled = !hasPermission('members.manage'); toggle.addEventListener('click', () => toggleStatus(toggle));
     if (hasPermission('payments.record')) actions.appendChild(pay);
     actions.append(renew, edit, toggle); body.appendChild(actions);
@@ -297,11 +346,11 @@
     if (!customerId) return;
     state.selected = { id: customerId }; state.opener = opener;
     const dialog = $('customerDrawer');
-    $('customerDrawerName').textContent = 'Customer';
-    $('customerDrawerBody').innerHTML = '<div class="software-loading">Loading customer profile...</div>';
+    $('customerDrawerName').textContent = 'Person';
+    $('customerDrawerBody').innerHTML = '<div class="software-loading">Loading person profile...</div>';
     if (!dialog.open) dialog.showModal();
     try { await refreshSelected(); }
-    catch (_) { $('customerDrawerBody').innerHTML = '<div class="software-empty error-state">Customer details are temporarily unavailable. Close and retry.</div>'; }
+    catch (_) { $('customerDrawerBody').innerHTML = '<div class="software-empty error-state">Person details are temporarily unavailable. Close and retry.</div>'; }
   }
 
   function openCustomer(member) { return openCustomerById(member?.id, document.activeElement); }
@@ -312,7 +361,10 @@
     setBusy(button, true, next === 'disabled' ? 'Disabling...' : 'Enabling...');
     try {
       await core().api(`/api/admin/customers/${encodeURIComponent(state.selected.id)}`, { method: 'PATCH', body: { status: next } });
-      core().flash(next === 'disabled' ? 'Customer disabled. Active customer sessions were revoked by the server.' : 'Customer enabled.');
+      const message = isStaff()
+        ? (next === 'disabled' ? 'Staff record marked inactive.' : 'Staff record marked active.')
+        : (next === 'disabled' ? 'Member disabled. Active member sessions were revoked by the server.' : 'Member enabled.');
+      core().flash(message);
       await refreshSelected(); await refreshRelated();
       return true;
     } catch (error) {
@@ -328,7 +380,13 @@
     if (next === 'disabled') {
       state.accessOpener = button || document.activeElement;
       $('customerAccessError').textContent = '';
-      $('customerAccessName').textContent = `Disable ${state.selected.displayName || 'this customer'}?`;
+      $('customerAccessTitle').textContent = isStaff() ? 'Mark staff inactive?' : 'Disable member?';
+      $('customerAccessName').textContent = isStaff() ? `Mark ${state.selected.displayName || 'this staff record'} inactive?` : `Disable ${state.selected.displayName || 'this member'}?`;
+      const explanation = $('customerAccessDialog').querySelector('.software-notice span');
+      explanation.textContent = isStaff()
+        ? 'The staff record stays in the directory but becomes inactive. This does not change any separate portal login account.'
+        : 'Disabling the member blocks customer login and revokes active customer sessions. Membership and payment records are not removed.';
+      $('confirmCustomerDisable').textContent = isStaff() ? 'Mark inactive' : 'Disable member';
       const dialog = $('customerAccessDialog');
       if (!dialog.open) dialog.showModal();
       $('confirmCustomerDisable').focus();
@@ -347,8 +405,24 @@
   function previewExpiry(startValue, months) {
     const date = startValue ? new Date(`${startValue}T12:00:00`) : new Date();
     if (Number.isNaN(date.getTime())) return '--';
-    date.setMonth(date.getMonth() + Number(months || 1));
-    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const targetMonth = date.getMonth() + Number(months || 1);
+    const targetYear = date.getFullYear() + Math.floor(targetMonth / 12);
+    const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+    const lastDay = new Date(targetYear, normalizedMonth + 1, 0).getDate();
+    const clamped = new Date(targetYear, normalizedMonth, Math.min(date.getDate(), lastDay), 12);
+    return clamped.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function localDateInput(date = new Date()) {
+    const year = date.getFullYear(); const month = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function installDateBounds(input) {
+    const today = new Date();
+    const earliest = new Date(today.getFullYear() - 30, today.getMonth(), today.getDate());
+    const latest = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+    input.min = localDateInput(earliest); input.max = localDateInput(latest);
   }
 
   function selectedPlan(selectId) { return state.plans.find((item) => item.id === $(selectId).value); }
@@ -360,27 +434,51 @@
     $('newCustomerPending').textContent = plan ? moneyPaise(Math.max(0, Number(plan.pricePaise || 0) - received), plan.currency) : '--';
   }
 
+  function syncAddPersonType() {
+    const staff = $('newPersonType').value === 'staff';
+    document.querySelectorAll('[data-person-fields]').forEach((group) => { group.hidden = group.dataset.personFields !== (staff ? 'staff' : 'member'); });
+    $('newCustomerPlan').required = !staff;
+    $('newCustomerStart').required = !staff;
+    $('newStaffDesignation').required = staff;
+    $('newStaffJoined').required = staff;
+    $('newMemberPreview').hidden = staff;
+    $('addPersonTitle').textContent = staff ? 'Add staff' : 'Add member';
+    $('submitNewCustomer').textContent = staff ? 'Add Staff' : 'Add Member';
+    $('addPersonHint').textContent = staff
+      ? 'This creates an operational staff record only. It does not grant portal login access.'
+      : 'Final membership dates and balances are calculated by the server.';
+  }
+
   async function openAddCustomer() {
     state.opener = document.activeElement; await loadPlans();
     const form = $('addCustomerForm'); form.reset(); $('addCustomerError').textContent = '';
     const select = $('newCustomerPlan'); select.replaceChildren();
     for (const plan of state.plans.filter((item) => item.status === 'active')) select.appendChild(new Option(`${plan.name} - ${moneyPaise(plan.pricePaise, plan.currency)}`, plan.id));
-    $('newCustomerStart').value = new Date().toISOString().slice(0, 10); $('newCustomerReceived').value = '0'; updateAddPreview();
+    const today = localDateInput();
+    $('newCustomerStart').value = today; $('newStaffJoined').value = today; $('newCustomerReceived').value = '0';
+    installDateBounds($('newCustomerStart')); installDateBounds($('newStaffJoined')); syncAddPersonType(); updateAddPreview();
     const dialog = $('addCustomerDialog'); if (!dialog.open) dialog.showModal(); $('newCustomerName').focus();
   }
 
   async function addCustomer(event) {
     event.preventDefault();
     const submit = $('submitNewCustomer'); $('addCustomerError').textContent = ''; setBusy(submit, true, 'Adding...');
-    const body = {
-      displayName: $('newCustomerName').value.trim(), phone: normalizePhoneInput($('newCustomerMobile').value), planId: $('newCustomerPlan').value,
-      amountPaidPaise: toPaise($('newCustomerReceived').value), paymentMethod: $('newCustomerPaymentMethod').value,
-    };
-    const startsAt = dateToUnix($('newCustomerStart').value); if (startsAt) body.startsAt = startsAt;
+    const personType = $('newPersonType').value;
+    const body = { personType, displayName: $('newCustomerName').value.trim(), phone: normalizePhoneInput($('newCustomerMobile').value) };
+    if (personType === 'staff') {
+      body.designation = $('newStaffDesignation').value;
+      body.status = $('newStaffStatus').value;
+      const joinedAt = dateToUnix($('newStaffJoined').value); if (joinedAt) body.joinedAt = joinedAt;
+    } else {
+      body.planId = $('newCustomerPlan').value;
+      body.amountPaidPaise = toPaise($('newCustomerReceived').value);
+      body.paymentMethod = $('newCustomerPaymentMethod').value;
+      const startsAt = dateToUnix($('newCustomerStart').value); if (startsAt) body.startsAt = startsAt;
+    }
     if ($('newCustomerNote').value.trim()) body.note = $('newCustomerNote').value.trim();
     try {
       const result = await core().api('/api/admin/customers', { method: 'POST', body });
-      $('addCustomerDialog').close(); core().flash('Customer added with server-calculated membership and balance.');
+      $('addCustomerDialog').close(); core().flash(personType === 'staff' ? 'Staff record added without membership or portal access.' : 'Member added with server-calculated membership and balance.');
       await refreshRelated();
       if (result.customer?.id) await openCustomerById(result.customer.id, state.opener);
     } catch (error) { $('addCustomerError').textContent = errorText(error, 'add'); }
@@ -389,10 +487,16 @@
 
   function updateEditAccessImpact() {
     if (!state.selected) return;
+    if (isStaff()) {
+      $('editCustomerAccessWarning').hidden = true;
+      $('editCustomerAccessAcknowledge').required = false;
+      $('editCustomerAccessAcknowledge').checked = false;
+      return;
+    }
     const phoneChanged = normalizePhoneInput($('editCustomerMobile').value) !== normalizePhoneInput(state.selected.phone || '');
     const disabling = state.selected.status === 'active' && $('editCustomerStatus').value === 'disabled';
     const impacts = [];
-    if (disabling) impacts.push('Disabling the account blocks customer login and revokes active customer sessions.');
+    if (disabling) impacts.push('Disabling the member blocks customer login and revokes active customer sessions.');
     if (phoneChanged) impacts.push('Changing the mobile invalidates previous phone verification and active customer sessions; the new mobile must be verified again.');
     const warning = $('editCustomerAccessWarning');
     const acknowledge = $('editCustomerAccessAcknowledge');
@@ -406,6 +510,15 @@
     if (!state.selected) return;
     state.opener = document.activeElement; $('editCustomerError').textContent = '';
     $('editCustomerName').value = state.selected.displayName || ''; $('editCustomerMobile').value = state.selected.phone || ''; $('editCustomerStatus').value = state.selected.status || 'active';
+    const staff = isStaff();
+    $('editPersonTitle').textContent = staff ? 'Edit staff' : 'Edit member';
+    $('editStaffFields').hidden = !staff;
+    $('editStaffDesignation').required = staff; $('editStaffJoined').required = staff;
+    $('editStaffDesignation').value = state.selected.designation || 'other';
+    $('editStaffJoined').value = state.selected.joinedAt ? localDateInput(new Date(Number(state.selected.joinedAt) * 1000)) : localDateInput();
+    installDateBounds($('editStaffJoined'));
+    $('editCustomerNote').value = state.selected.note || '';
+    $('editPersonHint').textContent = staff ? 'Portal login access is separate and is not changed here.' : 'Changing a member mobile number invalidates previous phone verification and active customer sessions.';
     $('editCustomerAccessAcknowledge').checked = false; updateEditAccessImpact();
     const dialog = $('editCustomerDialog'); if (!dialog.open) dialog.showModal(); $('editCustomerName').focus();
   }
@@ -414,8 +527,10 @@
     event.preventDefault(); if (!state.selected) return;
     const submit = $('submitEditCustomer'); $('editCustomerError').textContent = ''; setBusy(submit, true, 'Saving...');
     try {
-      await core().api(`/api/admin/customers/${encodeURIComponent(state.selected.id)}`, { method: 'PATCH', body: { displayName: $('editCustomerName').value.trim(), phone: normalizePhoneInput($('editCustomerMobile').value), status: $('editCustomerStatus').value } });
-      $('editCustomerDialog').close(); core().flash('Customer updated.'); await refreshSelected(); await refreshRelated();
+      const body = { displayName: $('editCustomerName').value.trim(), phone: normalizePhoneInput($('editCustomerMobile').value), status: $('editCustomerStatus').value, note: $('editCustomerNote').value.trim() || null };
+      if (isStaff()) { body.designation = $('editStaffDesignation').value; body.joinedAt = dateToUnix($('editStaffJoined').value); }
+      await core().api(`/api/admin/customers/${encodeURIComponent(state.selected.id)}`, { method: 'PATCH', body });
+      $('editCustomerDialog').close(); core().flash('Person updated.'); await refreshSelected(); await refreshRelated();
     } catch (error) { $('editCustomerError').textContent = errorText(error, 'edit'); }
     finally { setBusy(submit, false); }
   }
@@ -494,7 +609,9 @@
     dialog.addEventListener('close', () => { const opener = dialog === $('customerAccessDialog') ? state.accessOpener : state.opener; if (opener && document.contains(opener)) opener.focus(); });
   }
 
-  ['customerStatusFilter', 'customerMembershipFilter', 'customerPlanFilter'].forEach((id) => $(id).addEventListener('change', () => renderWorkspace().catch(() => core().flash('Customer list is temporarily unavailable.', 'error'))));
+  ['customerStatusFilter', 'customerMembershipFilter', 'customerPlanFilter'].forEach((id) => $(id).addEventListener('change', () => renderWorkspace().catch(() => core().flash('People directory is temporarily unavailable.', 'error'))));
+  $('personTypeFilter').addEventListener('change', () => { syncPersonFilters(); renderWorkspace().catch(() => core().flash('People directory is temporarily unavailable.', 'error')); });
+  $('newPersonType').addEventListener('change', syncAddPersonType);
   ['newCustomerPlan', 'newCustomerStart', 'newCustomerReceived'].forEach((id) => $(id).addEventListener('input', updateAddPreview));
   ['renewPlan', 'renewStart', 'renewReceived'].forEach((id) => $(id).addEventListener('input', updateRenewPreview));
   $('editCustomerMobile').addEventListener('input', updateEditAccessImpact); $('editCustomerStatus').addEventListener('change', updateEditAccessImpact);
@@ -505,5 +622,14 @@
   window.GravityCustomerAdmin = {
     setAdmin(admin) { state.admin = admin; }, renderWorkspace, openCustomer, openCustomerById, openAddCustomer,
     openPaymentFor(membership, customer) { openRecordPayment(membership, customer); }, refreshSelected,
+    async setDirectoryFilters({ personType = 'member', membershipStatus = '' } = {}) {
+      $('personTypeFilter').value = personType;
+      $('customerStatusFilter').value = '';
+      $('customerMembershipFilter').value = membershipStatus;
+      $('customerPlanFilter').value = '';
+      syncPersonFilters();
+      await renderWorkspace();
+    },
   };
+  syncPersonFilters();
 })();

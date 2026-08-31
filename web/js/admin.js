@@ -250,11 +250,11 @@
   async function showView(view) {
     const allowed = new Set(['dashboard', 'enquiries', 'members', 'memberships', 'fees', 'coaching', 'notifications', 'readiness', 'admins', 'audit']);
     state.view = allowed.has(view) ? view : 'dashboard';
-    const titles = { dashboard: 'Home', enquiries: 'Enquiries', members: 'Customers', memberships: 'Memberships', fees: 'Fees', coaching: 'Coaching', notifications: 'Follow-ups', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
+    const titles = { dashboard: 'Home', enquiries: 'Enquiries', members: 'People', memberships: 'Memberships', fees: 'Fees', coaching: 'Coaching', notifications: 'Follow-ups', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
     document.querySelectorAll('.view').forEach((node) => { node.hidden = node.id !== `${state.view}View`; });
     document.querySelectorAll('nav [data-view]').forEach((node) => node.classList.toggle('active', node.dataset.view === state.view));
     $('viewTitle').textContent = titles[state.view];
-    const canAddCustomer = hasPermission('members.manage') && hasPermission('memberships.manage');
+    const canAddCustomer = hasPermission('members.manage');
     $('headerAddCustomer').hidden = !canAddCustomer || (state.view !== 'dashboard' && state.view !== 'members');
     $('headerRecordPayment').hidden = !hasPermission('payments.read') || !['dashboard', 'members', 'fees'].includes(state.view);
     closeSidebar();
@@ -265,7 +265,7 @@
     if (state.view === 'fees' && window.GravityPaymentAdmin) await window.GravityPaymentAdmin.renderWorkspace();
     if (state.view === 'coaching' && window.GravityCoachingAdmin) await window.GravityCoachingAdmin.renderWorkspace();
     if (state.view === 'notifications' && window.GravityFollowupAdmin) await window.GravityFollowupAdmin.renderWorkspace();
-    if (state.view === 'notifications' && window.GravityNotificationAdmin) await window.GravityNotificationAdmin.renderWorkspace();
+    if (state.view === 'notifications' && $('automaticMessagingPanel')?.open && window.GravityNotificationAdmin) await window.GravityNotificationAdmin.renderWorkspace();
     if (state.view === 'readiness' && window.GravityReadinessAdmin) await window.GravityReadinessAdmin.renderWorkspace();
     if (state.view === 'admins') await renderAdmins();
     if (state.view === 'audit' && window.GravityAuditAdmin) await window.GravityAuditAdmin.renderWorkspace();
@@ -285,8 +285,8 @@
     $('coachingNav').hidden = !(hasPermission('diet.manage') || hasPermission('progress.manage'));
     $('readinessNav').hidden = !hasPermission('system.readiness');
     $('advancedNav').hidden = Array.from($('advancedNav').querySelectorAll('button[data-view]')).every((button) => button.hidden);
-    $('addCustomer').hidden = !(hasPermission('members.manage') && hasPermission('memberships.manage'));
-    $('headerAddCustomer').hidden = !(hasPermission('members.manage') && hasPermission('memberships.manage'));
+    $('addCustomer').hidden = !hasPermission('members.manage');
+    $('headerAddCustomer').hidden = !hasPermission('members.manage');
     $('headerRecordPayment').hidden = !hasPermission('payments.read');
     window.GravityAdminDashboard?.setAdmin(admin);
     window.GravityCustomerAdmin?.setAdmin(admin);
@@ -345,6 +345,11 @@
     showView(button.dataset.goView).catch((error) => flashMessage(error.message, 'error'));
   }));
   ['headerAddCustomer', 'addCustomer'].forEach((id) => $(id)?.addEventListener('click', () => window.GravityCustomerAdmin?.openAddCustomer()));
+  $('automaticMessagingPanel')?.addEventListener('toggle', () => {
+    if ($('automaticMessagingPanel').open && state.view === 'notifications') {
+      window.GravityNotificationAdmin?.renderWorkspace?.().catch((error) => flashMessage(error.message, 'error'));
+    }
+  });
 
   $('loginForm').addEventListener('submit', async (event) => {
     event.preventDefault(); authError.textContent = '';
@@ -397,7 +402,7 @@
 
   $('memberSearch').addEventListener('input', () => {
     window.clearTimeout(state.searchTimer);
-    state.searchTimer = window.setTimeout(() => window.GravityCustomerAdmin?.renderWorkspace().catch(() => flashMessage('Customer list is temporarily unavailable.', 'error')), 220);
+    state.searchTimer = window.setTimeout(() => window.GravityCustomerAdmin?.renderWorkspace().catch(() => flashMessage('People directory is temporarily unavailable.', 'error')), 220);
   });
 
   $('newAdmin').addEventListener('click', () => {

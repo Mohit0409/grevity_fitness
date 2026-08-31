@@ -745,7 +745,7 @@ class AdminService:
         self.require_permission(session, "dashboard.view")
         with self.database.session() as connection:
             customer_rows = connection.execute(
-                "SELECT status,COUNT(*) AS count FROM customers GROUP BY status"
+                "SELECT status,COUNT(*) AS count FROM customers WHERE person_type='member' GROUP BY status"
             ).fetchall()
             admin_rows = connection.execute(
                 "SELECT role,COUNT(*) AS count FROM admin_users WHERE status='active' GROUP BY role"
@@ -776,8 +776,8 @@ class AdminService:
         with self.database.session() as connection:
             rows = connection.execute(
                 "SELECT id,status,display_name,email,phone_e164,created_at,last_login_at FROM customers "
-                "WHERE ?='' OR lower(COALESCE(display_name,'')) LIKE ? OR lower(COALESCE(email,'')) LIKE ? "
-                "OR COALESCE(phone_e164,'') LIKE ? ORDER BY created_at DESC LIMIT 100",
+                "WHERE person_type='member' AND (?='' OR lower(COALESCE(display_name,'')) LIKE ? OR lower(COALESCE(email,'')) LIKE ? "
+                "OR COALESCE(phone_e164,'') LIKE ?) ORDER BY created_at DESC LIMIT 100",
                 (needle, pattern, pattern, pattern),
             ).fetchall()
         return [
@@ -809,7 +809,7 @@ class AdminService:
         with self.database.session() as connection:
             connection.execute("BEGIN IMMEDIATE")
             changed = connection.execute(
-                "UPDATE customers SET status=?,updated_at=? WHERE id=? AND status!='deleted'",
+                "UPDATE customers SET status=?,updated_at=? WHERE id=? AND status!='deleted' AND person_type='member'",
                 (normalized, now, customer_id),
             ).rowcount
             if changed != 1:

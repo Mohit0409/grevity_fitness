@@ -236,7 +236,7 @@ class AuthService:
                     if not normalized_phone:
                         raise AccountNotProvisioned("Customer must be created by Gravity Fitness before login")
                     provisioned = connection.execute(
-                        "SELECT id,status FROM customers WHERE phone_e164=? AND status!='deleted'",
+                        "SELECT id,status FROM customers WHERE phone_e164=? AND status!='deleted' AND person_type='member'",
                         (normalized_phone,),
                     ).fetchone()
                     if provisioned is None:
@@ -330,10 +330,10 @@ class AuthService:
             with self.database.session() as connection:
                 connection.execute("BEGIN IMMEDIATE")
                 current = connection.execute(
-                    "SELECT status, normalized_email, phone_e164 FROM customers WHERE id = ?",
+                    "SELECT status, normalized_email, phone_e164, person_type FROM customers WHERE id = ?",
                     (session.customer_id,),
                 ).fetchone()
-                if not current or current["status"] != "active":
+                if not current or current["status"] != "active" or current["person_type"] != "member":
                     raise AccountDisabled("Customer account is disabled")
                 if normalized_email and current["normalized_email"] not in (None, normalized_email):
                     raise IdentityConflict("Verified email differs from the current account")
@@ -439,9 +439,9 @@ class AuthService:
         normalized_phone: str | None,
     ) -> None:
         customer = connection.execute(
-            "SELECT status,normalized_email,phone_e164 FROM customers WHERE id = ?", (customer_id,)
+            "SELECT status,normalized_email,phone_e164,person_type FROM customers WHERE id = ?", (customer_id,)
         ).fetchone()
-        if not customer or customer["status"] != "active":
+        if not customer or customer["status"] != "active" or customer["person_type"] != "member":
             raise AccountDisabled("Customer account is disabled")
         if normalized_email and customer["normalized_email"] not in (None, normalized_email):
             raise IdentityConflict("Verified email differs from the provisioned customer account")
@@ -576,14 +576,14 @@ class AuthService:
         with self.database.session() as connection:
             row = connection.execute(
                 "SELECT s.id AS session_id, s.customer_id, s.csrf_hash, s.last_seen_at, "
-                "s.idle_expires_at, s.absolute_expires_at, s.revoked_at, c.status "
+                "s.idle_expires_at, s.absolute_expires_at, s.revoked_at, c.status, c.person_type "
                 "FROM customer_sessions s JOIN customers c ON c.id = s.customer_id "
                 "WHERE s.token_hash = ?",
                 (_token_hash(session_token),),
             ).fetchone()
             if not row or row["revoked_at"] is not None:
                 raise InvalidSession("Session is invalid")
-            if row["status"] != "active":
+            if row["status"] != "active" or row["person_type"] != "member":
                 connection.execute(
                     "UPDATE customer_sessions SET revoked_at = ?, revoke_reason = 'account_disabled' "
                     "WHERE id = ? AND revoked_at IS NULL",
@@ -664,7 +664,7 @@ class AuthService:
         with self.database.session() as connection:
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(
-                "SELECT display_name FROM customers WHERE id = ? AND status = 'active'",
+                "SELECT display_name FROM customers WHERE id = ? AND status = 'active' AND person_type='member'",
                 (session.customer_id,),
             ).fetchone()
             if not existing:

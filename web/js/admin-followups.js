@@ -96,5 +96,11 @@
   window.GravityFollowupAdmin = {
     setAdmin(admin) { state.admin = admin; },
     renderWorkspace,
+    setFilter(filter) {
+      const allowed = ['all', 'expired', 'next7', 'next3', 'tomorrow', 'today'];
+      state.filter = allowed.includes(filter) ? filter : 'all';
+      $('followupFilter').value = state.filter;
+      render();
+    },
   };
 })();

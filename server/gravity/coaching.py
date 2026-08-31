@@ -81,10 +81,10 @@ class CoachingService:
 
     def _customer(self, connection, customer_id: str):
         row = connection.execute(
-            "SELECT id,status,display_name FROM customers WHERE id=?",
+            "SELECT id,status,display_name,person_type FROM customers WHERE id=?",
             (customer_id,),
         ).fetchone()
-        if row is None or row["status"] == "deleted":
+        if row is None or row["status"] == "deleted" or row["person_type"] != "member":
             raise CoachingNotFound("Customer not found")
         return row
 

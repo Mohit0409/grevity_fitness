@@ -19,8 +19,9 @@
     catch (_) { return `${currency} ${amount.toFixed(0)}`; }
   }
 
-  function stat(label, value, hint = '') {
-    const item = document.createElement('article');
+  function stat(label, value, hint = '', action = null) {
+    const item = document.createElement(action ? 'button' : 'article');
+    if (action) { item.type = 'button'; item.addEventListener('click', action); item.setAttribute('aria-label', `${label}: ${value}`); }
     item.className = 'software-stat';
     const small = document.createElement('span'); small.textContent = label;
     const strong = document.createElement('strong'); strong.textContent = value;
@@ -38,24 +39,41 @@
   function renderStats(stats = {}) {
     const root = $('stats'); root.replaceChildren();
     const items = [
-      stat('Total Customers', String(stats.totalCustomers ?? 0)),
-      stat('Active Members', String(stats.activeMembers ?? 0)),
-      stat('Expiring Soon', String(stats.expiringSoon ?? 0), 'Next 7 days'),
-      stat('Expired Members', String(stats.expiredMembers ?? 0)),
-      stat('New This Month', String(stats.newCustomersThisMonth ?? 0)),
+      stat('Total Members', String(stats.totalCustomers ?? 0), '', () => openPeople('member')),
+      stat('Staff', String(stats.totalStaff ?? 0), '', () => openPeople('staff')),
+      stat('Active Members', String(stats.activeMembers ?? 0), '', () => openPeople('member', 'active')),
+      stat('Expiring Today', String((state.dashboard?.expiring?.today || []).length), '', () => openFollowups('today')),
+      stat('Expiring Soon', String(stats.expiringSoon ?? 0), 'Next 7 days', () => openFollowups('next7')),
+      stat('Expired Members', String(stats.expiredMembers ?? 0), '', () => openFollowups('expired')),
+      stat('New Members This Month', String(stats.newCustomersThisMonth ?? 0), '', () => openPeople('member')),
     ];
     if (hasPermission('payments.read')) items.push(
-      stat('Pending Fees', moneyPaise(stats.pendingFeesTotalPaise)),
-      stat('Payments Today', moneyPaise(stats.paymentsReceivedTodayPaise)),
-      stat('Payments This Month', moneyPaise(stats.paymentsReceivedThisMonthPaise)),
+      stat('Pending Fees', moneyPaise(stats.pendingFeesTotalPaise), '', () => openFees('pending')),
+      stat('Payments Today', moneyPaise(stats.paymentsReceivedTodayPaise), '', () => openFees('all')),
+      stat('Payments This Month', moneyPaise(stats.paymentsReceivedThisMonthPaise), '', () => openFees('all')),
     );
     root.append(...items);
   }
 
+  async function openPeople(personType, membershipStatus = '') {
+    await core()?.openView('members');
+    await window.GravityCustomerAdmin?.setDirectoryFilters?.({ personType, membershipStatus });
+  }
+
+  async function openFollowups(filter) {
+    await core()?.openView('notifications');
+    window.GravityFollowupAdmin?.setFilter?.(filter);
+  }
+
+  async function openFees(balance) {
+    await core()?.openView('fees');
+    await window.GravityPaymentAdmin?.setBalance?.(balance);
+  }
+
   function expiringRows(groups = {}) {
     return [
-      ['Expired', groups.expired || []],
       ['Expires today', groups.today || []],
+      ['Expired', groups.expired || []],
       ['Expires tomorrow', groups.tomorrow || []],
       ['Within 3 days', groups.threeDays || []],
       ['Within 7 days', groups.sevenDays || []],
@@ -135,6 +153,7 @@
     try {
       const dashboard = await api('/api/admin/dashboard');
       if (requestId !== state.requestId) return;
+      state.dashboard = dashboard;
       renderStats(dashboard.stats || {});
       renderExpiring(dashboard.expiring || {});
       if (canReadPayments) {

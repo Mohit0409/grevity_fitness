@@ -336,7 +336,7 @@ def _members(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
         return failure or HTTPStatus.UNAUTHORIZED
     handler.server.admin_service.require_permission(session, "members.read")
     query = parse_qs(urlsplit(handler.path).query).get("q", [""])[0]
-    rows = handler.server.admin_software_service.list_customers(query=query)
+    rows = handler.server.admin_software_service.list_customers(query=query, person_type="member")
     if not _has_permission(session, "payments.read"):
         rows = [_without_customer_payment(item) for item in rows]
     return _json(handler, HTTPStatus.OK, {"members": rows}, request_id, send_body)
@@ -354,6 +354,7 @@ def _customers(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
             customer_status=params.get("status", [""])[0],
             membership_status=params.get("membershipStatus", [""])[0],
             plan_id=params.get("planId", [""])[0],
+            person_type=params.get("personType", [""])[0],
             limit=params.get("limit", ["200"])[0],
         )
         if not _has_permission(session, "payments.read"):
@@ -363,11 +364,12 @@ def _customers(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
     if origin_failure is not None:
         return origin_failure
     handler.server.admin_service.require_permission(session, "members.manage")
-    handler.server.admin_service.require_permission(session, "memberships.manage")
     _require_csrf(handler, session)
     payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
-    if payload.get("amountPaidPaise") not in (None, "", 0, "0"):
-        handler.server.admin_service.require_permission(session, "payments.record")
+    if str(payload.get("personType", "member")).strip().casefold() != "staff":
+        handler.server.admin_service.require_permission(session, "memberships.manage")
+        if payload.get("amountPaidPaise") not in (None, "", 0, "0"):
+            handler.server.admin_service.require_permission(session, "payments.record")
     result = handler.server.admin_software_service.create_customer_bundle(
         payload, actor_admin_user_id=session.admin_user_id
     )
@@ -502,6 +504,7 @@ def _fees(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
     result = handler.server.admin_software_service.fees(
         query=params.get("q", [""])[0],
         pending_only=pending_only,
+        balance=params.get("balance", [""])[0],
         limit=params.get("limit", ["300"])[0],
     )
     return _json(handler, HTTPStatus.OK, result, request_id, send_body)

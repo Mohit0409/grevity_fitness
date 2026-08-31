@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import shutil
+import sqlite3
 import unittest
 
 from server.gravity.admin import AdminService
@@ -12,6 +13,7 @@ from server.gravity.admin_software import (
 from server.gravity.config import Settings
 from server.gravity.database import Database
 from server.gravity.membership import MembershipService
+from server.gravity.membership import MembershipConflict
 from server.gravity.notification import NotificationService
 
 
@@ -102,6 +104,84 @@ class AdminSoftwareServiceTests(unittest.TestCase):
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0], 1)
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM memberships").fetchone()[0], 1)
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM membership_payments").fetchone()[0], 1)
+
+    def test_historical_member_dates_are_authoritative_and_notes_survive_zero_payment(self) -> None:
+        active_start = self.clock.value - 20 * 86400
+        active = self.service.create_customer_bundle(
+            {
+                "displayName": "Historical Active",
+                "phone": "+919800003001",
+                "planId": "plan-basic-monthly",
+                "startsAt": active_start,
+                "amountPaidPaise": 0,
+                "paymentMethod": "cash",
+                "note": "Transferred from the paper register",
+            },
+            actor_admin_user_id="admin-1",
+        )
+        self.assertEqual(active["membership"]["status"], "active")
+        self.assertEqual(active["customer"]["joinedAt"], active_start)
+        self.assertEqual(active["customer"]["note"], "Transferred from the paper register")
+        self.assertIsNone(active["payment"])
+
+        expired_start = self.clock.value - 60 * 86400
+        expired = self.service.create_customer_bundle(
+            {
+                "displayName": "Historical Expired",
+                "phone": "+919800003002",
+                "planId": "plan-basic-monthly",
+                "startsAt": expired_start,
+                "amountPaidPaise": 0,
+            },
+            actor_admin_user_id="admin-1",
+        )
+        self.assertEqual(expired["membership"]["status"], "expired")
+        detail = self.service.customer_detail(expired["customer"]["id"])
+        self.assertIsNone(detail["membership"]["current"])
+        self.assertEqual(detail["membership"]["history"][0]["status"], "expired")
+        self.assertEqual(self.service.dashboard()["stats"]["expiredMembers"], 1)
+
+    def test_staff_record_is_isolated_from_member_workflows(self) -> None:
+        joined_at = self.clock.value - 300 * 86400
+        created = self.service.create_customer_bundle(
+            {
+                "personType": "staff",
+                "displayName": "Asha Trainer",
+                "phone": "+919800003010",
+                "designation": "personal_trainer",
+                "joinedAt": joined_at,
+                "status": "active",
+                "note": "Evening shift",
+            },
+            actor_admin_user_id="admin-1",
+        )
+        self.assertEqual(created["customer"]["personType"], "staff")
+        self.assertEqual(created["customer"]["designation"], "personal_trainer")
+        self.assertEqual(created["customer"]["joinedAt"], joined_at)
+        self.assertEqual(created["customer"]["note"], "Evening shift")
+        self.assertIsNone(created["membership"])
+        self.assertIsNone(created["payment"])
+        self.assertIsNone(created["paymentSummary"])
+        self.assertEqual([item["id"] for item in self.service.list_customers(person_type="staff")], [created["customer"]["id"]])
+        self.assertEqual(self.service.list_customers(person_type="member"), [])
+        self.assertEqual(self.service.customer_detail(created["customer"]["id"]), {"customer": created["customer"]})
+        dashboard = self.service.dashboard()
+        self.assertEqual(dashboard["stats"]["totalCustomers"], 0)
+        self.assertEqual(dashboard["stats"]["totalStaff"], 1)
+        self.assertEqual(self.service.fees()["rows"], [])
+        with self.assertRaises(MembershipConflict):
+            self.memberships.create_membership(
+                created["customer"]["id"], "plan-basic-monthly", actor_admin_user_id="admin-1"
+            )
+        with self.database.session() as connection, self.assertRaises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT INTO memberships(id,membership_number,customer_id,plan_id,plan_name_snapshot,"
+                "plan_price_paise_snapshot,currency_snapshot,duration_months_snapshot,status,starts_at,ends_at,"
+                "source,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("staff-membership", "GF-STAFF-001", created["customer"]["id"], "plan-basic-monthly",
+                 "Basic", 99900, "INR", 1, "active", self.clock.value, self.clock.value + 86400,
+                 "admin_manual", self.clock.value, self.clock.value),
+            )
 
     def test_initial_overpayment_rolls_back_entire_customer_transaction(self) -> None:
         with self.assertRaises(AdminSoftwareConflict):
@@ -273,6 +353,8 @@ class AdminSoftwareServiceTests(unittest.TestCase):
         self.assertEqual([item["id"] for item in filtered], [target_id])
         self.assertEqual(filtered[0]["membership"]["payment"]["paidPaise"], 50000)
         self.assertEqual(filtered[0]["membership"]["payment"]["pendingPaise"], 99900)
+        searched = self.service.list_customers(query="GF-BULK-TARGET")
+        self.assertEqual([item["id"] for item in searched], [target_id])
 
     def test_pending_fees_filter_and_total_are_applied_before_page_limit(self) -> None:
         now = self.clock.value
@@ -307,6 +389,9 @@ class AdminSoftwareServiceTests(unittest.TestCase):
         self.assertEqual(len(fees["rows"]), 300)
         self.assertTrue(all(row["membership"]["payment"]["pendingPaise"] == 99900 for row in fees["rows"]))
         self.assertEqual(fees["pendingFeesTotalPaise"], 301 * 99900)
+        paid = self.service.fees(balance="paid", limit=300)
+        self.assertEqual(len(paid["rows"]), 300)
+        self.assertTrue(all(row["membership"]["payment"]["pendingPaise"] == 0 for row in paid["rows"]))
 
     def test_dashboard_followups_include_customer_phone_for_expiring_and_expired(self) -> None:
         created = self.create_customer(phone="+919811112222", paid=0)
@@ -342,13 +427,13 @@ class AdminSoftwareServiceTests(unittest.TestCase):
         self.assertEqual(dashboard["stats"]["activeMembers"], 2)
         self.assertEqual(dashboard["stats"]["expiredMembers"], 0)
 
-    def test_migration_009_to_010_preserves_existing_domain_data(self) -> None:
+    def test_migration_009_to_011_preserves_existing_domain_data(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             old_migrations = root / "migrations"
             old_migrations.mkdir()
             for migration in sorted((ROOT / "server" / "migrations").glob("*.sql")):
-                if migration.name.startswith("010_"):
+                if migration.name.startswith(("010_", "011_")):
                     continue
                 shutil.copy2(migration, old_migrations / migration.name)
             database_path = root / "gravity.sqlite3"
@@ -415,10 +500,10 @@ class AdminSoftwareServiceTests(unittest.TestCase):
                      "razorpay", "created", "upgrade-receipt", local_clock.value, local_clock.value),
                 )
             upgraded = Database(database_path, ROOT / "server" / "migrations")
-            self.assertEqual(upgraded.migrate(), ["010"])
-            self.assertEqual(upgraded.health(), {"database": "ok", "migrations": "10"})
+            self.assertEqual(upgraded.migrate(), ["010", "011"])
+            self.assertEqual(upgraded.health(), {"database": "ok", "migrations": "11"})
             with upgraded.session() as connection:
-                self.assertEqual(connection.execute("SELECT value FROM app_metadata WHERE key='schema_stage'").fetchone()[0], "admin_software_v1")
+                self.assertEqual(connection.execute("SELECT value FROM app_metadata WHERE key='schema_stage'").fetchone()[0], "admin_usability_v2")
                 for table in (
                     "customers", "firebase_identities", "customer_sessions", "memberships",
                     "notification_reminders", "admin_users", "payment_intents",
@@ -427,6 +512,56 @@ class AdminSoftwareServiceTests(unittest.TestCase):
                 self.assertEqual(connection.execute("SELECT COUNT(*) FROM membership_payments").fetchone()[0], 0)
                 columns = {row[1] for row in connection.execute("PRAGMA table_info(customers)")}
                 self.assertIn("created_by_admin_user_id", columns)
+                self.assertTrue({"person_type", "joined_at", "staff_designation", "admin_note"}.issubset(columns))
+                upgraded_customer = connection.execute(
+                    "SELECT person_type,joined_at FROM customers WHERE id='upgrade-customer'"
+                ).fetchone()
+                self.assertEqual(upgraded_customer["person_type"], "member")
+                self.assertEqual(upgraded_customer["joined_at"], membership_start)
+
+    def test_migration_010_to_011_backfills_live_member_directory_fields(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            migrations_010 = root / "migrations-010"
+            migrations_010.mkdir()
+            for migration in sorted((ROOT / "server" / "migrations").glob("*.sql")):
+                if not migration.name.startswith("011_"):
+                    shutil.copy2(migration, migrations_010 / migration.name)
+            database_path = root / "gravity.sqlite3"
+            database_010 = Database(database_path, migrations_010)
+            self.assertEqual(database_010.migrate(), [f"{index:03d}" for index in range(1, 11)])
+            now = self.clock.value
+            start = now - 45 * 86400
+            with database_010.session() as connection:
+                connection.execute(
+                    "INSERT INTO customers(id,status,display_name,phone_e164,created_at,updated_at) VALUES (?,?,?,?,?,?)",
+                    ("live-member", "active", "Live Member", "+919800003020", now, now),
+                )
+                connection.execute(
+                    "INSERT INTO customer_profiles(customer_id,updated_at) VALUES (?,?)", ("live-member", now)
+                )
+                connection.execute(
+                    "INSERT INTO memberships(id,membership_number,customer_id,plan_id,plan_name_snapshot,"
+                    "plan_price_paise_snapshot,currency_snapshot,duration_months_snapshot,status,starts_at,ends_at,"
+                    "source,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("live-membership", "GF-LIVE-001", "live-member", "plan-basic-monthly", "Basic",
+                     99900, "INR", 1, "expired", start, now - 15 * 86400, "admin_manual", start, start),
+                )
+            upgraded = Database(database_path, ROOT / "server" / "migrations")
+            self.assertEqual(upgraded.migrate(), ["011"])
+            with upgraded.session() as connection:
+                row = connection.execute(
+                    "SELECT person_type,joined_at,staff_designation,admin_note FROM customers WHERE id='live-member'"
+                ).fetchone()
+                self.assertEqual(dict(row), {
+                    "person_type": "member", "joined_at": start, "staff_designation": None, "admin_note": None,
+                })
+                self.assertEqual(
+                    connection.execute("SELECT value FROM app_metadata WHERE key='schema_stage'").fetchone()[0],
+                    "admin_usability_v2",
+                )
+                self.assertEqual(connection.execute("PRAGMA quick_check").fetchone()[0], "ok")
+                self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
 
 
     def test_payment_idempotency_replays_once_and_rejects_key_reuse(self) -> None:

@@ -5,6 +5,7 @@ import unittest
 
 from server.gravity.coaching import (
     CoachingConflict,
+    CoachingNotFound,
     CoachingService,
     CoachingValidationError,
     GENERAL_NUTRITION_DISCLAIMER,
@@ -80,6 +81,17 @@ class CoachingServiceTests(unittest.TestCase):
                 "customer-1", "body_fat_pct", 99,
                 measured_at=None, actor_admin_user_id="trainer-1",
             )
+
+    def test_staff_records_are_not_coaching_members(self) -> None:
+        with self.database.session() as connection:
+            connection.execute(
+                "INSERT INTO customers(id,status,display_name,person_type,staff_designation,joined_at,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                ("staff-1", "active", "Staff One", "staff", "trainer", self.clock.value,
+                 self.clock.value, self.clock.value),
+            )
+        with self.assertRaises(CoachingNotFound):
+            self.service.customer_summary("staff-1")
 
     def test_goal_replacement_preserves_history_and_completion(self) -> None:
         first = self.service.set_goal(
