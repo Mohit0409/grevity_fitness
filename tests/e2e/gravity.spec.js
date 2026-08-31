@@ -1573,6 +1573,29 @@ test('admin software stays usable across desktop tablet mobile zoom keyboard and
   expect(runtimeProblems).toEqual([]);
 });
 
+test('mobile More tools navigation scrolls independently and keeps sign out clear', async ({ page }) => {
+  const runtimeProblems = watchRuntime(page);
+  await mockAdminSoftware(page);
+  await page.setViewportSize({ width: 320, height: 500 });
+  await page.goto('/admin');
+  await page.locator('#sidebarOpen').click();
+  await page.locator('#advancedNav summary').click();
+  await expect(page.locator('#advancedNav summary')).toContainText('More tools');
+  await expect(page.locator('#advancedNav summary')).toContainText('Settings & reports');
+  const layout = await page.evaluate(() => {
+    const nav = document.querySelector('.primary-nav').getBoundingClientRect();
+    const footer = document.querySelector('.asidefoot').getBoundingClientRect();
+    return { navBottom: nav.bottom, footerTop: footer.top, overflowY: getComputedStyle(document.querySelector('.primary-nav')).overflowY };
+  });
+  expect(layout.overflowY).toBe('auto');
+  expect(layout.navBottom).toBeLessThanOrEqual(layout.footerTop);
+  await page.locator('#auditNav').scrollIntoViewIfNeeded();
+  await expect(page.locator('#auditNav')).toBeInViewport();
+  await expect(page.locator('#logout')).toBeVisible();
+  await expectNoOverflow(page);
+  expect(runtimeProblems).toEqual([]);
+});
+
 test('admin people empty and API failure states are explicit and console-safe', async ({ page }) => {
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page, { customerMode: 'empty' });
