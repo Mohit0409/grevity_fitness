@@ -332,7 +332,10 @@ dialog::backdrop { background: rgba(0,0,0,.68); }
 }
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
-  .app-sidebar { position: fixed; inset: 0 auto 0 0; width: min(300px,86vw); height: 100dvh; border-right: 1px solid #2a3440; border-bottom: 0; transform: translateX(-102%); transition: transform .18s ease; }
+  .app-sidebar { position: fixed; inset: 0 auto 0 0; width: min(300px,86vw); height: 100dvh; max-height: 100dvh; grid-template-rows: auto minmax(0,1fr) auto; border-right: 1px solid #2a3440; border-bottom: 0; overflow: hidden; transform: translateX(-102%); transition: transform .18s ease; }
+  .app-sidebar .primary-nav { min-height: 0; padding-bottom: 108px; scroll-padding-bottom: 108px; }
+  .app-sidebar .asidefoot { align-self: end; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .nav-more[open] .advanced-links { max-height: min(260px, calc(100dvh - 360px)); overflow-y: auto; }
   body.admin-nav-open { overflow: hidden; }
   body.admin-nav-open .app-sidebar { transform: translateX(0); }
   .sidebar-close, .sidebar-open { display: inline-grid; }
