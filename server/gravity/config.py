@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Mapping
 from ipaddress import ip_network
+from urllib.parse import urlsplit
 import os
 import re
 
@@ -69,6 +70,7 @@ class Settings:
     log_level: str
     trust_proxy: bool
     trusted_proxy_cidrs: tuple[str, ...]
+    additional_origins: tuple[str, ...]
     secret_key: str
     firebase_project_id: str
     firebase_web_api_key: str
@@ -171,6 +173,23 @@ class Settings:
         )
         for cidr in trusted_proxy_cidrs:
             ip_network(cidr, strict=False)
+        additional_origins = tuple(
+            value.strip().rstrip("/")
+            for value in values.get("GRAVITY_ADDITIONAL_ORIGINS", "").split(",")
+            if value.strip()
+        )
+        for origin in additional_origins:
+            parsed_origin = urlsplit(origin)
+            if (
+                parsed_origin.scheme != "https"
+                or not parsed_origin.netloc
+                or parsed_origin.username is not None
+                or parsed_origin.password is not None
+                or parsed_origin.path
+                or parsed_origin.query
+                or parsed_origin.fragment
+            ):
+                raise ValueError("GRAVITY_ADDITIONAL_ORIGINS must contain HTTPS origins without paths")
 
         return cls(
             root_dir=root,
@@ -187,6 +206,7 @@ class Settings:
             log_level=values.get("GRAVITY_LOG_LEVEL", "INFO").strip().upper() or "INFO",
             trust_proxy=_boolean(values.get("GRAVITY_TRUST_PROXY"), False),
             trusted_proxy_cidrs=trusted_proxy_cidrs,
+            additional_origins=additional_origins,
             secret_key=values.get("SECRET_KEY", "").strip(),
             firebase_project_id=values.get("FIREBASE_PROJECT_ID", "").strip(),
             firebase_web_api_key=values.get("FIREBASE_WEB_API_KEY", "").strip(),

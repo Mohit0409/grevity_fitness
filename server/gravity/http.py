@@ -621,16 +621,17 @@ class GravityRequestHandler(BaseHTTPRequestHandler):
         origins = self.headers.get_all("Origin", [])
         if len(origins) != 1:
             return False
-        expected = urlsplit(self.server.settings.app_base_url)
         actual = urlsplit(origins[0])
-        canonical = (
-            actual.scheme in {"http", "https"}
-            and actual.scheme == expected.scheme
-            and actual.netloc == expected.netloc
-            and not actual.path
-            and not actual.query
-            and not actual.fragment
-        )
+        canonical = False
+        if actual.scheme in {"http", "https"} and not actual.path and not actual.query and not actual.fragment:
+            for configured_origin in (
+                self.server.settings.app_base_url,
+                *self.server.settings.additional_origins,
+            ):
+                expected = urlsplit(configured_origin)
+                if actual.scheme == expected.scheme and actual.netloc == expected.netloc:
+                    canonical = True
+                    break
         if canonical:
             return True
         return self._local_loopback_request(actual)

@@ -19,12 +19,18 @@ TEST_SECRET = "admin-software-http-secret-key-that-is-long-enough"
 
 
 @contextmanager
-def running_server(require_second_factor=True):
+def running_server(require_second_factor=True, additional_origins=()):
     with TemporaryDirectory() as temporary:
         runtime = Path(temporary)
         base = Settings.load(
             root_dir=ROOT,
-            environ={"SECRET_KEY": TEST_SECRET, "GRAVITY_PORT": "0", "GRAVITY_LOG_LEVEL": "CRITICAL", "ADMIN_REQUIRE_SECOND_FACTOR": "true" if require_second_factor else "false"},
+            environ={
+                "SECRET_KEY": TEST_SECRET,
+                "GRAVITY_PORT": "0",
+                "GRAVITY_LOG_LEVEL": "CRITICAL",
+                "ADMIN_REQUIRE_SECOND_FACTOR": "true" if require_second_factor else "false",
+                "GRAVITY_ADDITIONAL_ORIGINS": ",".join(additional_origins),
+            },
         )
         settings = replace(
             base,
@@ -115,6 +121,29 @@ class AdminSoftwareHttpTests(unittest.TestCase):
             self.assertTrue(payload["authenticated"])
             self.assertFalse(payload["secondFactorRequired"])
             self.assertEqual(payload["admin"]["username"], "owner")
+
+    def test_password_only_admin_login_accepts_exact_additional_https_origin(self):
+        remote_origin = "https://mypc.tailc3b03f.ts.net"
+        with running_server(require_second_factor=False, additional_origins=(remote_origin,)) as (server, base):
+            server.admin_service.bootstrap_owner("owner", "Gravity!Owner123")
+            status, payload = request_json(
+                base,
+                "/api/admin/login",
+                method="POST",
+                body={"username": "owner", "password": "Gravity!Owner123"},
+                headers={"Origin": remote_origin},
+            )
+            self.assertEqual(status, 200)
+            self.assertTrue(payload["authenticated"])
+
+            status, payload = request_json(
+                base,
+                "/api/admin/login",
+                method="POST",
+                body={"username": "owner", "password": "Gravity!Owner123"},
+                headers={"Origin": "https://evil.example"},
+            )
+            self.assertEqual((status, payload), (403, {"error": "invalid_origin"}))
 
     def test_owner_customer_payment_fees_and_renewal_workflow(self):
         with running_server() as (server, base):
