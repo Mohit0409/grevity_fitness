@@ -2,10 +2,20 @@ from __future__ import annotations
 
 from email.utils import formatdate
 from http import HTTPStatus
+from io import StringIO
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from typing import Any
+import csv
+import os
 
 from .membership import MembershipConflict, MembershipNotFound, MembershipValidationError
+from .biometric import (
+    BiometricAdapterError,
+    BiometricConflict,
+    BiometricNotFound,
+    BiometricValidationError,
+)
 from .admin_software import (
     AdminSoftwareConflict,
     AdminSoftwareNotFound,
@@ -28,6 +38,7 @@ from .admin import (
 )
 
 ADMIN_JSON_LIMIT = 16_384
+ADMIN_PHOTO_LIMIT = 768 * 1024
 
 
 def _has_permission(session: AdminSessionIdentity, permission: str) -> bool:
@@ -220,6 +231,26 @@ def _error_response(handler: Any, error: Exception, request_id: str, send_body: 
             request_id,
             send_body,
         )
+    if isinstance(error, BiometricNotFound):
+        return _json(handler, HTTPStatus.NOT_FOUND, {"error": "biometric_not_found"}, request_id, send_body)
+    if isinstance(error, BiometricConflict):
+        return _json(handler, HTTPStatus.CONFLICT, {"error": "biometric_conflict"}, request_id, send_body)
+    if isinstance(error, BiometricValidationError):
+        return _json(
+            handler,
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            {"error": "biometric_validation", "fields": error.fields},
+            request_id,
+            send_body,
+        )
+    if isinstance(error, BiometricAdapterError):
+        return _json(
+            handler,
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            {"error": "biometric_device_unavailable", "status": error.status},
+            request_id,
+            send_body,
+        )
     if isinstance(error, AdminConflict):
         return _json(handler, HTTPStatus.CONFLICT, {"error": "admin_conflict"}, request_id, send_body)
     if isinstance(error, AdminValidationError):
@@ -329,6 +360,55 @@ def _dashboard(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
     if not _has_permission(session, "payments.read"):
         data = _redact_dashboard_financials(data)
     return _json(handler, HTTPStatus.OK, data, request_id, send_body)
+
+def _customer_photo_path(handler: Any, customer_id: str, *, create: bool = False) -> Path:
+    root = Path(handler.server.settings.database_path).parent / "customer-photos"
+    if create:
+        root.mkdir(parents=True, exist_ok=True)
+    return root / f"{customer_id}.jpg"
+
+
+def _customer_photo(handler: Any, customer_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "members.read")
+    handler.server.admin_software_service.customer_detail(customer_id)
+    photo = _customer_photo_path(handler, customer_id)
+    if handler.command in {"GET", "HEAD"}:
+        if not photo.is_file():
+            return _json(handler, HTTPStatus.NOT_FOUND, {"error": "photo_not_found"}, request_id, send_body)
+        data = photo.read_bytes()
+        handler.send_response(HTTPStatus.OK)
+        handler._security_headers(request_id)
+        handler.send_header("Content-Type", "image/jpeg")
+        handler.send_header("Content-Length", str(len(data)))
+        handler.send_header("Cache-Control", "private, no-store")
+        handler.end_headers()
+        if send_body:
+            handler.wfile.write(data)
+        return HTTPStatus.OK
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    handler.server.admin_service.require_permission(session, "members.manage")
+    _require_csrf(handler, session)
+    data = handler._raw_body(maximum=ADMIN_PHOTO_LIMIT, content_type="image/jpeg")
+    if len(data) < 4 or not data.startswith(b"\xff\xd8\xff") or not data.endswith(b"\xff\xd9"):
+        return _json(handler, HTTPStatus.BAD_REQUEST, {"error": "invalid_customer_photo"}, request_id, send_body)
+    photo = _customer_photo_path(handler, customer_id, create=True)
+    temporary = photo.with_name(f".{photo.name}.{request_id}.tmp")
+    temporary.write_bytes(data)
+    os.replace(temporary, photo)
+    with handler.server.admin_software_service.database.session() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        handler.server.admin_service._audit(
+            connection, session.admin_user_id, "customer_photo_updated",
+            target_type="customer", target_id=customer_id, metadata={"bytes": len(data)},
+        )
+        connection.commit()
+    return _json(handler, HTTPStatus.OK, {"saved": True}, request_id, send_body)
+
 
 def _members(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
     session, failure = _authenticated(handler, request_id, send_body)
@@ -579,6 +659,261 @@ def _readiness(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
     return _json(handler, HTTPStatus.OK, {"readiness": handler.server.readiness_service.report()}, request_id, send_body)
 
 
+def _biometric_devices(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    if handler.command in {"GET", "HEAD"}:
+        handler.server.admin_service.require_permission(session, "attendance.view")
+        return _json(handler, HTTPStatus.OK, {"devices": handler.server.biometric_service.list_devices()}, request_id, send_body)
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    handler.server.admin_service.require_permission(session, "biometric.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    return _json(
+        handler,
+        HTTPStatus.CREATED,
+        handler.server.biometric_service.create_device(payload, actor_admin_user_id=session.admin_user_id),
+        request_id,
+        send_body,
+    )
+
+
+def _biometric_device_update(handler: Any, device_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "biometric.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    return _json(
+        handler,
+        HTTPStatus.OK,
+        handler.server.biometric_service.update_device(device_id, payload, actor_admin_user_id=session.admin_user_id),
+        request_id,
+        send_body,
+    )
+
+
+def _biometric_device_test(handler: Any, device_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "biometric.manage")
+    _require_csrf(handler, session)
+    handler._require_empty_body()
+    return _json(
+        handler,
+        HTTPStatus.OK,
+        handler.server.biometric_service.test_connection(device_id, actor_admin_user_id=session.admin_user_id),
+        request_id,
+        send_body,
+    )
+
+
+def _biometric_device_sync(handler: Any, device_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "biometric.manage")
+    _require_csrf(handler, session)
+    handler._require_empty_body()
+    return _json(
+        handler,
+        HTTPStatus.OK,
+        handler.server.biometric_service.sync_device(device_id, actor_admin_user_id=session.admin_user_id),
+        request_id,
+        send_body,
+    )
+
+
+def _biometric_device_users(handler: Any, device_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "biometric.manage")
+    params = parse_qs(urlsplit(handler.path).query)
+    unmatched = params.get("unmatched", ["0"])[0].strip().casefold() in {"1", "true", "yes"}
+    users = handler.server.biometric_service.list_device_users(
+        device_id,
+        unmatched_only=unmatched,
+        query=params.get("q", [""])[0],
+    )
+    return _json(handler, HTTPStatus.OK, {"users": users}, request_id, send_body)
+
+
+def _biometric_mappings(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    if handler.command in {"GET", "HEAD"}:
+        handler.server.admin_service.require_permission(session, "attendance.view")
+        params = parse_qs(urlsplit(handler.path).query)
+        rows = handler.server.biometric_service.list_mappings(
+            person_id=params.get("personId", [""])[0],
+            device_id=params.get("deviceId", [""])[0],
+        )
+        return _json(handler, HTTPStatus.OK, {"mappings": rows}, request_id, send_body)
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    handler.server.admin_service.require_permission(session, "members.manage")
+    handler.server.admin_service.require_permission(session, "biometric.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    return _json(
+        handler,
+        HTTPStatus.CREATED,
+        handler.server.biometric_service.create_mapping(payload, actor_admin_user_id=session.admin_user_id),
+        request_id,
+        send_body,
+    )
+
+
+def _biometric_mapping_delete(handler: Any, mapping_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "members.manage")
+    handler.server.admin_service.require_permission(session, "biometric.manage")
+    _require_csrf(handler, session)
+    handler._require_empty_body()
+    return _json(
+        handler,
+        HTTPStatus.OK,
+        handler.server.biometric_service.remove_mapping(mapping_id, actor_admin_user_id=session.admin_user_id),
+        request_id,
+        send_body,
+    )
+
+
+def _biometric_unmatched(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "attendance.view")
+    params = parse_qs(urlsplit(handler.path).query)
+    rows = handler.server.biometric_service.unmatched_activity(device_id=params.get("deviceId", [""])[0])
+    return _json(handler, HTTPStatus.OK, {"unmatched": rows}, request_id, send_body)
+
+
+def _attendance(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "attendance.view")
+    params = parse_qs(urlsplit(handler.path).query)
+    result = handler.server.biometric_service.list_attendance(
+        start_date=params.get("date", params.get("startDate", [""]))[0],
+        end_date=params.get("endDate", [""])[0],
+        person_type=params.get("personType", [""])[0],
+        query=params.get("q", [""])[0],
+        membership_status=params.get("membershipStatus", [""])[0],
+        limit=params.get("limit", ["200"])[0],
+    )
+    return _json(handler, HTTPStatus.OK, result, request_id, send_body)
+
+
+def _attendance_stats(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "attendance.view")
+    params = parse_qs(urlsplit(handler.path).query)
+    stats = handler.server.biometric_service.attendance_stats(date=params.get("date", [""])[0])
+    return _json(handler, HTTPStatus.OK, {"stats": stats}, request_id, send_body)
+
+
+def _attendance_person(handler: Any, person_id: str, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "attendance.view")
+    return _json(
+        handler,
+        HTTPStatus.OK,
+        {"attendance": handler.server.biometric_service.person_attendance(person_id)},
+        request_id,
+        send_body,
+    )
+
+
+def _attendance_export(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "attendance.view")
+    params = parse_qs(urlsplit(handler.path).query)
+    result = handler.server.biometric_service.list_attendance(
+        start_date=params.get("date", params.get("startDate", [""]))[0],
+        end_date=params.get("endDate", [""])[0],
+        person_type=params.get("personType", [""])[0],
+        query=params.get("q", [""])[0],
+        membership_status=params.get("membershipStatus", [""])[0],
+        limit=params.get("limit", ["500"])[0],
+    )
+    out = StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["date", "name", "person_type", "membership_number", "first_scan", "last_scan", "scan_count", "verification", "membership_status"])
+    for row in result["visits"]:
+        writer.writerow([
+            row.get("date", ""),
+            row.get("displayName", ""),
+            row.get("personType", ""),
+            row.get("membershipNumber", ""),
+            row.get("firstScanAt", ""),
+            row.get("lastScanAt", ""),
+            row.get("scanCount", ""),
+            row.get("verificationSummary", ""),
+            row.get("membershipStatus", ""),
+        ])
+    data = out.getvalue().encode("utf-8-sig")
+    handler.send_response(HTTPStatus.OK)
+    handler._security_headers(request_id)
+    handler.send_header("Content-Type", "text/csv; charset=utf-8")
+    handler.send_header("Content-Disposition", "attachment; filename=gravity-attendance.csv")
+    handler.send_header("Content-Length", str(len(data)))
+    handler.send_header("Cache-Control", "no-store")
+    handler.end_headers()
+    if send_body:
+        handler.wfile.write(data)
+    return HTTPStatus.OK
+
+
+def _biometric_simulate(handler: Any, request_id: str, send_body: bool) -> HTTPStatus:
+    if handler.server.settings.production:
+        return _json(handler, HTTPStatus.NOT_FOUND, {"error": "not_found"}, request_id, send_body)
+    origin_failure = _same_origin(handler, request_id, send_body)
+    if origin_failure is not None:
+        return origin_failure
+    session, failure = _authenticated(handler, request_id, send_body)
+    if session is None:
+        return failure or HTTPStatus.UNAUTHORIZED
+    handler.server.admin_service.require_permission(session, "biometric.manage")
+    _require_csrf(handler, session)
+    payload = handler._json_body(maximum=ADMIN_JSON_LIMIT)
+    event = handler.server.biometric_service.record_event(
+        str(payload.get("deviceId", "")),
+        payload,
+        source="mock",
+    )
+    return _json(handler, HTTPStatus.CREATED, event, request_id, send_body)
+
+
 def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bool) -> HTTPStatus | None:
     try:
         if path == "/api/admin/session" and handler.command in {"GET", "HEAD"}:
@@ -595,12 +930,70 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
             return _dashboard(handler, request_id, send_body)
         if path == "/api/admin/readiness" and handler.command in {"GET", "HEAD"}:
             return _readiness(handler, request_id, send_body)
+        if path == "/api/admin/attendance" and handler.command in {"GET", "HEAD"}:
+            return _attendance(handler, request_id, send_body)
+        if path == "/api/admin/attendance/stats" and handler.command in {"GET", "HEAD"}:
+            return _attendance_stats(handler, request_id, send_body)
+        if path == "/api/admin/attendance/export" and handler.command in {"GET", "HEAD"}:
+            return _attendance_export(handler, request_id, send_body)
+        if path.startswith("/api/admin/attendance/person/") and handler.command in {"GET", "HEAD"}:
+            person_id = path.removeprefix("/api/admin/attendance/person/").strip("/")
+            if person_id and "/" not in person_id:
+                return _attendance_person(handler, person_id, request_id, send_body)
+        if path == "/api/admin/biometric/devices":
+            if handler.command in {"GET", "HEAD", "POST"}:
+                return _biometric_devices(handler, request_id, send_body)
+            return handler._method_not_allowed({"GET", "HEAD", "POST"}, request_id, send_body)
+        if path == "/api/admin/biometric/mappings":
+            if handler.command in {"GET", "HEAD", "POST"}:
+                return _biometric_mappings(handler, request_id, send_body)
+            return handler._method_not_allowed({"GET", "HEAD", "POST"}, request_id, send_body)
+        if path == "/api/admin/biometric/unmatched" and handler.command in {"GET", "HEAD"}:
+            return _biometric_unmatched(handler, request_id, send_body)
+        if path == "/api/admin/biometric/simulate" and handler.command == "POST":
+            return _biometric_simulate(handler, request_id, send_body)
+        if path.startswith("/api/admin/biometric/mappings/"):
+            mapping_id = path.removeprefix("/api/admin/biometric/mappings/").strip("/")
+            if mapping_id and "/" not in mapping_id:
+                if handler.command == "DELETE":
+                    return _biometric_mapping_delete(handler, mapping_id, request_id, send_body)
+                return handler._method_not_allowed({"DELETE"}, request_id, send_body)
+        if path.startswith("/api/admin/biometric/devices/") and path.endswith("/test"):
+            device_id = path.removeprefix("/api/admin/biometric/devices/").removesuffix("/test").strip("/")
+            if device_id and "/" not in device_id:
+                if handler.command == "POST":
+                    return _biometric_device_test(handler, device_id, request_id, send_body)
+                return handler._method_not_allowed({"POST"}, request_id, send_body)
+        if path.startswith("/api/admin/biometric/devices/") and path.endswith("/sync"):
+            device_id = path.removeprefix("/api/admin/biometric/devices/").removesuffix("/sync").strip("/")
+            if device_id and "/" not in device_id:
+                if handler.command == "POST":
+                    return _biometric_device_sync(handler, device_id, request_id, send_body)
+                return handler._method_not_allowed({"POST"}, request_id, send_body)
+        if path.startswith("/api/admin/biometric/devices/") and path.endswith("/users"):
+            device_id = path.removeprefix("/api/admin/biometric/devices/").removesuffix("/users").strip("/")
+            if device_id and "/" not in device_id:
+                if handler.command in {"GET", "HEAD"}:
+                    return _biometric_device_users(handler, device_id, request_id, send_body)
+                return handler._method_not_allowed({"GET", "HEAD"}, request_id, send_body)
+        if path.startswith("/api/admin/biometric/devices/"):
+            device_id = path.removeprefix("/api/admin/biometric/devices/").strip("/")
+            if device_id and "/" not in device_id:
+                if handler.command == "PATCH":
+                    return _biometric_device_update(handler, device_id, request_id, send_body)
+                return handler._method_not_allowed({"PATCH"}, request_id, send_body)
         if path == "/api/admin/members" and handler.command in {"GET", "HEAD"}:
             return _members(handler, request_id, send_body)
         if path == "/api/admin/customers":
             if handler.command in {"GET", "HEAD", "POST"}:
                 return _customers(handler, request_id, send_body)
             return handler._method_not_allowed({"GET", "HEAD", "POST"}, request_id, send_body)
+        if path.startswith("/api/admin/customers/") and path.endswith("/photo"):
+            customer_id = path.removeprefix("/api/admin/customers/").removesuffix("/photo").strip("/")
+            if customer_id and "/" not in customer_id:
+                if handler.command in {"GET", "HEAD", "POST"}:
+                    return _customer_photo(handler, customer_id, request_id, send_body)
+                return handler._method_not_allowed({"GET", "HEAD", "POST"}, request_id, send_body)
         if path.startswith("/api/admin/customers/") and path.endswith("/renew"):
             customer_id = path.removeprefix("/api/admin/customers/").removesuffix("/renew").strip("/")
             if customer_id and "/" not in customer_id:
@@ -686,6 +1079,9 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
                 "/api/admin/logout-all": {"POST"},
                 "/api/admin/dashboard": {"GET", "HEAD"},
                 "/api/admin/readiness": {"GET", "HEAD"},
+                "/api/admin/attendance": {"GET", "HEAD"},
+                "/api/admin/attendance/stats": {"GET", "HEAD"},
+                "/api/admin/attendance/export": {"GET", "HEAD"},
                 "/api/admin/members": {"GET", "HEAD"},
                 "/api/admin/notifications": {"GET", "HEAD"},
                 "/api/admin/notifications/scan": {"POST"},
@@ -715,6 +1111,10 @@ def handle_admin_request(handler: Any, path: str, request_id: str, send_body: bo
         NotificationNotFound,
         NotificationConflict,
         NotificationValidationError,
+        BiometricNotFound,
+        BiometricConflict,
+        BiometricValidationError,
+        BiometricAdapterError,
     ) as error:
         return _error_response(handler, error, request_id, send_body)
 

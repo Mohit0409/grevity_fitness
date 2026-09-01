@@ -69,7 +69,8 @@
     plan.replaceChildren(new Option('Choose a plan', ''));
     for (const item of plans) {
       const price = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(item.pricePaise) / 100);
-      plan.add(new Option(`${item.name} — ${price}/month`, item.id));
+      const duration = Number(item.durationMonths);
+      plan.add(new Option(`${item.name} — ${price} / ${duration} month${duration === 1 ? '' : 's'}`, item.id));
     }
     if ([...plan.options].some((option) => option.value === selected)) plan.value = selected;
   }

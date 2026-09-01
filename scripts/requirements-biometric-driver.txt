@@ -1,0 +1,6 @@
+# Direct-TCP adapter for ZKTeco F09 devices.  This package is only installed
+# when the on-site setup script is run with -InstallZkDriver.
+#
+# The pin and source-distribution SHA-256 protect the controlled on-site
+# installation from silently taking a different package release.
+pyzk==0.9 --hash=sha256:9dcf0d40e0473c752d04d0af389fdd71ce85a0a9609bb8aca562be9171248170

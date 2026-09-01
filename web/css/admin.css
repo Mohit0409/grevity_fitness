@@ -456,6 +456,8 @@ button:disabled { cursor: not-allowed; opacity: .52; filter: none; }
 .whatsapp-action { background: #25d366; border-color: #25d366; color: #07140b; font-weight: 850; }
 .whatsapp-action:hover { background: #34df75; border-color: #34df75; }
 .whatsapp-action:disabled { background: #26302b; border-color: #39423e; color: #8d9892; }
+.button-link { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; border-radius: 12px; color: #10140a; background: linear-gradient(135deg,var(--accent),#9ce50f); font-weight: 800; text-decoration: none; }
+.button-link:hover { filter: brightness(1.08); }
 .followup-panel { margin-bottom: 12px; }
 .followup-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin: 0 0 14px; }
 .followup-toolbar label { display: grid; gap: 5px; min-width: min(260px,100%); color: var(--muted); font-size: .69rem; }
@@ -504,4 +506,73 @@ button:disabled { cursor: not-allowed; opacity: .52; filter: none; }
   .followup-facts { grid-template-columns: 1fr 1fr; }
   .followup-actions button { width: 100%; min-height: 44px; }
   .people-filters { grid-template-columns: 1fr; }
+}
+
+/* Biometric attendance workspace */
+.attendance-stats { margin-bottom: 14px; }
+.attendance-filters { grid-template-columns: minmax(140px,.55fr) minmax(220px,1.3fr) minmax(130px,.55fr) minmax(130px,.55fr); }
+.attendance-table { min-width: 900px; }
+.biometric-secondary-panel { margin-top: 12px; padding: 0; }
+.biometric-secondary-panel > summary { min-height: 52px; display: flex; align-items: center; padding: 0 16px; cursor: pointer; list-style: none; }
+.biometric-secondary-panel > summary::-webkit-details-marker { display: none; }
+.biometric-secondary-panel > summary span { display: grid; gap: 2px; }
+.biometric-secondary-panel > summary small { color: #7c8795; font-size: .65rem; }
+.biometric-secondary-panel .panel-content { padding: 16px; border-top: 1px solid #202936; }
+.biometric-layout { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(320px,.9fr); gap: 12px; align-items: start; }
+.biometric-card-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.biometric-card { min-width: 0; padding: 14px; border: 1px solid #26303b; border-radius: 9px; background: #0b1016; }
+.biometric-card-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.biometric-card-head > div { min-width: 0; }
+.biometric-card h4 { margin: 0; overflow-wrap: anywhere; color: #f0f4f7; font-size: .9rem; }
+.biometric-card p { margin: 5px 0 0; overflow-wrap: anywhere; }
+.biometric-facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin: 14px 0; }
+.biometric-facts dt { color: #778393; font-size: .6rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.biometric-facts dd { margin: 3px 0 0; overflow-wrap: anywhere; color: #dfe5eb; font-size: .72rem; }
+.biometric-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-bottom: 14px; }
+.biometric-form label { gap: 5px; min-width: 0; color: var(--muted); font-size: .69rem; }
+.biometric-form button { grid-column: 1 / -1; }
+.biometric-list { display: grid; gap: 8px; }
+.biometric-list-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; min-width: 0; padding: 10px 12px; border: 1px solid #232c37; border-radius: 8px; background: #0c1117; }
+.biometric-list-row > div { min-width: 0; }
+.biometric-list-row strong, .biometric-list-row small { display: block; overflow-wrap: anywhere; }
+.biometric-list-row strong { color: #e9edf2; font-size: .78rem; }
+.biometric-list-row small { margin-top: 3px; color: #7f8a99; font-size: .66rem; }
+.attendance-profile-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; margin-bottom: 10px; }
+.attendance-profile-summary span { min-width: 0; padding: 9px 10px; border: 1px solid #252e39; border-radius: 8px; color: #8792a2; font-size: .62rem; }
+.attendance-profile-summary strong { display: block; margin-top: 3px; overflow-wrap: anywhere; color: #eef2f6; font-size: .76rem; }
+.badge--online { color: #57d8a5; border-color: #285d4b; background: #10221c; }
+.badge--offline, .badge--authentication-failed, .badge--error { color: #ff9ca6; border-color: #60333a; background: #241318; }
+.badge--not-configured, .badge--syncing, .badge--none { color: #8ec5ff; border-color: #304e6c; background: #111e2a; }
+.badge--fingerprint, .badge--face, .badge--card, .badge--password, .badge--scan { color: #b8ff2c; border-color: #526a32; background: #172011; }
+@media (max-width: 1100px) {
+  .biometric-layout { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 900px) {
+  .attendance-filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .biometric-card-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .attendance-table-wrap { display: none; }
+  .attendance-filters, .biometric-form { grid-template-columns: 1fr; }
+  .button-link { width: 100%; }
+  .attendance-profile-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 430px) {
+  .nav-more summary { min-height: 44px; padding: 6px 10px; }
+  .nav-more[open] .advanced-links { max-height: calc(100dvh - 300px); }
+  .advanced-links button { min-height: 36px; padding: 0 10px; }
+  .biometric-facts, .attendance-profile-summary { grid-template-columns: 1fr; }
+  .biometric-list-row { align-items: stretch; flex-direction: column; }
+  .biometric-list-row button { width: 100%; }
+}
+
+/* Member receipt/photo support */
+.customer-profile-photo {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--line, #d9d9d9);
+  margin: 0 0 14px;
+  background: #f4f4f4;
 }

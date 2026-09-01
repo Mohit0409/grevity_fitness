@@ -4,9 +4,9 @@
   const $ = (id) => document.getElementById(id);
   const state = { admin: null, view: 'dashboard', searchTimer: null };
   const ROLE_GUIDANCE = {
-    reception: { label: 'Reception', allows: 'Customers, memberships, Fees & manual payments, and enquiries.', limits: 'No coaching, follow-ups, audit, readiness or Team access.' },
-    trainer: { label: 'Trainer', allows: 'Customer read access plus Coaching & progress.', limits: 'No customer edits, membership changes, fees/payments, follow-ups, audit, readiness or Team access.' },
-    admin: { label: 'Administrator', allows: 'Customers, memberships, fees & payments, follow-ups & enquiries, coaching, audit and readiness.', limits: 'Cannot manage owner-only Team access.' },
+    reception: { label: 'Reception', allows: 'Customers, memberships, Fees & manual payments, enquiries, and attendance view.', limits: 'No coaching, follow-ups, audit, readiness or Team access. No biometric setup.' },
+    trainer: { label: 'Trainer', allows: 'Customer read access, Attendance, Coaching & progress.', limits: 'No customer edits, membership changes, fees/payments, follow-ups, audit, readiness or Team access. No biometric setup.' },
+    admin: { label: 'Administrator', allows: 'Customers, memberships, fees & payments, follow-ups & enquiries, coaching, audit, readiness and biometric setup.', limits: 'Cannot manage owner-only Team access.' },
     owner: { label: 'Owner', allows: 'All Admin Software areas including Team access.', limits: 'Owner accounts are not created from this screen.' },
   };
   const setup = $('setup');
@@ -34,7 +34,8 @@
   async function api(path, options = {}) {
     const request = { credentials: 'same-origin', ...options };
     request.headers = { Accept: 'application/json', ...(options.headers || {}) };
-    if (options.body && typeof options.body !== 'string') {
+    const rawBody = options.body instanceof Blob || options.body instanceof ArrayBuffer || ArrayBuffer.isView(options.body);
+    if (options.body && typeof options.body !== 'string' && !rawBody) {
       request.body = JSON.stringify(options.body);
       request.headers['Content-Type'] = 'application/json';
     }
@@ -248,9 +249,9 @@
   }
 
   async function showView(view) {
-    const allowed = new Set(['dashboard', 'enquiries', 'members', 'memberships', 'fees', 'coaching', 'notifications', 'readiness', 'admins', 'audit']);
+    const allowed = new Set(['dashboard', 'attendance', 'enquiries', 'members', 'memberships', 'fees', 'coaching', 'biometric', 'notifications', 'readiness', 'admins', 'audit']);
     state.view = allowed.has(view) ? view : 'dashboard';
-    const titles = { dashboard: 'Home', enquiries: 'Enquiries', members: 'People', memberships: 'Memberships', fees: 'Fees', coaching: 'Coaching', notifications: 'Follow-ups', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
+    const titles = { dashboard: 'Home', attendance: 'Attendance', enquiries: 'Enquiries', members: 'People', memberships: 'Memberships', fees: 'Fees', coaching: 'Coaching', biometric: 'Biometric Devices', notifications: 'Follow-ups', readiness: 'Readiness', admins: 'Team access', audit: 'Audit trail' };
     document.querySelectorAll('.view').forEach((node) => { node.hidden = node.id !== `${state.view}View`; });
     document.querySelectorAll('nav [data-view]').forEach((node) => node.classList.toggle('active', node.dataset.view === state.view));
     $('viewTitle').textContent = titles[state.view];
@@ -259,11 +260,13 @@
     $('headerRecordPayment').hidden = !hasPermission('payments.read') || !['dashboard', 'members', 'fees'].includes(state.view);
     closeSidebar();
     if (state.view === 'dashboard' && window.GravityAdminDashboard) await window.GravityAdminDashboard.renderWorkspace();
+    if (state.view === 'attendance' && window.GravityBiometricAdmin) await window.GravityBiometricAdmin.renderAttendanceWorkspace();
     if (state.view === 'enquiries' && window.GravityEnquiryAdmin) await window.GravityEnquiryAdmin.renderWorkspace();
     if (state.view === 'members' && window.GravityCustomerAdmin) await window.GravityCustomerAdmin.renderWorkspace();
     if (state.view === 'memberships' && window.GravityMembershipAdmin) await window.GravityMembershipAdmin.renderWorkspace();
     if (state.view === 'fees' && window.GravityPaymentAdmin) await window.GravityPaymentAdmin.renderWorkspace();
     if (state.view === 'coaching' && window.GravityCoachingAdmin) await window.GravityCoachingAdmin.renderWorkspace();
+    if (state.view === 'biometric' && window.GravityBiometricAdmin) await window.GravityBiometricAdmin.renderDeviceWorkspace();
     if (state.view === 'notifications' && window.GravityFollowupAdmin) await window.GravityFollowupAdmin.renderWorkspace();
     if (state.view === 'notifications' && $('automaticMessagingPanel')?.open && window.GravityNotificationAdmin) await window.GravityNotificationAdmin.renderWorkspace();
     if (state.view === 'readiness' && window.GravityReadinessAdmin) await window.GravityReadinessAdmin.renderWorkspace();
@@ -277,12 +280,14 @@
     $('adminsNav').hidden = admin.role !== 'owner';
     $('newAdmin').hidden = admin.role !== 'owner';
     $('auditNav').hidden = !hasPermission('audit.read');
+    $('attendanceNav').hidden = !hasPermission('attendance.view');
     $('enquiriesNav').hidden = !hasPermission('enquiries.read');
     $('membersNav').hidden = !hasPermission('members.read');
     $('membershipsNav').hidden = !hasPermission('members.read');
     $('feesNav').hidden = !hasPermission('payments.read');
     $('notificationsNav').hidden = !hasPermission('notifications.manage');
     $('coachingNav').hidden = !(hasPermission('diet.manage') || hasPermission('progress.manage'));
+    $('biometricNav').hidden = !hasPermission('attendance.view');
     $('readinessNav').hidden = !hasPermission('system.readiness');
     $('advancedNav').hidden = Array.from($('advancedNav').querySelectorAll('button[data-view]')).every((button) => button.hidden);
     $('addCustomer').hidden = !hasPermission('members.manage');
@@ -297,6 +302,7 @@
     window.GravityFollowupAdmin?.setAdmin(admin);
     window.GravityNotificationAdmin?.setAdmin(admin);
     window.GravityReadinessAdmin?.setAdmin(admin);
+    window.GravityBiometricAdmin?.setAdmin(admin);
     setAuthScreen('app');
     await showView('dashboard');
   }

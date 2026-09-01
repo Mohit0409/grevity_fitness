@@ -82,9 +82,10 @@ class EnquiryServiceTests(unittest.TestCase):
             ).fetchall()
         self.assertEqual(
             [(row["name"], row["price_paise"]) for row in rows],
-            [("Basic", 99900), ("Pro", 149900), ("Elite", 249900)],
+            [("1 Month", 120000), ("3 Months", 300000), ("1 Year", 1000000)],
         )
-        self.assertTrue(all(row["status"] == "active" and row["duration_months"] == 1 for row in rows))
+        self.assertTrue(all(row["status"] == "active" for row in rows))
+        self.assertEqual([row["duration_months"] for row in rows], [1, 3, 12])
         self.assertTrue(all(row["description"] is None for row in rows))
 
     def test_csrf_creation_idempotency_and_no_raw_ip_storage(self):

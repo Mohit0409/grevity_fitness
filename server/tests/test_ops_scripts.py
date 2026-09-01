@@ -54,6 +54,40 @@ class OperationsScriptTests(unittest.TestCase):
             self.assertIn("127.0.0.1", text, path)
             self.assertIn("server.gravity", text, path)
 
+    def test_f09_onsite_script_has_secret_safe_preflight_and_direct_tcp_guards(self) -> None:
+        script = (ROOT / "scripts" / "configure-zkteco-f09.ps1").read_text(encoding="utf-8")
+        requirements = (ROOT / "scripts" / "requirements-biometric-driver.txt").read_text(encoding="utf-8")
+        guide = (ROOT / "docs" / "ON_SITE_F09_AUTOMATION_GUIDE.md").read_text(encoding="utf-8")
+        self.assertIn("PreflightOnly", script)
+        self.assertIn("Read-Host 'F09 numeric Comm Key", script)
+        self.assertIn("-AsSecureString", script)
+        self.assertIn("Test-NetConnection -ComputerName $DeviceIp -Port $DevicePort", script)
+        self.assertIn("/api/admin/biometric/devices", script)
+        self.assertIn("/sync", script)
+        self.assertIn("-StartNgrok", guide)
+        self.assertIn("gravity_fitness_website", guide)
+        self.assertIn("pyzk==0.9", requirements)
+        self.assertIn("--hash=sha256:9dcf0d40e0473c752d04d0af389fdd71ce85a0a9609bb8aca562be9171248170", requirements)
+        for marker in ("SECRET_KEY=", "authtoken=", "Comm Key="):
+            self.assertNotIn(marker, script)
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell preflight")
+    def test_f09_onsite_preflight_is_non_mutating(self) -> None:
+        script = ROOT / "scripts" / "configure-zkteco-f09.ps1"
+        with TemporaryDirectory() as temporary:
+            config = Path(temporary) / "gravity.env"
+            config.write_text("GRAVITY_HOST=127.0.0.1\nGRAVITY_PORT=8799\n", encoding="utf-8")
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
+                 "-ConfigPath", str(config), "-PreflightOnly"],
+                cwd=ROOT, capture_output=True, text=True,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        plan = __import__("json").loads(result.stdout.strip())
+        self.assertEqual(plan["mode"], "preflight")
+        self.assertEqual(plan["device"]["host"], "192.168.1.201")
+        self.assertNotIn("commKey", result.stdout.casefold())
+
     @unittest.skipUnless(sys.platform == "win32", "Windows file-lock behavior")
     def test_operations_log_lock_falls_back_without_failing_lifecycle(self) -> None:
         common = ROOT / "scripts" / "gravity-common.ps1"

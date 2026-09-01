@@ -91,9 +91,9 @@ class AdminSoftwareServiceTests(unittest.TestCase):
         self.assertEqual(created["customer"]["phone"], "+919876543210")
         self.assertFalse(created["customer"]["phoneVerified"])
         self.assertEqual(created["membership"]["status"], "active")
-        self.assertEqual(created["paymentSummary"]["totalPaise"], 99900)
+        self.assertEqual(created["paymentSummary"]["totalPaise"], 120000)
         self.assertEqual(created["paymentSummary"]["paidPaise"], 30000)
-        self.assertEqual(created["paymentSummary"]["pendingPaise"], 69900)
+        self.assertEqual(created["paymentSummary"]["pendingPaise"], 90000)
         detail = self.service.customer_detail(created["customer"]["id"])
         self.assertEqual(len(detail["membership"]["all"]), 1)
         self.assertEqual(len(detail["payments"]), 1)
@@ -185,7 +185,7 @@ class AdminSoftwareServiceTests(unittest.TestCase):
 
     def test_initial_overpayment_rolls_back_entire_customer_transaction(self) -> None:
         with self.assertRaises(AdminSoftwareConflict):
-            self.create_customer(phone="+919800000001", paid=100000)
+            self.create_customer(phone="+919800000001", paid=120001)
         with self.database.session() as connection:
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0], 0)
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM memberships").fetchone()[0], 0)
@@ -200,10 +200,10 @@ class AdminSoftwareServiceTests(unittest.TestCase):
             actor_admin_user_id="admin-1",
         )
         self.assertEqual(second["summary"]["paidPaise"], 70000)
-        self.assertEqual(second["summary"]["pendingPaise"], 29900)
+        self.assertEqual(second["summary"]["pendingPaise"], 50000)
         final = self.service.record_payment(
             membership_id,
-            {"amountPaise": 29900, "method": "cash"},
+            {"amountPaise": 50000, "method": "cash"},
             actor_admin_user_id="admin-1",
         )
         self.assertEqual(final["summary"]["pendingPaise"], 0)
@@ -242,11 +242,11 @@ class AdminSoftwareServiceTests(unittest.TestCase):
 
     def test_dashboard_and_filters_are_server_calculated(self) -> None:
         one = self.create_customer(phone="+919800000011", paid=20000)
-        self.create_customer(phone="+919800000012", paid=99900)
+        self.create_customer(phone="+919800000012", paid=120000)
         dashboard = self.service.dashboard()
         self.assertEqual(dashboard["stats"]["totalCustomers"], 2)
         self.assertEqual(dashboard["stats"]["activeMembers"], 2)
-        self.assertEqual(dashboard["stats"]["pendingFeesTotalPaise"], 79900)
+        self.assertEqual(dashboard["stats"]["pendingFeesTotalPaise"], 100000)
         pending = self.service.list_customers(membership_status="active")
         self.assertEqual(len(pending), 2)
         searched = self.service.list_customers(query="Rahul")
@@ -427,13 +427,13 @@ class AdminSoftwareServiceTests(unittest.TestCase):
         self.assertEqual(dashboard["stats"]["activeMembers"], 2)
         self.assertEqual(dashboard["stats"]["expiredMembers"], 0)
 
-    def test_migration_009_to_011_preserves_existing_domain_data(self) -> None:
+    def test_migration_009_to_012_preserves_existing_domain_data(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             old_migrations = root / "migrations"
             old_migrations.mkdir()
             for migration in sorted((ROOT / "server" / "migrations").glob("*.sql")):
-                if migration.name.startswith(("010_", "011_")):
+                if migration.name.startswith(("010_", "011_", "012_", "013_")):
                     continue
                 shutil.copy2(migration, old_migrations / migration.name)
             database_path = root / "gravity.sqlite3"
@@ -500,10 +500,10 @@ class AdminSoftwareServiceTests(unittest.TestCase):
                      "razorpay", "created", "upgrade-receipt", local_clock.value, local_clock.value),
                 )
             upgraded = Database(database_path, ROOT / "server" / "migrations")
-            self.assertEqual(upgraded.migrate(), ["010", "011"])
-            self.assertEqual(upgraded.health(), {"database": "ok", "migrations": "11"})
+            self.assertEqual(upgraded.migrate(), ["010", "011", "012", "013"])
+            self.assertEqual(upgraded.health(), {"database": "ok", "migrations": "13"})
             with upgraded.session() as connection:
-                self.assertEqual(connection.execute("SELECT value FROM app_metadata WHERE key='schema_stage'").fetchone()[0], "admin_usability_v2")
+                self.assertEqual(connection.execute("SELECT value FROM app_metadata WHERE key='schema_stage'").fetchone()[0], "biometric_attendance_v1")
                 for table in (
                     "customers", "firebase_identities", "customer_sessions", "memberships",
                     "notification_reminders", "admin_users", "payment_intents",
@@ -519,13 +519,13 @@ class AdminSoftwareServiceTests(unittest.TestCase):
                 self.assertEqual(upgraded_customer["person_type"], "member")
                 self.assertEqual(upgraded_customer["joined_at"], membership_start)
 
-    def test_migration_010_to_011_backfills_live_member_directory_fields(self) -> None:
+    def test_migration_010_to_012_backfills_live_member_directory_fields(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             migrations_010 = root / "migrations-010"
             migrations_010.mkdir()
             for migration in sorted((ROOT / "server" / "migrations").glob("*.sql")):
-                if not migration.name.startswith("011_"):
+                if not migration.name.startswith(("011_", "012_", "013_")):
                     shutil.copy2(migration, migrations_010 / migration.name)
             database_path = root / "gravity.sqlite3"
             database_010 = Database(database_path, migrations_010)
@@ -548,7 +548,7 @@ class AdminSoftwareServiceTests(unittest.TestCase):
                      99900, "INR", 1, "expired", start, now - 15 * 86400, "admin_manual", start, start),
                 )
             upgraded = Database(database_path, ROOT / "server" / "migrations")
-            self.assertEqual(upgraded.migrate(), ["011"])
+            self.assertEqual(upgraded.migrate(), ["011", "012", "013"])
             with upgraded.session() as connection:
                 row = connection.execute(
                     "SELECT person_type,joined_at,staff_designation,admin_note FROM customers WHERE id='live-member'"
@@ -558,7 +558,7 @@ class AdminSoftwareServiceTests(unittest.TestCase):
                 })
                 self.assertEqual(
                     connection.execute("SELECT value FROM app_metadata WHERE key='schema_stage'").fetchone()[0],
-                    "admin_usability_v2",
+                    "biometric_attendance_v1",
                 )
                 self.assertEqual(connection.execute("PRAGMA quick_check").fetchone()[0], "ok")
                 self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])

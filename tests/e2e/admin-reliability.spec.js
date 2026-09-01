@@ -94,3 +94,86 @@ test('slow and interrupted notification APIs remain usable and scan double-click
   await expect(page.locator('#notificationsList')).toContainText('temporarily unavailable');
   await expect(page.locator('#app')).toBeVisible();
 });
+
+
+test('biometric attendance and device workspaces are usable on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockAdminShell(page, { authenticated: true }, ['dashboard.view', 'attendance.view', 'members.read', 'biometric.manage']);
+  await page.route('**/api/admin/attendance/stats?*', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      stats: {
+        date: '2026-09-01',
+        presentToday: 1,
+        members: 1,
+        staff: 0,
+        totalVisits: 1,
+        devices: [{ id: 'device-1', name: 'Mock F09', status: 'online' }],
+      },
+    }),
+  }));
+  await page.route('**/api/admin/attendance?*', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      visits: [{
+        id: 'visit-1',
+        personId: 'person-1',
+        displayName: 'Rahul Sharma',
+        personType: 'member',
+        membershipNumber: 'GF-001',
+        membershipStatus: 'active',
+        firstScanAt: 1788244200,
+        lastScanAt: 1788244500,
+        scanCount: 2,
+        deviceName: 'Mock F09',
+      }],
+      unmatched: [],
+    }),
+  }));
+  await page.route('**/api/admin/biometric/devices', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      devices: [{
+        id: 'device-1',
+        name: 'Mock F09',
+        vendor: 'zkteco',
+        model: 'F09',
+        deviceIdentifier: '1',
+        host: '192.168.1.201',
+        port: 4370,
+        status: 'online',
+        connectionMode: 'mock',
+        commKeyConfigured: false,
+      }],
+    }),
+  }));
+  await page.route('**/api/admin/biometric/mappings', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      mappings: [{ id: 'map-1', deviceId: 'device-1', deviceName: 'Mock F09', deviceUserId: '101', person: { displayName: 'Rahul Sharma', personType: 'member' } }],
+    }),
+  }));
+  await page.route('**/api/admin/customers?*', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ customers: [{ id: 'person-1', displayName: 'Rahul Sharma', personType: 'member', membership: { membershipNumber: 'GF-001' } }] }),
+  }));
+
+  await page.goto('/admin');
+  await page.locator('#sidebarOpen').click();
+  await page.locator('#attendanceNav').click();
+  await expect(page.locator('#viewTitle')).toHaveText('Attendance');
+  await expect(page.locator('#attendanceMobileList')).toContainText('Rahul Sharma');
+  await expect(page.locator('#attendanceMobileList')).toContainText('Mock F09');
+
+  await page.locator('#sidebarOpen').click();
+  await page.locator('#advancedNav > summary').click();
+  await page.locator('#biometricNav').click();
+  await expect(page.locator('#viewTitle')).toHaveText('Biometric Devices');
+  await expect(page.locator('#biometricDevices')).toContainText('Mock F09');
+  await expect(page.locator('#biometricMappings')).toContainText('user 101');
+});

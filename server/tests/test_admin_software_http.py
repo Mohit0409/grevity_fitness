@@ -145,6 +145,83 @@ class AdminSoftwareHttpTests(unittest.TestCase):
             )
             self.assertEqual((status, payload), (403, {"error": "invalid_origin"}))
 
+    def test_biometric_attendance_http_role_and_csrf_boundaries(self):
+        with running_server() as (server, base):
+            status, payload = request_json(base, "/api/admin/attendance")
+            self.assertEqual((status, payload), (401, {"error": "admin_unauthenticated"}))
+            owner_issue, owner_headers = prepare_owner(server, base)
+            status, created = request_json(
+                base, "/api/admin/customers", method="POST", body=customer_payload(), headers=owner_headers
+            )
+            self.assertEqual(status, 201)
+            customer_id = created["customer"]["id"]
+            status, device_payload = request_json(
+                base,
+                "/api/admin/biometric/devices",
+                method="POST",
+                body={
+                    "name": "Test Mock F09",
+                    "vendor": "zkteco",
+                    "model": "F09",
+                    "deviceIdentifier": "mock-http",
+                    "connectionMode": "mock",
+                },
+                headers=owner_headers,
+            )
+            self.assertEqual(status, 201)
+            device_id = device_payload["device"]["id"]
+            self.assertFalse(device_payload["device"]["commKeyConfigured"])
+
+            status, payload = request_json(
+                base,
+                "/api/admin/biometric/mappings",
+                method="POST",
+                body={"deviceId": device_id, "deviceUserId": "101", "personId": customer_id},
+                headers=owner_headers,
+            )
+            self.assertEqual(status, 201)
+            status, payload = request_json(
+                base,
+                "/api/admin/biometric/simulate",
+                method="POST",
+                body={"deviceId": device_id, "deviceUserId": "101", "verificationType": "fingerprint"},
+                headers=admin_headers(server, owner_issue, base, include_csrf=False),
+            )
+            self.assertEqual((status, payload), (403, {"error": "admin_forbidden"}))
+            status, payload = request_json(
+                base,
+                "/api/admin/biometric/simulate",
+                method="POST",
+                body={"deviceId": device_id, "deviceUserId": "101", "verificationType": "fingerprint"},
+                headers=owner_headers,
+            )
+            self.assertEqual(status, 201)
+            self.assertEqual(payload["stored"], 1)
+            status, payload = request_json(base, "/api/admin/attendance", headers=owner_headers)
+            self.assertEqual(status, 200)
+            self.assertEqual(payload["visits"][0]["personId"], customer_id)
+            status, payload = request_json(base, f"/api/admin/attendance/person/{customer_id}", headers=owner_headers)
+            self.assertEqual(status, 200)
+            self.assertEqual(payload["attendance"]["thisMonth"], 1)
+
+            owner_identity = server.admin_service.resolve_session(owner_issue.session_token)
+            trainer = server.admin_service.create_admin(
+                owner_identity, "trainer", "Gravity!Trainer123", "trainer"
+            )
+            trainer_issue = admin_issue(server.admin_service, "trainer", "Gravity!Trainer123", trainer.totp_secret)
+            trainer_headers = admin_headers(server, trainer_issue, base)
+            status, payload = request_json(base, "/api/admin/attendance/stats", headers=trainer_headers)
+            self.assertEqual(status, 200)
+            self.assertEqual(payload["stats"]["presentToday"], 1)
+            status, payload = request_json(
+                base,
+                "/api/admin/biometric/devices",
+                method="POST",
+                body={"name": "Trainer Cannot Create", "connectionMode": "mock", "deviceIdentifier": "deny"},
+                headers=trainer_headers,
+            )
+            self.assertEqual((status, payload), (403, {"error": "admin_forbidden"}))
+
     def test_owner_customer_payment_fees_and_renewal_workflow(self):
         with running_server() as (server, base):
             status, payload = request_json(base, "/api/admin/customers")
@@ -156,7 +233,7 @@ class AdminSoftwareHttpTests(unittest.TestCase):
             self.assertEqual(status, 201)
             customer_id = created["customer"]["id"]
             membership_id = created["membership"]["id"]
-            self.assertEqual(created["paymentSummary"]["pendingPaise"], 69900)
+            self.assertEqual(created["paymentSummary"]["pendingPaise"], 90000)
 
             status, detail = request_json(base, f"/api/admin/customers/{customer_id}", headers=headers)
             self.assertEqual(status, 200)
@@ -169,17 +246,17 @@ class AdminSoftwareHttpTests(unittest.TestCase):
                 body={"amountPaise": 20000, "method": "upi"}, headers=payment_headers,
             )
             self.assertEqual(status, 201)
-            self.assertEqual(payment["summary"]["pendingPaise"], 49900)
+            self.assertEqual(payment["summary"]["pendingPaise"], 70000)
             status, payment_replay = request_json(
                 base, f"/api/admin/memberships/{membership_id}/payments", method="POST",
                 body={"amountPaise": 20000, "method": "upi"}, headers=payment_headers,
             )
             self.assertEqual(status, 201)
             self.assertEqual(payment_replay["payment"]["id"], payment["payment"]["id"])
-            self.assertEqual(payment_replay["summary"]["pendingPaise"], 49900)
+            self.assertEqual(payment_replay["summary"]["pendingPaise"], 70000)
             status, fees = request_json(base, "/api/admin/fees?pendingOnly=1", headers=headers)
             self.assertEqual(status, 200)
-            self.assertEqual(fees["pendingFeesTotalPaise"], 49900)
+            self.assertEqual(fees["pendingFeesTotalPaise"], 70000)
             self.assertEqual(len(fees["rows"]), 1)
 
             renewal_headers = {**headers, "Idempotency-Key": "renewal-http-key-0001"}

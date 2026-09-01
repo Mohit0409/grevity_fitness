@@ -50,9 +50,9 @@ test('home publishes only verified facts and passes the visual release matrix', 
     await page.goto('/');
     await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
     await expect(page.locator('.plan-card')).toHaveCount(3);
-    await expect(page.locator('.plan-card').nth(0)).toContainText('₹999');
-    await expect(page.locator('.plan-card').nth(1)).toContainText('₹1,499');
-    await expect(page.locator('.plan-card').nth(2)).toContainText('₹2,499');
+    await expect(page.locator('.plan-card').nth(0)).toContainText('₹1,200');
+    await expect(page.locator('.plan-card').nth(1)).toContainText('₹3,000');
+    await expect(page.locator('.plan-card').nth(2)).toContainText('₹10,000');
     await expect(page.locator('body')).not.toContainText('GST invoice available');
     await expectNoOverflow(page);
     const fixed = await page.locator('body *').evaluateAll((nodes) => nodes
@@ -94,10 +94,10 @@ test('visit request validates, submits and returns an authoritative reference', 
 test('membership enquiry preserves the selected verified plan', async ({ page }) => {
   await page.goto('/#membership');
   await expect(page.locator('#public-membership-plans')).toHaveAttribute('aria-busy', 'false');
-  await page.locator('.plan-card').filter({ hasText: 'Pro' }).getByRole('button').click();
+  await page.locator('.plan-card').filter({ hasText: '3 Months' }).getByRole('button').click();
   await expect(page.locator('#enquiry-type')).toHaveValue('membership');
   await expect(page.locator('#enquiry-plan')).toHaveValue(/.+/);
-  await expect(page.locator('#enquiry-plan').locator('option:checked')).toContainText('Pro — ₹1,499/month');
+  await expect(page.locator('#enquiry-plan').locator('option:checked')).toContainText('3 Months — ₹3,000 / 3 months');
   await expect(page.locator('#enquiry-plan')).toHaveAttribute('required', '');
 });
 
@@ -583,7 +583,7 @@ function notificationFixture() {
     {
       id: 'reminder-internal-7', eventType: 'membership_expiry', customerId: 'customer-internal-1', membershipId: 'membership-internal-1',
       triggerDays: 7, state: 'pending', customer: { displayName: 'Asha Member' },
-      payload: { planName: 'Pro', membershipNumber: 'GF-M-1001', endsAt: now + 7 * 86400 },
+      payload: { planName: '3 Months', membershipNumber: 'GF-M-1001', endsAt: now + 7 * 86400 },
       deliveries: [
         { id: 'delivery-internal-1', recipientRole: 'customer', channel: 'email', status: 'sent', lastErrorCode: null },
         { id: 'delivery-internal-2', recipientRole: 'customer', channel: 'sms', status: 'queued' },
@@ -596,7 +596,7 @@ function notificationFixture() {
     {
       id: 'reminder-internal-3', eventType: 'membership_expiry', customerId: 'customer-internal-4', membershipId: 'membership-internal-4',
       triggerDays: 3, state: 'pending', customer: { displayName: 'Neha Member' },
-      payload: { planName: 'Basic', membershipNumber: 'GF-M-1004', endsAt: now + 3 * 86400 },
+      payload: { planName: '1 Month', membershipNumber: 'GF-M-1004', endsAt: now + 3 * 86400 },
       deliveries: [
         { recipientRole: 'customer', channel: 'email', status: 'missing_recipient' },
         { recipientRole: 'customer', channel: 'sms', status: 'missing_recipient' },
@@ -622,7 +622,7 @@ function notificationFixture() {
     {
       id: 'reminder-internal-0', eventType: 'membership_expiry', customerId: 'customer-internal-2', membershipId: 'membership-internal-2',
       triggerDays: 0, state: 'pending', customer: { displayName: 'Ravi Member' },
-      payload: { planName: 'Basic', membershipNumber: 'GF-M-1002', endsAt: now - 1800 },
+      payload: { planName: '1 Month', membershipNumber: 'GF-M-1002', endsAt: now - 1800 },
       deliveries: [
         { recipientRole: 'customer', channel: 'email', status: 'failed', nextAttemptAt: null, lastErrorCode: 'smtp_delivery_failed' },
         { recipientRole: 'customer', channel: 'sms', status: 'missing_recipient' },
@@ -634,7 +634,7 @@ function notificationFixture() {
     {
       id: 'reminder-internal-suppressed', eventType: 'membership_expiry', customerId: 'customer-internal-3', membershipId: 'membership-internal-3',
       triggerDays: 3, state: 'suppressed', customer: { displayName: 'Renewed Member' },
-      payload: { planName: 'Elite', membershipNumber: 'GF-M-1003', endsAt: now + 3 * 86400 },
+      payload: { planName: '1 Year', membershipNumber: 'GF-M-1003', endsAt: now + 3 * 86400 },
       deliveries: [
         { recipientRole: 'customer', channel: 'email', status: 'sent' },
         { recipientRole: 'customer', channel: 'sms', status: 'queued' },
@@ -652,7 +652,7 @@ test('customer membership expiry reminder history is clear and privacy-safe', as
   const now = Math.floor(Date.now() / 1000);
   const reminders = [7, 3, 1, 0].map((triggerDays, index) => ({
     id: `customer-reminder-${index}`, eventType: 'membership_expiry', triggerDays,
-    state: 'pending', payload: { planName: index === 0 ? 'Pro' : 'Basic', membershipNumber: `GF-M-${index}`, endsAt: now + triggerDays * 86400 },
+    state: 'pending', payload: { planName: index === 0 ? '3 Months' : '1 Month', membershipNumber: `GF-M-${index}`, endsAt: now + triggerDays * 86400 },
     deliveries: [
       { id: `private-delivery-${index}`, recipientRole: 'customer', channel: 'email', status: index ? 'queued' : 'sent', lastErrorCode: 'private_provider_error' },
       ...(index === 0 ? [{ id: 'owner-hidden-delivery', recipientRole: 'owner', channel: 'email', status: 'failed', lastErrorCode: 'owner_secret_error' }] : []),
@@ -660,7 +660,7 @@ test('customer membership expiry reminder history is clear and privacy-safe', as
   }));
   reminders.push({
     id: 'customer-reminder-suppressed', eventType: 'membership_expiry', triggerDays: 3, state: 'suppressed',
-    payload: { planName: 'Elite', membershipNumber: 'GF-M-RENEW', endsAt: now + 3 * 86400 },
+    payload: { planName: '1 Year', membershipNumber: 'GF-M-RENEW', endsAt: now + 3 * 86400 },
     deliveries: [{ id: 'private-delivery-suppressed', recipientRole: 'customer', channel: 'whatsapp', status: 'blocked_external_config' }],
   });
   await mockSignedInNotificationAccount(page, { status: 200, body: JSON.stringify({ notifications: reminders }) });
@@ -674,7 +674,7 @@ test('customer membership expiry reminder history is clear and privacy-safe', as
   await expect(card).toContainText('Membership expired today');
   await expect(card).toContainText('Renewal confirmed. This reminder was stopped.');
   await expect(card).toContainText('GF-M-0');
-  await expect(card).toContainText('Pro');
+  await expect(card).toContainText('3 Months');
   await expect(card.getByLabel('Reminder status: Sent')).toHaveCount(1);
   await expect(card.getByLabel('Reminder status: Pending')).toHaveCount(3);
   await expect(card.getByLabel('Reminder status: Suppressed after renewal')).toHaveCount(1);
@@ -873,8 +873,9 @@ async function mockAdminSoftware(page, options = {}) {
   const admin = options.admin || { id: 'owner-ui-test', username: 'owner', role: 'owner', permissions: ['*'] };
   const authState = { authenticated: !options.startUnauthenticated };
   const plans = [
-    { id: 'plan-basic', code: 'basic', name: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'active', sortOrder: 1 },
-    { id: 'plan-pro', code: 'pro', name: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'active', sortOrder: 2 },
+    { id: 'plan-basic', code: 'one-month', name: '1 Month', pricePaise: 120000, currency: 'INR', durationMonths: 1, status: 'active', sortOrder: 1 },
+    { id: 'plan-pro', code: 'three-months', name: '3 Months', pricePaise: 300000, currency: 'INR', durationMonths: 3, status: 'active', sortOrder: 2 },
+    { id: 'plan-elite', code: 'one-year', name: '1 Year', pricePaise: 1000000, currency: 'INR', durationMonths: 12, status: 'active', sortOrder: 3 },
   ];
   const customers = [
     { id: 'cust-asha', displayName: 'Asha Sharma', phone: '+919876543210', phoneVerified: true, email: 'asha@example.com', status: 'active', personType: 'member', joinedAt: now - 200 * day, designation: null, note: null, createdAt: now - 200 * day, lastLoginAt: now - 3600 },
@@ -884,20 +885,20 @@ async function mockAdminSoftware(page, options = {}) {
   ];
   const memberships = {
     'cust-asha': [
-      { id: 'mem-asha-live', membershipNumber: 'GF-2026-ASHA', customerId: 'cust-asha', planId: 'plan-pro', planName: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'active', startsAt: now - 60 * day, endsAt: now + 7 * day, daysRemaining: 7, source: 'admin_manual', createdAt: now - 60 * day, payment: { totalPaise: 149900, paidPaise: 50000, pendingPaise: 99900 } },
-      { id: 'mem-asha-old', membershipNumber: 'GF-2026-OLD', customerId: 'cust-asha', planId: 'plan-basic', planName: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'expired', startsAt: now - 120 * day, endsAt: now - 90 * day, daysRemaining: 0, source: 'admin_manual', createdAt: now - 120 * day, payment: { totalPaise: 99900, paidPaise: 99900, pendingPaise: 0 } },
-      { id: 'mem-asha-cancelled', membershipNumber: 'GF-CANCELLED', customerId: 'cust-asha', planId: 'plan-basic', planName: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'cancelled', startsAt: now - 180 * day, endsAt: now - 150 * day, daysRemaining: 0, source: 'admin_manual', createdAt: now - 180 * day, payment: { totalPaise: 99900, paidPaise: 0, pendingPaise: 99900 } },
+      { id: 'mem-asha-live', membershipNumber: 'GF-2026-ASHA', customerId: 'cust-asha', planId: 'plan-pro', planName: '3 Months', pricePaise: 300000, currency: 'INR', durationMonths: 3, status: 'active', startsAt: now - 60 * day, endsAt: now + 7 * day, daysRemaining: 7, source: 'admin_manual', createdAt: now - 60 * day, payment: { totalPaise: 300000, paidPaise: 50000, pendingPaise: 250000 } },
+      { id: 'mem-asha-old', membershipNumber: 'GF-2026-OLD', customerId: 'cust-asha', planId: 'plan-basic', planName: '1 Month', pricePaise: 120000, currency: 'INR', durationMonths: 1, status: 'expired', startsAt: now - 120 * day, endsAt: now - 90 * day, daysRemaining: 0, source: 'admin_manual', createdAt: now - 120 * day, payment: { totalPaise: 120000, paidPaise: 120000, pendingPaise: 0 } },
+      { id: 'mem-asha-cancelled', membershipNumber: 'GF-CANCELLED', customerId: 'cust-asha', planId: 'plan-basic', planName: '1 Month', pricePaise: 120000, currency: 'INR', durationMonths: 1, status: 'cancelled', startsAt: now - 180 * day, endsAt: now - 150 * day, daysRemaining: 0, source: 'admin_manual', createdAt: now - 180 * day, payment: { totalPaise: 120000, paidPaise: 0, pendingPaise: 120000 } },
     ],
     'cust-ravi': [
-      { id: 'mem-ravi-live', membershipNumber: 'GF-2026-RAVI', customerId: 'cust-ravi', planId: 'plan-basic', planName: 'Basic', pricePaise: 99900, currency: 'INR', durationMonths: 1, status: 'active', startsAt: now - 20 * day, endsAt: now + 3 * day, daysRemaining: 3, source: 'admin_manual', createdAt: now - 20 * day, payment: { totalPaise: 99900, paidPaise: 99900, pendingPaise: 0 } },
-      { id: 'mem-ravi-next', membershipNumber: 'GF-RAVI-NEXT', customerId: 'cust-ravi', planId: 'plan-pro', planName: 'Pro', pricePaise: 149900, currency: 'INR', durationMonths: 3, status: 'scheduled', startsAt: now + 3 * day, endsAt: now + 93 * day, daysRemaining: 0, source: 'admin_manual', createdAt: now - day, payment: { totalPaise: 149900, paidPaise: 0, pendingPaise: 149900 } },
+      { id: 'mem-ravi-live', membershipNumber: 'GF-2026-RAVI', customerId: 'cust-ravi', planId: 'plan-basic', planName: '1 Month', pricePaise: 120000, currency: 'INR', durationMonths: 1, status: 'active', startsAt: now - 20 * day, endsAt: now + 3 * day, daysRemaining: 3, source: 'admin_manual', createdAt: now - 20 * day, payment: { totalPaise: 120000, paidPaise: 120000, pendingPaise: 0 } },
+      { id: 'mem-ravi-next', membershipNumber: 'GF-RAVI-NEXT', customerId: 'cust-ravi', planId: 'plan-pro', planName: '3 Months', pricePaise: 300000, currency: 'INR', durationMonths: 3, status: 'scheduled', startsAt: now + 3 * day, endsAt: now + 93 * day, daysRemaining: 0, source: 'admin_manual', createdAt: now - day, payment: { totalPaise: 300000, paidPaise: 0, pendingPaise: 300000 } },
     ],
     'cust-disabled': [],
     'staff-asha': [],
   };
   const payments = [
     { id: 'pay-asha-1', membershipId: 'mem-asha-live', membershipNumber: 'GF-2026-ASHA', customerId: 'cust-asha', customerName: 'Asha Sharma', amountPaise: 50000, currency: 'INR', method: 'upi', note: 'Opening payment', paidAt: now - day, status: 'recorded' },
-    { id: 'pay-ravi-1', membershipId: 'mem-ravi-live', membershipNumber: 'GF-2026-RAVI', customerId: 'cust-ravi', customerName: 'Ravi Patel', amountPaise: 99900, currency: 'INR', method: 'cash', note: null, paidAt: now - 2 * day, status: 'recorded' },
+    { id: 'pay-ravi-1', membershipId: 'mem-ravi-live', membershipNumber: 'GF-2026-RAVI', customerId: 'cust-ravi', customerName: 'Ravi Patel', amountPaise: 120000, currency: 'INR', method: 'cash', note: null, paidAt: now - 2 * day, status: 'recorded' },
   ];
   const notifications = [
     { id: 'n-asha', membershipId: 'mem-asha-live', customerId: 'cust-asha', state: 'pending', triggerDays: 7, createdAt: now - 120 },
@@ -913,6 +914,7 @@ async function mockAdminSoftware(page, options = {}) {
   const paymentBodies = [];
   const paymentAttempts = [];
   const adminCreateBodies = [];
+  const photoUploads = [];
   let customerMode = options.customerMode || 'ok';
   let paymentMode = options.paymentMode || 'ok';
   let dashboardMode = options.dashboardMode || 'ok';
@@ -1068,6 +1070,17 @@ async function mockAdminSoftware(page, options = {}) {
     return json(route, 200, customerDetail(customerId));
   });
 
+  await page.route(/\/api\/admin\/customers\/[^/]+\/photo(?:\?.*)?$/, async (route) => {
+    const customerId = decodeURIComponent(new URL(route.request().url()).pathname.split('/').slice(-2)[0]);
+    if (route.request().method() === 'POST') {
+      const raw = route.request().postDataBuffer() || Buffer.alloc(0);
+      photoUploads.push({ customerId, bytes: raw.length, contentType: route.request().headers()['content-type'] });
+      return json(route, 200, { saved: true });
+    }
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlYngAAAABJRU5ErkJggg==', 'base64');
+    return route.fulfill({ status: 200, contentType: 'image/png', body: png });
+  });
+
   await page.route(/\/api\/admin\/memberships\/[^/]+\/payments$/, async (route) => {
     const membershipId = decodeURIComponent(new URL(route.request().url()).pathname.split('/').slice(-2)[0]); const membership = findMembership(membershipId); if (!membership) return json(route, 404, { error: 'admin_software_not_found' });
     const body = route.request().postDataJSON();
@@ -1103,6 +1116,28 @@ async function mockAdminSoftware(page, options = {}) {
   await page.route('**/api/admin/membership/plans/*', (route) => json(route, 200, { plan: plans[0] }));
   await page.route('**/api/admin/notifications?limit=100', (route) => json(route, 200, { providerBlockers: { email: 'READY', sms: 'BLOCKED_EXTERNAL_CONFIG', whatsapp: 'BLOCKED_EXTERNAL_CONFIG' }, notifications: [] }));
   await page.route('**/api/admin/notifications/scan', (route) => json(route, 200, { scan: { created: 0, deduped: 0, suppressedRenewed: 0 }, providerBlockers: {} }));
+  await page.route(/\/api\/admin\/attendance\/person\/[^/]+$/, (route) => {
+    const customerId = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop());
+    const customer = findCustomer(customerId);
+    return json(route, 200, {
+      attendance: {
+        person: customer ? { id: customer.id, displayName: customer.displayName, personType: customer.personType, status: customer.status } : null,
+        today: null,
+        todayLabel: new Date(now * 1000).toISOString().slice(0, 10),
+        thisMonth: 0,
+        lastMonth: 0,
+        last7Days: 0,
+        last30Days: 0,
+        lastVisit: null,
+        recentVisits: [],
+        mappings: [],
+      },
+    });
+  });
+  await page.route(/\/api\/admin\/attendance\/stats(?:\?.*)?$/, (route) => json(route, 200, { stats: { date: new Date(now * 1000).toISOString().slice(0, 10), presentToday: 0, members: 0, staff: 0, totalVisits: 0, devices: [] } }));
+  await page.route(/\/api\/admin\/attendance(?:\?.*)?$/, (route) => json(route, 200, { visits: [], unmatched: [] }));
+  await page.route('**/api/admin/biometric/devices', (route) => json(route, 200, { devices: [] }));
+  await page.route('**/api/admin/biometric/mappings', (route) => json(route, 200, { mappings: [] }));
   await page.route('**/api/admin/admins', (route) => {
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON(); adminCreateBodies.push(body);
@@ -1112,7 +1147,7 @@ async function mockAdminSoftware(page, options = {}) {
   });
   await page.route(/\/api\/admin\/audit(?:\?.*)?$/, (route) => auditMode === 'error' ? json(route, 503, { error: 'temporary_failure' }) : json(route, 200, { audit: auditEvents }));
 
-  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, adminCreateBodies, customerQueries, feeQueries, auditEvents, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; }, setAuditMode(value) { auditMode = value; }, expireSession() { authState.authenticated = false; dashboardMode = 'unauthorized'; } };
+  return { admin, customers, memberships, plans, payments, createBodies, editBodies, renewBodies, paymentBodies, paymentAttempts, adminCreateBodies, photoUploads, customerQueries, feeQueries, auditEvents, setCustomerMode(value) { customerMode = value; }, setPaymentMode(value) { paymentMode = value; }, setDashboardMode(value) { dashboardMode = value; }, setAuditMode(value) { auditMode = value; }, expireSession() { authState.authenticated = false; dashboardMode = 'unauthorized'; } };
 }
 
 
@@ -1156,7 +1191,7 @@ test('manual follow-ups open a ready WhatsApp message for expiring and expired m
   const popup = await popupPromise;
   await expect.poll(() => popup.url()).toContain('https://wa.me/919812345678?text=');
   const decoded = decodeURIComponent(popup.url());
-  expect(decoded).toContain('Your Basic membership expired on');
+  expect(decoded).toContain('Your 1 Month membership expired on');
   expect(decoded).toContain('Please reply here if you would like to continue your membership.');
   await popup.close();
   await page.locator('#followupFilter').selectOption('expired');
@@ -1176,7 +1211,7 @@ test('people workspace supports member search filters detail history and status 
   await page.locator('#membersNav').click();
   await page.locator('#memberSearch').fill('Asha');
   await expect(page.locator('#membersBody tr')).toHaveCount(1);
-  await expect(page.locator('#membersBody')).toContainText('Pro');
+  await expect(page.locator('#membersBody')).toContainText('3 Months');
   await page.locator('#memberSearch').fill('');
   await page.locator('#customerMembershipFilter').selectOption('none');
   await expect(page.locator('#membersBody')).toContainText('Disabled Member');
@@ -1240,9 +1275,11 @@ test('people workspace supports member search filters detail history and status 
   expect(runtimeProblems).toEqual([]);
 });
 
-test('add member is transactional accessible and rejects duplicate mobile', async ({ page }) => {
+test('add member supports compressed photo receipt sharing and rejects duplicate mobile', async ({ page, context }) => {
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page);
+  await context.route('https://wa.me/**', (route) => route.fulfill({ status: 200, contentType: 'text/plain', body: 'ok' }));
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }); Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true }); });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/admin');
   const trigger = page.locator('#headerAddCustomer');
@@ -1255,12 +1292,15 @@ test('add member is transactional accessible and rejects duplicate mobile', asyn
   await page.locator('#newCustomerReceived').fill('300');
   await page.locator('#newCustomerPaymentMethod').selectOption('upi');
   await page.locator('#newCustomerNote').fill('Reception onboarding');
+  await expect(page.locator('#newCustomerPhoto')).toBeVisible();
+  const photoBuffer = await page.screenshot({ type: 'png' });
+  await page.locator('#newCustomerPhoto').setInputFiles({ name: 'member.png', mimeType: 'image/png', buffer: photoBuffer });
   await page.locator('#newCustomerStart').fill('2026-01-31');
   await expect(page.locator('#newCustomerExpiry')).toHaveText('28 Feb 2026');
   const historicalStart = new Date(Date.now() - 20 * 86400 * 1000).toISOString().slice(0, 10);
   await page.locator('#newCustomerStart').fill(historicalStart);
-  await expect(page.locator('#newCustomerFee')).toHaveValue(/999/);
-  await expect(page.locator('#newCustomerPending')).toContainText(/699/);
+  await expect(page.locator('#newCustomerFee')).toHaveValue(/1,?200/);
+  await expect(page.locator('#newCustomerPending')).toContainText(/900/);
   await expect(dialog).toContainText('Final membership dates and balances are calculated by the server.');
   for (let index = 0; index < 12; index += 1) {
     await page.keyboard.press('Tab');
@@ -1270,7 +1310,21 @@ test('add member is transactional accessible and rejects duplicate mobile', asyn
   await expect(dialog).not.toBeVisible();
   await expect(page.locator('#customerDrawer')).toBeVisible();
   await expect(page.locator('#customerDrawerName')).toHaveText('New Member');
-  await expect(page.locator('#customerDrawerBody')).toContainText(/699/);
+  await expect(page.locator('#customerDrawerBody')).toContainText(/900/);
+  await expect.poll(() => fixture.photoUploads.length).toBe(1);
+  expect(fixture.photoUploads[0].customerId).toBe('cust-new-1');
+  expect(fixture.photoUploads[0].bytes).toBeGreaterThan(100);
+  expect(fixture.photoUploads[0].contentType).toContain('image/jpeg');
+  await expect(page.locator('#customerDrawer .customer-profile-photo')).toBeVisible();
+  const receiptButton = page.locator('#customerDrawer').getByRole('button', { name: 'Share Receipt' });
+  await expect(receiptButton).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  const popupPromise = page.waitForEvent('popup');
+  await receiptButton.click();
+  const [download, popup] = await Promise.all([downloadPromise, popupPromise]);
+  expect(download.suggestedFilename()).toMatch(/^gravity-receipt-GF-NEW-1\.jpg$/);
+  await expect.poll(() => popup.url()).toContain('https://wa.me/919876500000?text=');
+  await popup.close();
   expect(fixture.createBodies[0].phone).toBe('+919876500000');
   expect(fixture.createBodies[0].amountPaidPaise).toBe(30000);
   expect(fixture.createBodies[0].startsAt).toBeLessThan(Math.floor(Date.now() / 1000) - 86400);
@@ -1363,7 +1417,7 @@ test('renewal is server-backed with opening payment and preserved history', asyn
   await page.locator('#renewReceived').fill('250');
   await page.locator('#renewPaymentMethod').selectOption('cash');
   await page.locator('#renewNote').fill('Renewal deposit');
-  await expect(page.locator('#renewPendingPreview')).toContainText(/749/);
+  await expect(page.locator('#renewPendingPreview')).toContainText(/950/);
   await page.locator('#submitRenewMembership').click();
   await expect(page.locator('#renewMembershipDialog')).not.toBeVisible();
   await expect.poll(() => fixture.renewBodies.length).toBe(1);
@@ -1383,7 +1437,7 @@ test('manual payments support partial multiple full payment and double-submit pr
   await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
   const drawer = page.locator('#customerDrawer');
   await drawer.getByRole('button', { name: 'Record Payment' }).click();
-  await expect(page.locator('#paymentPending')).toContainText(/999/);
+  await expect(page.locator('#paymentPending')).toContainText(/2,500/);
   await page.locator('#paymentAmount').fill('400');
   await page.locator('#paymentMethod').selectOption('upi');
   const submit = page.locator('#submitPayment');
@@ -1391,10 +1445,10 @@ test('manual payments support partial multiple full payment and double-submit pr
   await expect(submit).toBeDisabled();
   await expect.poll(() => fixture.paymentBodies.length).toBe(1);
   await expect(page.locator('#recordPaymentDialog')).not.toBeVisible();
-  await expect(drawer).toContainText(/599/);
+  await expect(drawer).toContainText(/2,100/);
   await drawer.getByRole('button', { name: 'Record Payment' }).click();
-  await expect(page.locator('#paymentPending')).toContainText(/599/);
-  await page.locator('#paymentAmount').fill('599');
+  await expect(page.locator('#paymentPending')).toContainText(/2,100/);
+  await page.locator('#paymentAmount').fill('2100');
   await page.locator('#submitPayment').click();
   await expect.poll(() => fixture.paymentBodies.length).toBe(2);
   await expect(page.locator('#recordPaymentDialog')).not.toBeVisible();
@@ -1412,7 +1466,7 @@ test('payment validation handles overpayment and network failure without mutatin
   await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
   const drawer = page.locator('#customerDrawer');
   await drawer.getByRole('button', { name: 'Record Payment' }).click();
-  await page.locator('#paymentAmount').fill('2000');
+  await page.locator('#paymentAmount').fill('3000');
   expect(await page.locator('#paymentAmount').evaluate((node) => node.checkValidity())).toBe(false);
   await page.locator('#paymentAmount').fill('100');
   fixture.setPaymentMode('error');
@@ -1423,7 +1477,7 @@ test('payment validation handles overpayment and network failure without mutatin
   await page.locator('#paymentAmount').fill('100');
   await page.locator('#submitPayment').click();
   await expect(page.locator('#recordPaymentDialog')).not.toBeVisible();
-  await expect(drawer).toContainText(/899/);
+  await expect(drawer).toContainText(/2,400/);
   expect(fixture.paymentAttempts).toHaveLength(2);
   expect(fixture.paymentAttempts[0].idempotencyKey).toMatch(/^admin-payment-/);
   expect(fixture.paymentAttempts[1].idempotencyKey).toBe(fixture.paymentAttempts[0].idempotencyKey);
@@ -1436,7 +1490,7 @@ test('fees workspace searches filters and records from the server ledger', async
   await page.goto('/admin');
   await page.locator('#feesNav').click();
   await expect(page.locator('#viewTitle')).toHaveText('Fees');
-  await expect(page.locator('#feesPendingTotal')).toContainText(/2,498/);
+  await expect(page.locator('#feesPendingTotal')).toContainText(/5,500/);
   await expect(page.locator('#feesBody')).toContainText('Asha Sharma');
   await expect(page.locator('#feesBody')).toContainText('GF-RAVI-NEXT');
   await expect(page.locator('#feesBody')).not.toContainText('GF-2026-RAVI');
@@ -1498,7 +1552,7 @@ test('memberships workspace filters active scheduled expiring expired cancelled 
   await expect(page.locator('#membershipsBody')).not.toContainText('Asha Sharma');
   await page.locator('#membershipStatusFilter').selectOption('');
   await page.locator('#membershipPlanFilter').selectOption('plan-pro');
-  await expect(page.locator('#membershipsBody')).toContainText('Pro');
+  await expect(page.locator('#membershipsBody')).toContainText('3 Months');
   await expect(page.locator('.secondary-panel')).toContainText('Plan catalog');
   expect(runtimeProblems).toEqual([]);
 });
@@ -1662,7 +1716,7 @@ test('reception gets customer membership fee and enquiry operations but not adva
   await expect(page.locator('#adminsNav')).toBeHidden();
   await expect(page.locator('#headerAddCustomer')).toBeVisible();
   await page.locator('#membersNav').click();
-  await expect(page.locator('#membersBody')).toContainText('Pro');
+  await expect(page.locator('#membersBody')).toContainText('3 Months');
   await page.locator('#membersBody').getByRole('button', { name: 'Open' }).first().click();
   const drawer = page.locator('#customerDrawer');
   await expect(drawer).toContainText('Payment summary');
@@ -1991,10 +2045,10 @@ test('admin deterministic 0 1 50 200 row datasets stay bounded without duplicate
       const id = `stress-customer-${index}`; const membershipId = `stress-membership-${index}`;
       const displayName = `Stress Customer ${String(index).padStart(3, '0')}`;
       fixture.customers.push({ id, displayName, phone: `+9197${String(index).padStart(8, '0')}`, phoneVerified: true, email: null, status: 'active', personType: 'member', joinedAt: 1787990000 - index, designation: null, note: null, createdAt: 1787990000 - index, lastLoginAt: null });
-      fixture.memberships[id] = [{ id: membershipId, membershipNumber: `GF-STRESS-${index}`, customerId: id, planId: 'plan-pro', planName: 'Pro', pricePaise: 999999900, currency: 'INR', durationMonths: 3, status: 'active', startsAt: 1787000000, endsAt: 1789000000, daysRemaining: index % 8, source: 'admin_manual', createdAt: 1787000000, payment: { totalPaise: 999999900, paidPaise: 10000, pendingPaise: 999989900 } }];
+      fixture.memberships[id] = [{ id: membershipId, membershipNumber: `GF-STRESS-${index}`, customerId: id, planId: 'plan-pro', planName: '3 Months', pricePaise: 999999900, currency: 'INR', durationMonths: 3, status: 'active', startsAt: 1787000000, endsAt: 1789000000, daysRemaining: index % 8, source: 'admin_manual', createdAt: 1787000000, payment: { totalPaise: 999999900, paidPaise: 10000, pendingPaise: 999989900 } }];
       fixture.payments.push({ id: `stress-payment-${index}`, membershipId, membershipNumber: `GF-STRESS-${index}`, customerId: id, customerName: displayName, amountPaise: 10000, currency: 'INR', method: 'upi', note: null, paidAt: 1787990000 - index, status: 'recorded' });
       fixture.auditEvents.push({ id: index + 1, username: `staff-${index}`, action: 'admin_login', targetType: 'admin_session', targetId: `session-${index}`, result: 'success', metadata: { requestId: `req-${index}` }, createdAt: 1787990000 - index });
-      notificationRows.push({ id: `stress-notification-${index}`, eventType: 'membership_expiry', customerId: id, membershipId, triggerDays: 7, state: 'pending', customer: { displayName }, payload: { planName: 'Pro', membershipNumber: `GF-STRESS-${index}`, endsAt: 1789000000 }, deliveries: [] });
+      notificationRows.push({ id: `stress-notification-${index}`, eventType: 'membership_expiry', customerId: id, membershipId, triggerDays: 7, state: 'pending', customer: { displayName }, payload: { planName: '3 Months', membershipNumber: `GF-STRESS-${index}`, endsAt: 1789000000 }, deliveries: [] });
       enquiryRows.push({ id: `stress-enquiry-${index}`, reference: `GF-LEAD-${index}`, name: displayName, phone: `+9197${String(index).padStart(8, '0')}`, email: null, type: 'membership', status: 'new', createdAt: 1787990000 - index });
       staffRows.push({ id: `stress-staff-${index}`, username: `staff-${index}`, role: ['reception', 'trainer', 'admin'][index % 3], status: 'active' });
       coachingRows.push({ id, displayName, phone: `+9197${String(index).padStart(8, '0')}` });

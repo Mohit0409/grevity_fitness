@@ -39,6 +39,7 @@ from .membership import MembershipService
 from .notification import NotificationService
 from .payment import PaymentService
 from .coaching import CoachingService
+from .biometric import BiometricService
 from .readiness import ReadinessService
 from .enquiry import EnquiryService
 from .enquiry_http import handle_enquiry_request
@@ -110,6 +111,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         notification_service: NotificationService,
         payment_service: PaymentService,
         coaching_service: CoachingService,
+        biometric_service: BiometricService,
         readiness_service: ReadinessService,
         enquiry_service: EnquiryService,
     ) -> None:
@@ -123,6 +125,7 @@ class GravityHTTPServer(ThreadingHTTPServer):
         self.notification_service = notification_service
         self.payment_service = payment_service
         self.coaching_service = coaching_service
+        self.biometric_service = biometric_service
         self.readiness_service = readiness_service
         self.enquiry_service = enquiry_service
 
@@ -987,6 +990,7 @@ def create_server(
     )
     payment_service = PaymentService(database, configured, membership_service, **({"clock": clock} if clock else {}))
     coaching_service = CoachingService(database, **({"clock": clock} if clock else {}))
+    biometric_service = BiometricService(database, configured, admin_service, **({"clock": clock} if clock else {}))
     readiness_service = ReadinessService(configured)
     enquiry_service = EnquiryService(
         database,
@@ -1012,6 +1016,7 @@ def create_server(
         notification_service,
         payment_service,
         coaching_service,
+        biometric_service,
         readiness_service,
         enquiry_service,
     )

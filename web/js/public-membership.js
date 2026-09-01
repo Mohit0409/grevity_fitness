@@ -5,9 +5,9 @@
   container.setAttribute('aria-busy', 'true');
   container.classList.add('is-loading');
   const verified = new Map([
-    ['basic-monthly', { name: 'Basic', pricePaise: 99900, order: 1 }],
-    ['pro-monthly', { name: 'Pro', pricePaise: 149900, order: 2 }],
-    ['elite-monthly', { name: 'Elite', pricePaise: 249900, order: 3 }],
+    ['one-month', { name: '1 Month', pricePaise: 120000, durationMonths: 1, order: 1 }],
+    ['three-months', { name: '3 Months', pricePaise: 300000, durationMonths: 3, order: 2 }],
+    ['one-year', { name: '1 Year', pricePaise: 1000000, durationMonths: 12, order: 3 }],
   ]);
   function element(tag, className, copy) {
     const node = document.createElement(tag);
@@ -23,9 +23,9 @@
     card.appendChild(element('span', 'plan-card__number', `0${index + 1}`));
     card.appendChild(element('h3', '', plan.name));
     const price = element('div', 'plan-price');
-    price.append(element('strong', '', formatPrice(plan.pricePaise)), element('span', '', 'per month'));
+    price.append(element('strong', '', formatPrice(plan.pricePaise)), element('span', '', plan.durationMonths === 1 ? 'for 1 month' : `for ${plan.durationMonths} months`));
     card.appendChild(price);
-    card.appendChild(element('p', 'plan-card__copy', 'Monthly membership price. Ask Gravity to confirm the next step.'));
+    card.appendChild(element('p', 'plan-card__copy', 'Gym membership fee. Ask Gravity to confirm the next step.'));
     const button = element('button', 'button', 'Enquire about this plan');
     button.type = 'button';
     button.dataset.requestKind = 'membership';
@@ -52,7 +52,7 @@
         .filter((item) => {
           const expected = verified.get(item.code);
           return expected && item.name === expected.name && Number(item.pricePaise) === expected.pricePaise
-            && Number(item.durationMonths) === 1 && item.currency === 'INR' && item.status === 'active';
+            && Number(item.durationMonths) === expected.durationMonths && item.currency === 'INR' && item.status === 'active';
         })
         .sort((a, b) => verified.get(a.code).order - verified.get(b.code).order);
       if (plans.length !== verified.size) throw new Error('Verified plan set is incomplete');

@@ -126,7 +126,7 @@ h2 { margin-bottom: 0; font-size: clamp(2.7rem, 6.5vw, 6.4rem); line-height: .88
 
 .membership { background: var(--ink); }
 .plan-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
-.plan-card, .plan-skeleton { min-height: 410px; border: 1px solid var(--line); background: var(--ink-2); }
+.plan-card, .plan-skeleton { min-height: 453px; border: 1px solid var(--line); background: var(--ink-2); }
 .plan-skeleton { position: relative; overflow: hidden; }
 .plan-skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.06) 50%, transparent 65%); animation: shimmer 1.4s infinite; }
 @keyframes shimmer { to { transform: translateX(100%); } }
@@ -261,7 +261,7 @@ h2 { margin-bottom: 0; font-size: clamp(2.7rem, 6.5vw, 6.4rem); line-height: .88
   .split-intro { gap: 28px; }
   .path-grid, .plan-grid { grid-template-columns: 1fr; }
   .path-card { min-height: 330px; }
-  .plan-card, .plan-skeleton { min-height: 350px; }
+  .plan-card, .plan-skeleton { min-height: 393px; }
   .gallery-art { min-height: 370px; }
   .gallery-art > span { font-size: 27rem; }
   .hours-card > div { grid-template-columns: 1fr; gap: 8px; }
@@ -336,7 +336,7 @@ html { -webkit-text-size-adjust: 100%; }
   .path-card { min-height: 0; padding: 26px 22px; }
   .path-card h3 { margin: 46px 0 16px; }
   .path-card p { min-height: 0; margin-bottom: 24px; }
-  .plan-card, .plan-skeleton { min-height: 320px; }
+  .plan-card, .plan-skeleton { min-height: 363px; }
   .plan-card { padding: 26px 22px; }
   .plan-card h3 { margin-top: 38px; }
   .gallery-art { min-height: 320px; }

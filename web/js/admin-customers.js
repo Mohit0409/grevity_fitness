@@ -272,6 +272,8 @@
     const current = detail.membership?.current || null;
     const upcoming = detail.membership?.upcoming || null;
     const body = $('customerDrawerBody'); body.replaceChildren();
+    const portrait = document.createElement('img'); portrait.className = 'customer-profile-photo'; portrait.alt = `${member.displayName || 'Customer'} photo`;
+    portrait.src = `/api/admin/customers/${encodeURIComponent(member.id)}/photo?v=${Date.now()}`; portrait.addEventListener('error', () => portrait.remove(), { once: true }); body.appendChild(portrait);
     $('customerDrawerName').textContent = member.displayName || 'Person';
     $('customerDrawerMeta').textContent = [member.phone || 'No mobile', staff ? designationLabel(member.designation) : 'Member', member.status === 'disabled' ? 'inactive' : String(member.status || 'unknown')].join(' | ');
 
@@ -293,6 +295,7 @@
       const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'ghost'; edit.textContent = 'Edit Staff'; edit.disabled = !hasPermission('members.manage'); edit.addEventListener('click', openEdit);
       const toggle = document.createElement('button'); toggle.type = 'button'; toggle.id = 'customerAccessToggle'; toggle.className = 'ghost'; toggle.textContent = member.status === 'active' ? 'Mark inactive' : 'Mark active'; toggle.disabled = !hasPermission('members.manage'); toggle.addEventListener('click', () => toggleStatus(toggle));
       actions.append(edit, toggle); body.appendChild(actions);
+      window.GravityBiometricAdmin?.renderPersonAttendance?.(body, member);
       return;
     }
 
@@ -327,9 +330,18 @@
     const renew = document.createElement('button'); renew.type = 'button'; renew.textContent = 'Renew Membership'; renew.disabled = !hasPermission('memberships.manage'); renew.addEventListener('click', openRenew);
     const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'ghost'; edit.textContent = 'Edit Member'; edit.disabled = !hasPermission('members.manage'); edit.addEventListener('click', openEdit);
     const toggle = document.createElement('button'); toggle.type = 'button'; toggle.id = 'customerAccessToggle'; toggle.className = 'ghost'; toggle.textContent = member.status === 'active' ? 'Disable account' : 'Enable account'; toggle.disabled = !hasPermission('members.manage'); toggle.addEventListener('click', () => toggleStatus(toggle));
+    const receipt = document.createElement('button'); receipt.type = 'button'; receipt.className = 'whatsapp-action'; receipt.textContent = 'Share Receipt';
+    receipt.disabled = !hasPermission('payments.read') || !(current || upcoming || latestExpired);
+    receipt.addEventListener('click', async () => {
+      try { setBusy(receipt, true, 'Preparing...'); await window.GravityReceiptAdmin.shareReceipt(window.GravityReceiptAdmin.fromDetail(detail)); }
+      catch (error) { core().flash(error?.message || 'Receipt could not be prepared.', 'error'); }
+      finally { setBusy(receipt, false); }
+    });
     if (hasPermission('payments.record')) actions.appendChild(pay);
+    if (hasPermission('payments.read')) actions.appendChild(receipt);
     actions.append(renew, edit, toggle); body.appendChild(actions);
 
+    window.GravityBiometricAdmin?.renderPersonAttendance?.(body, member);
     renderMembershipHistory(body, allMemberships());
     if (hasPermission('payments.read')) renderPaymentHistory(body, Array.isArray(detail.payments) ? detail.payments : []);
     if (hasPermission('notifications.manage')) renderNotificationHistory(body, Array.isArray(detail.notifications) ? detail.notifications : []);
@@ -477,8 +489,16 @@
     }
     if ($('newCustomerNote').value.trim()) body.note = $('newCustomerNote').value.trim();
     try {
+      const photoFile = $('newCustomerPhoto').files?.[0] || null;
+      const photoBlob = photoFile ? await window.GravityReceiptAdmin.preparePhoto(photoFile) : null;
       const result = await core().api('/api/admin/customers', { method: 'POST', body });
-      $('addCustomerDialog').close(); core().flash(personType === 'staff' ? 'Staff record added without membership or portal access.' : 'Member added with server-calculated membership and balance.');
+      let photoSaved = true;
+      if (photoBlob && result.customer?.id) {
+        try { await window.GravityReceiptAdmin.uploadPhoto(result.customer.id, photoBlob); }
+        catch (_) { photoSaved = false; }
+      }
+      $('addCustomerDialog').close();
+      core().flash(personType === 'staff' ? 'Staff record added without membership or portal access.' : (photoSaved ? 'Member added. Share Receipt is ready in the member profile.' : 'Member added, but the photo could not be saved. You can continue using the member record.'), photoSaved ? 'ok' : 'error');
       await refreshRelated();
       if (result.customer?.id) await openCustomerById(result.customer.id, state.opener);
     } catch (error) { $('addCustomerError').textContent = errorText(error, 'add'); }

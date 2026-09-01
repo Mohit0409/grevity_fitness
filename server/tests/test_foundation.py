@@ -91,12 +91,12 @@ class DatabaseTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "gravity.sqlite3"
             database = Database(path, ROOT / "server" / "migrations")
-            self.assertEqual(database.migrate(), ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011"])
+            self.assertEqual(database.migrate(), ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013"])
             self.assertEqual(database.migrate(), [])
-            self.assertEqual(database.health(), {"database": "ok", "migrations": "11"})
+            self.assertEqual(database.health(), {"database": "ok", "migrations": "13"})
             with closing(sqlite3.connect(path)) as connection:
                 versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
-                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",), ("005",), ("006",), ("007",), ("008",), ("009",), ("010",), ("011",)])
+                self.assertEqual(versions, [("001",), ("002",), ("003",), ("004",), ("005",), ("006",), ("007",), ("008",), ("009",), ("010",), ("011",), ("012",), ("013",)])
 
     def test_changed_applied_migration_is_rejected(self):
         with TemporaryDirectory() as temporary:
@@ -212,7 +212,7 @@ class HttpFoundationTests(unittest.TestCase):
             plans = json.loads(body)["plans"]
             self.assertEqual(
                 [(plan["name"], plan["pricePaise"], plan["durationMonths"], plan["description"]) for plan in plans],
-                [("Basic", 99900, 1, None), ("Pro", 149900, 1, None), ("Elite", 249900, 1, None)],
+                [("1 Month", 120000, 1, None), ("3 Months", 300000, 3, None), ("1 Year", 1000000, 12, None)],
             )
             status, _headers, body = fetch(base, "/api/me/membership")
             self.assertEqual(status, 401)
