@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { admin: null, requestId: 0 };
+  const state = { admin: null, requestId: 0, searchRequestId: 0, searchTimer: null, searchResults: [] };
   const core = () => window.GravityAdminCore;
   function hasPermission(permission) { return core()?.hasPermission(permission) || false; }
 
@@ -17,6 +17,21 @@
     const amount = Number(value || 0) / 100;
     try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount); }
     catch (_) { return `${currency} ${amount.toFixed(0)}`; }
+  }
+
+  function maskPhone(value) {
+    const phone = String(value || '');
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 4) return phone || '--';
+    return `${phone.startsWith('+91') ? '+91 ' : ''}????? ${digits.slice(-4)}`;
+  }
+
+  function clearMemberSearch(message = 'Type at least 2 characters to search all members.') {
+    state.searchResults = [];
+    $('dashboardMemberSearchResults')?.replaceChildren();
+    const status = $('dashboardMemberSearchStatus');
+    if (status) status.textContent = message;
+    $('dashboardMemberSearchPanel')?.setAttribute('aria-busy', 'false');
   }
 
   function stat(label, value, hint = '', action = null) {
@@ -34,6 +49,45 @@
     const row = document.createElement('tr');
     const cell = document.createElement('td'); cell.colSpan = colspan; cell.className = 'empty'; cell.textContent = message;
     row.appendChild(cell); return row;
+  }
+
+  function renderMemberSearchResults(rows, query) {
+    const root = $('dashboardMemberSearchResults');
+    const status = $('dashboardMemberSearchStatus');
+    root.replaceChildren();
+    state.searchResults = rows;
+    if (!rows.length) {
+      status.textContent = `No members found for “${query}”.`;
+      return;
+    }
+    status.textContent = rows.length >= 8 ? 'Showing the first 8 matches. Keep typing to narrow the search.' : `${rows.length} matching member${rows.length === 1 ? '' : 's'} found.`;
+    for (const member of rows) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'member-search-result';
+      const name = document.createElement('strong'); name.textContent = member.displayName || 'Member';
+      const membership = member.membership || null;
+      const meta = document.createElement('span'); meta.textContent = [maskPhone(member.phone), membership?.membershipNumber || 'No membership', membership?.planName || membership?.status || 'No plan'].join(' · ');
+      button.append(name, meta);
+      button.addEventListener('click', () => window.GravityCustomerAdmin?.openCustomerById(member.id, button));
+      root.appendChild(button);
+    }
+  }
+
+  async function searchMembers(rawQuery) {
+    const query = String(rawQuery || '').trim();
+    if (query.length < 2) { clearMemberSearch(); return; }
+    const requestId = ++state.searchRequestId;
+    $('dashboardMemberSearchPanel')?.setAttribute('aria-busy', 'true');
+    $('dashboardMemberSearchStatus').textContent = 'Searching all member records...';
+    try {
+      const payload = await core().api(`/api/admin/customers?q=${encodeURIComponent(query)}&personType=member&limit=8`);
+      if (requestId !== state.searchRequestId) return;
+      renderMemberSearchResults(Array.isArray(payload.customers) ? payload.customers : [], query);
+    } catch (_) {
+      if (requestId !== state.searchRequestId) return;
+      clearMemberSearch('Member search is temporarily unavailable. Please retry.');
+    } finally {
+      if (requestId === state.searchRequestId) $('dashboardMemberSearchPanel')?.setAttribute('aria-busy', 'false');
+    }
   }
 
   function renderStats(stats = {}) {
@@ -179,6 +233,34 @@
       if (requestId === state.requestId) $('stats').setAttribute('aria-busy', 'false');
     }
   }
+
+  const memberSearchInput = $('dashboardMemberSearch');
+  const memberSearchClear = $('dashboardMemberSearchClear');
+  memberSearchInput?.addEventListener('input', () => {
+    window.clearTimeout(state.searchTimer);
+    const query = memberSearchInput.value.trim();
+    memberSearchClear.hidden = !query;
+    if (query.length < 2) {
+      state.searchRequestId += 1;
+      clearMemberSearch();
+      return;
+    }
+    $('dashboardMemberSearchStatus').textContent = 'Searching...';
+    state.searchTimer = window.setTimeout(() => searchMembers(query), 180);
+  });
+  memberSearchInput?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || !state.searchResults.length) return;
+    event.preventDefault();
+    window.GravityCustomerAdmin?.openCustomerById(state.searchResults[0].id, memberSearchInput);
+  });
+  memberSearchClear?.addEventListener('click', () => {
+    window.clearTimeout(state.searchTimer);
+    state.searchRequestId += 1;
+    memberSearchInput.value = '';
+    memberSearchClear.hidden = true;
+    clearMemberSearch();
+    memberSearchInput.focus();
+  });
 
   window.GravityAdminDashboard = { setAdmin(admin) { state.admin = admin; }, renderWorkspace };
 })();

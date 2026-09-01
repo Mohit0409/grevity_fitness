@@ -178,6 +178,18 @@
     }
     if (!body.children.length) body.appendChild(emptyRow('No people match these filters.', 7));
     if (!mobile.children.length) { const empty = document.createElement('p'); empty.className = 'software-empty'; empty.textContent = 'No people match these filters.'; mobile.appendChild(empty); }
+    updateDirectoryStatus();
+  }
+
+  function updateDirectoryStatus() {
+    const status = $('peopleSearchStatus'); if (!status) return;
+    const query = $('memberSearch').value.trim();
+    const count = state.customers.length;
+    const type = $('personTypeFilter').value;
+    const label = type === 'member' ? 'member' : (type === 'staff' ? 'staff record' : 'person');
+    if (query) status.textContent = count ? `${count} matching ${label}${count === 1 ? '' : 's'} shown for “${query}”.` : `No ${label}s found for “${query}”.`;
+    else if (count >= 200) status.textContent = `Showing the first 200 ${label}s. Use search to find anyone beyond this list.`;
+    else status.textContent = `${count} ${label}${count === 1 ? '' : 's'} shown.`;
   }
 
   function syncPersonFilters() {
@@ -197,8 +209,10 @@
     $('membersBody').replaceChildren(emptyRow('Loading people...', 7));
     const params = new URLSearchParams();
     const query = $('memberSearch').value.trim();
+    if ($('peopleSearchStatus')) $('peopleSearchStatus').textContent = query ? 'Searching all people records...' : 'Loading people...';
     if (query) params.set('q', query);
     params.set('personType', $('personTypeFilter').value);
+    params.set('limit', '200');
     if ($('customerStatusFilter').value) params.set('status', $('customerStatusFilter').value);
     if ($('customerMembershipFilter').value) params.set('membershipStatus', $('customerMembershipFilter').value);
     if ($('customerPlanFilter').value) params.set('planId', $('customerPlanFilter').value);

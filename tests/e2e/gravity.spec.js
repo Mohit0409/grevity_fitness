@@ -1044,7 +1044,8 @@ async function mockAdminSoftware(page, options = {}) {
     }).map(customerListItem);
     if (membershipStatus) rows = rows.filter((item) => (item.membership?.status || 'none') === membershipStatus);
     if (planId) rows = rows.filter((item) => item.membership?.planId === planId);
-    return json(route, 200, { customers: customerMode === 'empty' ? [] : rows });
+    const limit = Math.max(1, Math.min(Number(params.get('limit') || 200), 200));
+    return json(route, 200, { customers: customerMode === 'empty' ? [] : rows.slice(0, limit) });
   });
 
   await page.route(/\/api\/admin\/customers\/[^/]+\/renew$/, async (route) => {
@@ -1272,6 +1273,49 @@ test('people workspace supports member search filters detail history and status 
   await expect(page.locator('#customerDrawerMeta')).toContainText('+919900001234');
   expect(fixture.editBodies.length).toBeGreaterThanOrEqual(4);
   await expectNoSeriousA11yFailures(page);
+  expect(runtimeProblems).toEqual([]);
+});
+
+test('dashboard and People search find a member beyond the first 200 rows', async ({ page }) => {
+  test.setTimeout(60_000);
+  const runtimeProblems = watchRuntime(page);
+  const fixture = await mockAdminSoftware(page);
+  const now = Math.floor(Date.now() / 1000); const day = 86400;
+  for (let index = 0; index < 220; index += 1) {
+    const id = `scale-member-${String(index).padStart(3, '0')}`;
+    fixture.customers.push({ id, displayName: `Scale Member ${String(index).padStart(3, '0')}`, phone: `+9196${String(index).padStart(8, '0')}`, phoneVerified: false, email: null, status: 'active', personType: 'member', joinedAt: now - day, designation: null, note: null, createdAt: now - day, lastLoginAt: null });
+    fixture.memberships[id] = [];
+  }
+  const targetId = 'cust-over-200';
+  fixture.customers.push({ id: targetId, displayName: 'Over Limit Target', phone: '+919799999998', phoneVerified: true, email: null, status: 'active', personType: 'member', joinedAt: now - day, designation: null, note: null, createdAt: now - day, lastLoginAt: null });
+
+  fixture.memberships[targetId] = [{ id: 'mem-over-200', membershipNumber: 'GF-OVER-200', customerId: targetId, planId: 'plan-pro', planName: '3 Months', pricePaise: 300000, currency: 'INR', durationMonths: 3, status: 'active', startsAt: now - day, endsAt: now + 89 * day, daysRemaining: 89, source: 'admin_manual', createdAt: now - day, payment: { totalPaise: 300000, paidPaise: 0, pendingPaise: 300000 } }];
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/admin');
+  await page.locator('#membersNav').click();
+  await expect(page.locator('#peopleSearchStatus')).toContainText('first 200 members');
+  await expect(page.locator('#membersBody')).not.toContainText('Over Limit Target');
+
+  await page.locator('[data-view="dashboard"]').first().click();
+  await page.locator('#dashboardMemberSearch').fill('GF-OVER-200');
+  await expect(page.locator('.member-search-result')).toHaveCount(1);
+  await expect(page.locator('.member-search-result')).toContainText('Over Limit Target');
+  await expect(page.locator('#dashboardMemberSearchStatus')).toContainText('1 matching member found');
+  await page.locator('.member-search-result').click();
+  await expect(page.locator('#customerDrawer')).toBeVisible();
+  await expect(page.locator('#customerDrawerName')).toHaveText('Over Limit Target');
+  await expect(page.locator('#customerDrawerBody')).toContainText('GF-OVER-200');
+  await page.locator('#customerDrawer').getByRole('button', { name: 'Close person profile' }).click();
+
+  await page.locator('#membersNav').click();
+  await page.locator('#memberSearch').fill('GF-OVER-200');
+  await expect(page.locator('#membersBody tr')).toHaveCount(1);
+  await expect(page.locator('#membersBody')).toContainText('Over Limit Target');
+  await expect(page.locator('#peopleSearchStatus')).toContainText('1 matching member shown');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('#customersMobileList')).toContainText('Over Limit Target');
+  await expectNoOverflow(page);
   expect(runtimeProblems).toEqual([]);
 });
 
