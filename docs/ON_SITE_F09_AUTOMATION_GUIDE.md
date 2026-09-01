@@ -1,5 +1,7 @@
 # On-site F09 configuration and Admin Portal startup
 
+Use this guide for the Windows host workflow. The production Android/Termux tablet must use `docs/TABLET_F09_APPROVAL_RUNBOOK.md` instead; joining gym Wi-Fi alone never authorizes or triggers F09 configuration.
+
 Use this guide when the host PC has reached the gym and is connected to the same local network as the ZKTeco F09. The script starts the Gravity Admin Portal, optionally brings up the approved ngrok public URL, saves the F09 direct-TCP configuration, tests it, and syncs device users/events.
 
 It does **not** touch the separate customer website at `C:\movieXsuggestion\MyProject\gravity_fitness_website`.
