@@ -341,9 +341,12 @@ class HttpFoundationTests(unittest.TestCase):
         self.assertIn('/api/enquiries', enquiry_form)
         self.assertNotIn('onclick=', combined)
         self.assertNotIn('href="#"', combined)
-        self.assertIn('₹999', index)
-        self.assertIn('₹1,499', index)
-        self.assertIn('₹2,499', index)
+        self.assertIn('₹1,200', index)
+        self.assertIn('₹3,000', index)
+        self.assertIn('₹10,000', index)
+        self.assertNotIn('₹999', index)
+        self.assertNotIn('₹1,499', index)
+        self.assertNotIn('₹2,499', index)
         self.assertIn('REQUIRES_OPERATOR_LEGAL_REVIEW', privacy)
 
     def test_head_returns_content_length_without_body(self):
