@@ -76,7 +76,10 @@ class OperationsScriptTests(unittest.TestCase):
         script = ROOT / "scripts" / "configure-zkteco-f09.ps1"
         with TemporaryDirectory() as temporary:
             config = Path(temporary) / "gravity.env"
-            config.write_text("GRAVITY_HOST=127.0.0.1\nGRAVITY_PORT=8799\n", encoding="utf-8")
+            config.write_text(
+                f"GRAVITY_HOST=127.0.0.1\nGRAVITY_PORT=8799\nGRAVITY_PYTHON={sys.executable}\n",
+                encoding="utf-8",
+            )
             result = subprocess.run(
                 ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
                  "-ConfigPath", str(config), "-PreflightOnly"],
