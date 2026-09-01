@@ -256,13 +256,15 @@ class ZKTecoF09Adapter:
                 timestamp = _event_timestamp(event_time)
                 if timestamp < last:
                     continue
+                status = getattr(record, "status", None)
+                punch = getattr(record, "punch", None)
                 events.append(BiometricScanEvent(
                     device_user_id=str(getattr(record, "user_id", "") or ""),
                     event_time=timestamp,
-                    verification_type=_verification_label(getattr(record, "punch", None)),
-                    attendance_state=str(getattr(record, "status", "") or "") or None,
+                    verification_type=_verification_from_zkteco_record(record),
+                    attendance_state=str(status if status is not None else "") or None,
                     device_event_id=None,
-                    raw={},
+                    raw={"status": status, "punch": punch},
                 ))
             return tuple(events)
         except Exception as error:
@@ -278,8 +280,21 @@ class ZKTecoF09Adapter:
         return self.test_connection(device, comm_key)
 
 
+def _verification_from_zkteco_record(record: object) -> str:
+    for field_name in ("verification_type", "verify_mode", "verification", "verify"):
+        label = _verification_label(getattr(record, field_name, None))
+        if label != "unknown":
+            return label
+    status = getattr(record, "status", None)
+    status_text = "" if status is None else str(status).strip().casefold()
+    # pyzk face-capable devices have been observed returning status=16,punch=255 for face records.
+    if status_text in {"16", "face", "facial"}:
+        return "face"
+    return _verification_label(getattr(record, "punch", None))
+
+
 def _verification_label(value: object) -> str:
-    text = str(value or "").strip().casefold()
+    text = "" if value is None else str(value).strip().casefold()
     if text in VERIFICATION_TYPES:
         return text
     if text in {"0", "finger", "fp"}:
@@ -1049,6 +1064,11 @@ class BiometricService:
                 "FROM attendance_visits WHERE first_scan_at>=? AND first_scan_at<? GROUP BY hour ORDER BY count DESC,hour ASC LIMIT 1",
                 (start, end),
             ).fetchone()
+            verification_rows = connection.execute(
+                "SELECT verification_type,COUNT(*) AS count FROM attendance_events "
+                "WHERE event_time>=? AND event_time<? AND person_id IS NOT NULL GROUP BY verification_type",
+                (start, end),
+            ).fetchall()
             devices = connection.execute("SELECT * FROM biometric_devices ORDER BY created_at ASC").fetchall()
         return {
             "date": label,
@@ -1057,6 +1077,7 @@ class BiometricService:
             "staff": int(row["staff"] or 0),
             "totalVisits": int(row["visits"] or 0),
             "busiestHour": None if busiest is None else {"hour": int(busiest["hour"]), "visits": int(busiest["count"])},
+            "verificationCounts": {str(item["verification_type"]): int(item["count"]) for item in verification_rows},
             "devices": [self._safe_device(device) for device in devices],
         }
 

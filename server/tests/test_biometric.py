@@ -12,6 +12,7 @@ from server.gravity.biometric import (
     BiometricScanEvent,
     BiometricService,
     MockBiometricAdapter,
+    _verification_from_zkteco_record,
 )
 from server.gravity.config import Settings
 from server.gravity.database import Database
@@ -139,6 +140,33 @@ class BiometricServiceTests(unittest.TestCase):
         self.adapter.mode = "auth_failed"
         tested = self.biometric.test_connection(device["id"], actor_admin_user_id="admin-1")
         self.assertEqual(tested["status"], "authentication_failed")
+
+    def test_zkteco_face_verification_status_and_mixed_method_visit(self) -> None:
+        class Record:
+            user_id = "401"
+            timestamp = self.clock.value
+            status = 16
+            punch = 255
+
+        self.assertEqual(_verification_from_zkteco_record(Record()), "face")
+        self.assertEqual(_verification_from_zkteco_record(type("FingerprintRecord", (), {"status": 0, "punch": 0})()), "fingerprint")
+        self.assertEqual(_verification_from_zkteco_record(type("LegacyFaceRecord", (), {"status": 0, "punch": 15})()), "face")
+
+        device = self.create_device()
+        member = self.create_member(name="Face Member", phone="+919876543214")
+        self.biometric.create_mapping(
+            {"deviceId": device["id"], "deviceUserId": "401", "personId": member["id"]},
+            actor_admin_user_id="admin-1",
+        )
+        self.biometric.record_event(device["id"], BiometricScanEvent("401", self.clock.value, "fingerprint", device_event_id="fp"))
+        self.biometric.record_event(device["id"], BiometricScanEvent("401", self.clock.value + 180, "face", device_event_id="face"))
+
+        rows = self.biometric.list_attendance(start_date="2026-09-01")["visits"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["verificationSummary"], "fingerprint,face")
+        stats = self.biometric.attendance_stats(date="2026-09-01")
+        self.assertEqual(stats["verificationCounts"].get("fingerprint"), 1)
+        self.assertEqual(stats["verificationCounts"].get("face"), 1)
 
     def test_mapping_unknown_scan_rebuilds_visit_for_member_and_staff_without_membership_cross_over(self) -> None:
         device = self.create_device()

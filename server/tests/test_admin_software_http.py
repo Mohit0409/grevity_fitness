@@ -197,9 +197,24 @@ class AdminSoftwareHttpTests(unittest.TestCase):
             )
             self.assertEqual(status, 201)
             self.assertEqual(payload["stored"], 1)
+            status, payload = request_json(
+                base,
+                "/api/admin/biometric/simulate",
+                method="POST",
+                body={
+                    "deviceId": device_id,
+                    "deviceUserId": "101",
+                    "verificationType": "face",
+                    "eventTime": int(time.time()) + 180,
+                },
+                headers=owner_headers,
+            )
+            self.assertEqual(status, 201)
+            self.assertEqual(payload["event"]["verificationType"], "face")
             status, payload = request_json(base, "/api/admin/attendance", headers=owner_headers)
             self.assertEqual(status, 200)
             self.assertEqual(payload["visits"][0]["personId"], customer_id)
+            self.assertEqual(payload["visits"][0]["verificationSummary"], "fingerprint,face")
             status, payload = request_json(base, f"/api/admin/attendance/person/{customer_id}", headers=owner_headers)
             self.assertEqual(status, 200)
             self.assertEqual(payload["attendance"]["thisMonth"], 1)

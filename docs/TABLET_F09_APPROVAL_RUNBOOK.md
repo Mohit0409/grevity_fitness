@@ -42,3 +42,9 @@ The approved run does not enable any background F09 polling. Future syncs remain
 The `ZKTecoF09Adapter` uses only connection/read operations: serial number, platform, users, and attendance. It disconnects after each read. It does not call pyzk setters, delete/clear methods, device disable/enable commands, restart/power commands, or enrollment commands.
 
 A read-only TCP session can still briefly occupy a device connection on some F09 firmware. For that reason Gravity does not poll continuously and the initial approved sync should be run when the gym operator can observe that the existing software continues normally.
+
+## Face verification support
+
+Gravity supports attendance events verified by **fingerprint or face** for the same mapped F09 user ID. Face enrollment remains on the F09. Gravity does not download, store, upload, delete, or modify face images/templates or fingerprint templates. The first approved on-site sync remains read-only and stores only user IDs, attendance timestamps, verification method metadata, and mapping/visit records.
+
+The pyzk driver is not fully consistent across ZKTeco firmware. Gravity recognizes the known face-attendance pattern `status=16, punch=255` as face verification while preserving the raw status/punch values for diagnostics. Unknown patterns remain `unknown` rather than causing a hardware change.

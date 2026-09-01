@@ -52,7 +52,13 @@
   }
 
   function deviceLabel(device) {
-    return `${device.name || 'Fingerprint machine'} (${device.connectionMode || 'tcp'}:${device.deviceIdentifier || '1'})`;
+    return `${device.name || 'Biometric machine'} (${device.connectionMode || 'tcp'}:${device.deviceIdentifier || '1'})`;
+  }
+
+  function verificationText(value) {
+    const labels = { fingerprint: 'Fingerprint', face: 'Face', card: 'Card', password: 'Password', unknown: 'Unknown' };
+    const parts = String(value || 'unknown').split(',').map((item) => item.trim()).filter(Boolean);
+    return parts.map((item) => labels[item] || item.replaceAll('_', ' ')).join(' + ') || 'Unknown';
   }
 
   function personLabel(person) {
@@ -109,6 +115,8 @@
       renderStat('Present today', stats.presentToday || 0, stats.date || ''),
       renderStat('Members', stats.members || 0),
       renderStat('Staff', stats.staff || 0),
+      renderStat('Fingerprint scans', stats.verificationCounts?.fingerprint || 0),
+      renderStat('Face scans', stats.verificationCounts?.face || 0),
       renderStat('Device status', (stats.devices || []).filter((device) => device.status === 'online').length, `${(stats.devices || []).length} configured`)
     );
   }
@@ -138,8 +146,9 @@
       const first = document.createElement('td'); first.textContent = formatTime(item.firstScanAt);
       const last = document.createElement('td'); last.textContent = formatTime(item.lastScanAt);
       const scans = document.createElement('td'); scans.textContent = String(item.scanCount || 0);
+      const verification = document.createElement('td'); verification.textContent = verificationText(item.verificationSummary);
       const device = document.createElement('td'); device.textContent = item.deviceName || '--';
-      row.append(person, type, member, first, last, scans, device);
+      row.append(person, type, member, first, last, scans, verification, device);
       body.appendChild(row);
 
       const card = document.createElement('article');
@@ -152,7 +161,7 @@
       label.append(strong, small);
       head.append(label, badge(membershipStatus(item)));
       const facts = document.createElement('dl'); facts.className = 'mobile-record-facts';
-      [['First', formatTime(item.firstScanAt)], ['Last', formatTime(item.lastScanAt)], ['Scans', String(item.scanCount || 0)]].forEach(([key, value]) => {
+      [['First', formatTime(item.firstScanAt)], ['Last', formatTime(item.lastScanAt)], ['Scans', String(item.scanCount || 0)], ['Verified by', verificationText(item.verificationSummary)]].forEach(([key, value]) => {
         const div = document.createElement('div');
         const dt = document.createElement('dt'); dt.textContent = key;
         const dd = document.createElement('dd'); dd.textContent = value;
@@ -164,7 +173,7 @@
       card.append(head, facts, open);
       mobile.appendChild(card);
     }
-    if (!body.children.length) body.appendChild(tableEmpty('No attendance visits match these filters.', 7));
+    if (!body.children.length) body.appendChild(tableEmpty('No attendance visits match these filters.', 8));
     if (!mobile.children.length) mobile.appendChild(empty('No attendance visits match these filters.'));
   }
 
@@ -180,7 +189,7 @@
       title.textContent = item.deviceDisplayName || `User ID ${item.deviceUserId}`;
       const meta = document.createElement('p');
       meta.className = 'micro';
-      meta.textContent = `${item.deviceName || 'Device'} - ${item.eventCount || 0} scan(s), last ${formatTime(item.eventTime || item.lastSeenAt)}`;
+      meta.textContent = `${item.deviceName || 'Device'} - ${verificationText(item.verificationType)} - ${formatTime(item.eventTime || item.lastSeenAt)}`;
       const action = document.createElement('button');
       action.type = 'button';
       action.className = 'ghost';
@@ -232,7 +241,7 @@
       card.setAttribute('role', 'listitem');
       const head = document.createElement('div'); head.className = 'biometric-card-head';
       const title = document.createElement('div');
-      const h = document.createElement('h4'); h.textContent = device.name || 'Fingerprint machine';
+      const h = document.createElement('h4'); h.textContent = device.name || 'Biometric machine';
       const meta = document.createElement('p'); meta.className = 'micro';
       meta.textContent = `${device.vendor || 'zkteco'} ${device.model || 'F09'} - ${device.host || 'no IP'}:${device.port || 4370}`;
       title.append(h, meta); head.append(title, badge(device.status || 'not_configured'));
@@ -260,15 +269,17 @@
       sync.addEventListener('click', () => syncDevice(device.id, sync));
       actions.append(edit, test, sync);
       if (device.connectionMode === 'mock' && hasPermission('biometric.manage')) {
-        const simulate = document.createElement('button');
-        simulate.type = 'button'; simulate.className = 'ghost'; simulate.textContent = 'Simulate scan';
-        simulate.addEventListener('click', () => simulateScan(device.id, simulate));
-        actions.appendChild(simulate);
+        for (const [method, label] of [['fingerprint', 'Simulate fingerprint'], ['face', 'Simulate face']]) {
+          const simulate = document.createElement('button');
+          simulate.type = 'button'; simulate.className = 'ghost'; simulate.textContent = label;
+          simulate.addEventListener('click', () => simulateScan(device.id, simulate, method));
+          actions.appendChild(simulate);
+        }
       }
       card.append(head, facts, actions);
       root.appendChild(card);
     }
-    if (!root.children.length) root.appendChild(empty('No fingerprint machine configured yet. Add the F09 in TCP mode later, or mock mode for testing.'));
+    if (!root.children.length) root.appendChild(empty('No biometric machine configured yet. Add the F09 in TCP mode later, or mock mode for fingerprint/face testing.'));
   }
 
   function renderMappingOptions() {
@@ -316,7 +327,7 @@
     state.editingDevice = device;
     $('biometricDeviceForm').reset();
     $('biometricDeviceId').value = device?.id || '';
-    $('biometricDeviceTitle').textContent = device ? 'Edit fingerprint machine' : 'Add fingerprint machine';
+    $('biometricDeviceTitle').textContent = device ? 'Edit biometric machine' : 'Add biometric machine';
     $('biometricName').value = device?.name || 'Gravity Entrance F09';
     $('biometricMode').value = device?.connectionMode || 'tcp';
     $('biometricModel').value = device?.model || 'F09';
@@ -364,7 +375,7 @@
       await renderDeviceWorkspace();
     } catch (error) {
       const fields = error?.data?.fields || {};
-      $('biometricDeviceError').textContent = Object.values(fields)[0] || 'Could not save the fingerprint machine.';
+      $('biometricDeviceError').textContent = Object.values(fields)[0] || 'Could not save the biometric machine.';
     } finally {
       setBusy(button, false);
     }
@@ -395,16 +406,16 @@
     } finally { setBusy(button, false); }
   }
 
-  async function simulateScan(deviceId, button) {
+  async function simulateScan(deviceId, button, verificationType = 'fingerprint') {
     setBusy(button, true, 'Scanning...');
     const mapped = state.mappings.find((item) => item.deviceId === deviceId);
     const deviceUserId = mapped?.deviceUserId || `mock-${Math.floor(Math.random() * 900 + 100)}`;
     try {
       await api('/api/admin/biometric/simulate', {
         method: 'POST',
-        body: { deviceId, deviceUserId, eventTime: Math.floor(Date.now() / 1000), verificationType: 'fingerprint', attendanceState: 'check-in' },
+        body: { deviceId, deviceUserId, eventTime: Math.floor(Date.now() / 1000), verificationType, attendanceState: 'check-in' },
       });
-      flash(`Mock scan stored for user ${deviceUserId}.`);
+      flash(`Mock ${verificationText(verificationType).toLowerCase()} scan stored for user ${deviceUserId}.`);
       await renderAttendanceWorkspace();
       await renderDeviceWorkspace();
     } catch (error) {
@@ -425,12 +436,12 @@
         },
       });
       $('mappingDeviceUserId').value = '';
-      flash('Fingerprint ID linked.');
+      flash('Biometric user ID linked.');
       await renderDeviceWorkspace();
       await renderAttendanceWorkspace();
     } catch (error) {
       const fields = error?.data?.fields || {};
-      flash(Object.values(fields)[0] || 'Could not link that fingerprint ID.', 'error');
+      flash(Object.values(fields)[0] || 'Could not link that biometric user ID.', 'error');
     }
   }
 
@@ -438,10 +449,10 @@
     setBusy(button, true, 'Unlinking...');
     try {
       await api(`/api/admin/biometric/mappings/${encodeURIComponent(mappingId)}`, { method: 'DELETE' });
-      flash('Fingerprint ID unlinked. Past attendance remains stored.');
+      flash('Biometric user ID unlinked. Past attendance remains stored.');
       await renderDeviceWorkspace();
     } catch (error) {
-      flash('Could not unlink that fingerprint ID.', 'error');
+      flash('Could not unlink that biometric user ID.', 'error');
     } finally { setBusy(button, false); }
   }
 

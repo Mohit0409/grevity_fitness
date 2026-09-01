@@ -69,3 +69,9 @@ If either fails, fix Wi-Fi/LAN/IP settings before changing Gravity.
 The admin service should run continuously as a Windows service/scheduled task and be exposed only through the approved tunnel or private network path. Tailscale can solve reboot/private access problems when the machine rejoins the tailnet automatically, but the admin URL must point to the admin service port, not the separate customer website.
 
 Do not point the Gravity customer website project at this admin service, and do not modify `C:\movieXsuggestion\MyProject\gravity_fitness_website`.
+
+## Face verification support
+
+Gravity supports attendance events verified by **fingerprint or face** for the same mapped F09 user ID. Face enrollment remains on the F09. Gravity does not download, store, upload, delete, or modify face images/templates or fingerprint templates. The first approved on-site sync remains read-only and stores only user IDs, attendance timestamps, verification method metadata, and mapping/visit records.
+
+The pyzk driver is not fully consistent across ZKTeco firmware. Gravity recognizes the known face-attendance pattern `status=16, punch=255` as face verification while preserving the raw status/punch values for diagnostics. Unknown patterns remain `unknown` rather than causing a hardware change.
