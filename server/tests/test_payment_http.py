@@ -152,9 +152,9 @@ class PaymentHttpTests(unittest.TestCase):
             )
             self.assertEqual(status, 201)
             payment = payload["payment"]
-            self.assertEqual(payment["amountPaise"], 99900)
-            self.assertEqual(payment["planName"], "Basic")
-            self.assertEqual(payment["checkout"]["amountPaise"], 99900)
+            self.assertEqual(payment["amountPaise"], 120000)
+            self.assertEqual(payment["planName"], "1 Month")
+            self.assertEqual(payment["checkout"]["amountPaise"], 120000)
             order_id = payment["providerOrderId"]
 
             status, listing = request_json(base, "/api/me/payments", headers=headers)
@@ -218,7 +218,7 @@ class PaymentHttpTests(unittest.TestCase):
                 "payload": {"payment": {"entity": {
                     "id": webhook_payment_id,
                     "order_id": webhook_payment["providerOrderId"],
-                    "amount": 99900,
+                    "amount": 120000,
                     "currency": "INR",
                 }}},
             }, separators=(",", ":")).encode()

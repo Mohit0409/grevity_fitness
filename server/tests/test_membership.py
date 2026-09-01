@@ -69,8 +69,8 @@ class MembershipServiceTests(unittest.TestCase):
 
     def test_seeded_plans_and_month_end_snapshot(self) -> None:
         plans = self.service.list_plans(active_only=False)
-        self.assertEqual([plan["name"] for plan in plans], ["Basic", "Pro", "Elite"])
-        self.assertEqual([plan["pricePaise"] for plan in plans], [99900, 149900, 249900])
+        self.assertEqual([plan["name"] for plan in plans], ["1 Month", "3 Months", "1 Year"])
+        self.assertEqual([plan["pricePaise"] for plan in plans], [120000, 300000, 1000000])
         self.assertEqual([plan["status"] for plan in plans], ["active", "active", "active"])
         self.assertEqual(len(self.service.list_plans()), 3)
         membership = self.service.create_membership(
@@ -79,8 +79,8 @@ class MembershipServiceTests(unittest.TestCase):
             actor_admin_user_id="admin-1",
         )
         self.assertEqual(membership["status"], "active")
-        self.assertEqual(membership["planName"], "Basic")
-        self.assertEqual(membership["pricePaise"], 99900)
+        self.assertEqual(membership["planName"], "1 Month")
+        self.assertEqual(membership["pricePaise"], 120000)
         expected_end = int(datetime(2026, 2, 28, 12, 0, tzinfo=timezone.utc).timestamp())
         self.assertEqual(membership["endsAt"], expected_end)
 
@@ -155,8 +155,8 @@ class MembershipServiceTests(unittest.TestCase):
         )
         self.assertEqual(updated["name"], "Basic Plus")
         rows = {row["id"]: row for row in self.service.list_customer_memberships("customer-1")}
-        self.assertEqual(rows[membership["id"]]["planName"], "Basic")
-        self.assertEqual(rows[membership["id"]]["pricePaise"], 99900)
+        self.assertEqual(rows[membership["id"]]["planName"], "1 Month")
+        self.assertEqual(rows[membership["id"]]["pricePaise"], 120000)
         self.assertEqual(rows[membership["id"]]["durationMonths"], 1)
         with self.database.session() as connection:
             events = connection.execute(

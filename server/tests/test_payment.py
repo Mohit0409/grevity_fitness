@@ -103,7 +103,7 @@ class PaymentServiceTests(unittest.TestCase):
             hashlib.sha256,
         ).hexdigest()
 
-    def webhook(self, event_id: str, event: str, order_id: str, payment_id: str, amount=99900):
+    def webhook(self, event_id: str, event: str, order_id: str, payment_id: str, amount=120000):
         payload = {
             "event": event,
             "payload": {
@@ -122,16 +122,16 @@ class PaymentServiceTests(unittest.TestCase):
         return raw, signature, event_id
     def test_intent_uses_server_plan_snapshot(self) -> None:
         intent = self.service.create_intent("customer-1", "plan-basic-monthly")
-        self.assertEqual(intent["amountPaise"], 99900)
+        self.assertEqual(intent["amountPaise"], 120000)
         self.assertEqual(intent["currency"], "INR")
         self.assertEqual(intent["status"], "created")
         self.assertEqual(intent["checkout"]["keyId"], "rzp_test_gravity")
-        self.assertEqual(self.provider.orders[0]["amount"], 99900)
+        self.assertEqual(self.provider.orders[0]["amount"], 120000)
         self.memberships.update_plan(
             "plan-basic-monthly", {"pricePaise": 199900}, actor_admin_user_id="admin-1",
         )
         stored = self.service.get_intent("customer-1", intent["id"])
-        self.assertEqual(stored["amountPaise"], 99900)
+        self.assertEqual(stored["amountPaise"], 120000)
 
     def test_checkout_signature_is_verified_and_idempotent(self) -> None:
         intent = self.service.create_intent("customer-1", "plan-basic-monthly")
@@ -188,7 +188,7 @@ class PaymentServiceTests(unittest.TestCase):
         self.assertEqual(paid["membership"]["source"], "payment")
         duplicate = self.service.process_webhook(paid_raw, paid_sig, paid_event)
         self.assertEqual(duplicate, {"duplicate": True, "processed": False})
-        tampered = paid_raw.replace(b"99900", b"99901")
+        tampered = paid_raw.replace(b"120000", b"120001")
         with self.assertRaises(PaymentVerificationError):
             self.service.process_webhook(tampered, paid_sig, "evt_tampered_001")
 

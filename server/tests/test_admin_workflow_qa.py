@@ -157,8 +157,8 @@ class AdminWorkflowAcceptanceTests(unittest.TestCase):
             "membershipRows": 2,
             "paymentRows": 1,
             "paidPaymentRows": 1,
-            "paymentAmountPaise": 99900,
-            "paidPaymentAmountPaise": 99900,
+            "paymentAmountPaise": 120000,
+            "paidPaymentAmountPaise": 120000,
             "manualPaymentRows": 1,
             "recordedManualPaymentRows": 1,
             "manualPaymentAmountPaise": 12300,
@@ -187,7 +187,7 @@ class AdminWorkflowAcceptanceTests(unittest.TestCase):
                 "SELECT COALESCE(SUM(amount_paise),0) FROM payment_intents WHERE status='paid'"
             ).fetchone()[0]
         self.assertEqual(counts, {"customers": 1, "memberships": 2, "payments": 1, "manualPayments": 1, "reminders": 1})
-        self.assertEqual(paid_balance, 99900)
+        self.assertEqual(paid_balance, 120000)
         self.assertEqual(manual_balance, 12300)
 
     def test_membership_and_renewal_failures_roll_back_partial_rows(self):

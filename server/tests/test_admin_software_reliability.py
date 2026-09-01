@@ -116,7 +116,7 @@ class AdminSoftwareReliabilityTests(unittest.TestCase):
             "customers": 1, "profiles": 1, "memberships": 1, "payments": 1, "reminders": 0,
         })
         self.assertEqual(created["paymentSummary"], {
-            "totalPaise": 99900, "paidPaise": 30000, "pendingPaise": 69900,
+            "totalPaise": 120000, "paidPaise": 30000, "pendingPaise": 90000,
         })
 
         second_payment = self.service.record_payment(
@@ -124,7 +124,7 @@ class AdminSoftwareReliabilityTests(unittest.TestCase):
             {"amountPaise": 40_000, "method": "upi"},
             actor_admin_user_id="admin-qa",
         )
-        self.assertEqual(second_payment["summary"]["pendingPaise"], 29900)
+        self.assertEqual(second_payment["summary"]["pendingPaise"], 50000)
         self.assertEqual(self.database_counts()["payments"], 2)
 
         self.clock.value = int(first_membership["endsAt"]) - 6 * 86400
@@ -136,7 +136,7 @@ class AdminSoftwareReliabilityTests(unittest.TestCase):
         )
         self.assertEqual(renewal["membership"]["status"], "scheduled")
         self.assertEqual(renewal["paymentSummary"], {
-            "totalPaise": 149900, "paidPaise": 50000, "pendingPaise": 99900,
+            "totalPaise": 300000, "paidPaise": 50000, "pendingPaise": 250000,
         })
         self.assertEqual(self.database_counts(), {
             "customers": 1, "profiles": 1, "memberships": 2, "payments": 3, "reminders": 1,
@@ -241,7 +241,7 @@ class AdminSoftwareReliabilityTests(unittest.TestCase):
         self.assertEqual(first["payment"]["id"], second["payment"]["id"])
         self.assertEqual(self.database_counts()["payments"], 1)
         detail = self.service.customer_detail(created["customer"]["id"])
-        self.assertEqual(detail["membership"]["current"]["payment"]["pendingPaise"], 89900)
+        self.assertEqual(detail["membership"]["current"]["payment"]["pendingPaise"], 110000)
 
     def test_renewal_replay_with_an_idempotency_key_creates_one_membership(self) -> None:
         created = self.create_customer(phone="+919800000007", initial_payment=0)
