@@ -21,6 +21,16 @@ def runtime_dir(settings: Settings) -> Path:
     return candidate.resolve()
 
 
+def _system_boot_id() -> str | None:
+    if os.name == "nt":
+        return None
+    try:
+        value = Path("/proc/sys/kernel/random/boot_id").read_text(encoding="ascii").strip()
+    except (FileNotFoundError, OSError):
+        return None
+    return value or None
+
+
 def _pid_is_running(pid: int) -> bool:
     if pid <= 0:
         return False
@@ -65,12 +75,29 @@ class RuntimeLease:
             existing = int(self.pid_file.read_text(encoding="ascii").strip())
         except (FileNotFoundError, OSError, ValueError):
             existing = 0
-        if existing and existing != self.pid and _pid_is_running(existing):
+        existing_state: dict[str, object] = {}
+        try:
+            loaded = json.loads(self.state_file.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                existing_state = loaded
+        except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
+            pass
+
+        current_boot_id = _system_boot_id()
+        existing_boot_id = existing_state.get("bootId") if existing_state.get("pid") == existing else None
+        same_boot = not (
+            current_boot_id
+            and isinstance(existing_boot_id, str)
+            and existing_boot_id
+            and existing_boot_id != current_boot_id
+        )
+        if existing and existing != self.pid and same_boot and _pid_is_running(existing):
             raise RuntimeLeaseError(f"Gravity is already running with PID {existing}")
 
         state = {
             "formatVersion": 1,
             "pid": self.pid,
+            "bootId": current_boot_id,
             "projectRoot": str(self.settings.root_dir.resolve()),
             "executable": str(Path(sys.executable).resolve()),
             "module": "server.gravity",
