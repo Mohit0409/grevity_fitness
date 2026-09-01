@@ -317,6 +317,32 @@ class OperationsScriptTests(unittest.TestCase):
             for marker in forbidden:
                 self.assertNotIn(marker, text, path)
 
+    def test_termux_f09_is_explicitly_approval_gated(self) -> None:
+        wrapper = (ROOT / "deploy" / "termux" / "f09-onsite.sh").read_text(encoding="utf-8")
+        runner = (ROOT / "deploy" / "termux" / "f09-onsite.py").read_text(encoding="utf-8")
+        approval = (ROOT / "deploy" / "termux" / "approve-f09-once.py").read_text(encoding="utf-8")
+        boot = (ROOT / "deploy" / "termux" / "termux-boot-gravity.sh").read_text(encoding="utf-8")
+        installer = (ROOT / "deploy" / "termux" / "install-termux.sh").read_text(encoding="utf-8")
+        self.assertIn("Explicit owner approval is required", wrapper)
+        self.assertIn("path.unlink()", runner)
+        self.assertIn('"automaticWifiTrigger": False', runner)
+        self.assertIn('"backgroundPollingEnabled": False', runner)
+        self.assertIn("APPROVE F09 READ-ONLY INTEGRATION", approval)
+        self.assertNotIn("f09-onsite", boot)
+        self.assertNotIn("f09-onsite", installer)
+
+    def test_zkteco_f09_adapter_has_no_device_mutation_calls(self) -> None:
+        source = (ROOT / "server" / "gravity" / "biometric.py").read_text(encoding="utf-8")
+        adapter = source.split("class ZKTecoF09Adapter:", 1)[1].split("def _verification_label", 1)[0]
+        for allowed in (".get_serialnumber()", ".get_platform()", ".get_users()", ".get_attendance()"):
+            self.assertIn(allowed, adapter)
+        forbidden = (
+            ".clear_attendance(", ".clear_data(", ".set_time(", ".set_user(", ".delete_user(",
+            ".delete_user_template(", ".disable_device(", ".enable_device(", ".restart(",
+            ".poweroff(", ".unlock(", ".test_voice(",
+        )
+        for marker in forbidden:
+            self.assertNotIn(marker, adapter)
 
 if __name__ == "__main__":
     unittest.main()
