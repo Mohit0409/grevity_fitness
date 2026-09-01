@@ -138,6 +138,14 @@ class OperationsScriptTests(unittest.TestCase):
         self.assertNotIn("ln -sfn", installer)
         self.assertIn("Refusing to replace existing boot script", installer)
 
+    def test_termux_network_audit_has_android_runtime_state_fallback(self) -> None:
+        audit = (ROOT / "deploy" / "termux" / "network-audit.sh").read_text(encoding="utf-8")
+        self.assertIn("gravity.state.json", audit)
+        self.assertIn("GRAVITY_RUNTIME_DIR", audit)
+        self.assertIn('state.get("host") != "127.0.0.1"', audit)
+        self.assertIn('inspection="runtime-state"', audit)
+        self.assertIn('curl -fsS --max-time 5 "http://127.0.0.1:$PORT/api/health"', audit)
+
     def test_migration_runbook_uses_valid_windows_script_paths(self) -> None:
         runbook = (ROOT / "docs" / "TERMUX_MIGRATION_RUNBOOK.md").read_text(
             encoding="utf-8"
