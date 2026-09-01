@@ -344,7 +344,8 @@
     const renew = document.createElement('button'); renew.type = 'button'; renew.textContent = 'Renew Membership'; renew.disabled = !hasPermission('memberships.manage'); renew.addEventListener('click', openRenew);
     const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'ghost'; edit.textContent = 'Edit Member'; edit.disabled = !hasPermission('members.manage'); edit.addEventListener('click', openEdit);
     const toggle = document.createElement('button'); toggle.type = 'button'; toggle.id = 'customerAccessToggle'; toggle.className = 'ghost'; toggle.textContent = member.status === 'active' ? 'Disable account' : 'Enable account'; toggle.disabled = !hasPermission('members.manage'); toggle.addEventListener('click', () => toggleStatus(toggle));
-    const receipt = document.createElement('button'); receipt.type = 'button'; receipt.className = 'whatsapp-action'; receipt.textContent = 'Share Receipt';
+    const receipt = document.createElement('button'); receipt.type = 'button'; receipt.className = 'whatsapp-action'; receipt.textContent = 'WhatsApp Receipt';
+    receipt.title = 'Uses this member’s saved mobile number and opens their WhatsApp chat directly.';
     receipt.disabled = !hasPermission('payments.read') || !(current || upcoming || latestExpired);
     receipt.addEventListener('click', async () => {
       try { setBusy(receipt, true, 'Preparing...'); await window.GravityReceiptAdmin.shareReceipt(window.GravityReceiptAdmin.fromDetail(detail)); }
@@ -512,7 +513,7 @@
         catch (_) { photoSaved = false; }
       }
       $('addCustomerDialog').close();
-      core().flash(personType === 'staff' ? 'Staff record added without membership or portal access.' : (photoSaved ? 'Member added. Share Receipt is ready in the member profile.' : 'Member added, but the photo could not be saved. You can continue using the member record.'), photoSaved ? 'ok' : 'error');
+      core().flash(personType === 'staff' ? 'Staff record added without membership or portal access.' : (photoSaved ? 'Member added. WhatsApp Receipt is ready in the member profile and uses the saved mobile number.' : 'Member added, but the photo could not be saved. You can continue using the member record.'), photoSaved ? 'ok' : 'error');
       await refreshRelated();
       if (result.customer?.id) await openCustomerById(result.customer.id, state.opener);
     } catch (error) { $('addCustomerError').textContent = errorText(error, 'add'); }

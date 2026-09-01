@@ -1323,7 +1323,11 @@ test('add member supports compressed photo receipt sharing and rejects duplicate
   const runtimeProblems = watchRuntime(page);
   const fixture = await mockAdminSoftware(page);
   await context.route('https://wa.me/**', (route) => route.fulfill({ status: 200, contentType: 'text/plain', body: 'ok' }));
-  await page.addInitScript(() => { Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }); Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true }); });
+  await page.addInitScript(() => {
+    window.__receiptNativeShareCalls = 0;
+    Object.defineProperty(navigator, 'share', { value: async () => { window.__receiptNativeShareCalls += 1; }, configurable: true });
+    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+  });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/admin');
   const trigger = page.locator('#headerAddCustomer');
@@ -1360,14 +1364,17 @@ test('add member supports compressed photo receipt sharing and rejects duplicate
   expect(fixture.photoUploads[0].bytes).toBeGreaterThan(100);
   expect(fixture.photoUploads[0].contentType).toContain('image/jpeg');
   await expect(page.locator('#customerDrawer .customer-profile-photo')).toBeVisible();
-  const receiptButton = page.locator('#customerDrawer').getByRole('button', { name: 'Share Receipt' });
+  const receiptButton = page.locator('#customerDrawer').getByRole('button', { name: 'WhatsApp Receipt' });
   await expect(receiptButton).toBeVisible();
+  await expect(receiptButton).toHaveAttribute('title', /saved mobile number/);
   const downloadPromise = page.waitForEvent('download');
   const popupPromise = page.waitForEvent('popup');
   await receiptButton.click();
   const [download, popup] = await Promise.all([downloadPromise, popupPromise]);
   expect(download.suggestedFilename()).toMatch(/^gravity-receipt-GF-NEW-1\.jpg$/);
   await expect.poll(() => popup.url()).toContain('https://wa.me/919876500000?text=');
+  expect(await page.evaluate(() => window.__receiptNativeShareCalls)).toBe(0);
+  await expect(page.locator('#flash')).toContainText('using the saved mobile number');
   await popup.close();
   expect(fixture.createBodies[0].phone).toBe('+919876500000');
   expect(fixture.createBodies[0].amountPaidPaise).toBe(30000);

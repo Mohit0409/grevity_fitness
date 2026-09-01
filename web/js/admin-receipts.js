@@ -19,7 +19,7 @@
   function phoneDigits(value) {
     let digits = String(value || '').replace(/\D/g, '');
     if (digits.length === 10) digits = `91${digits}`;
-    return digits;
+    return digits.length >= 11 && digits.length <= 15 ? digits : '';
   }
   async function imageFromFile(file) {
     if (!file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Choose a JPG, PNG or WebP image.');
@@ -123,21 +123,18 @@
   }
 
   async function shareReceipt(data, photoBlob = null) {
-    const blob = await receiptBlob(data, photoBlob);
     const membership = data.membership || {}; const customer = data.customer || {};
+    const phone = phoneDigits(customer.phone);
+    if (!phone) throw new Error('This member does not have a valid mobile number for WhatsApp. Update the member mobile first.');
+    const blob = await receiptBlob(data, photoBlob);
     const safe = String(membership.membershipNumber || customer.displayName || 'member').replace(/[^a-z0-9_-]+/gi, '-');
     const file = new File([blob], `gravity-receipt-${safe}.jpg`, { type: 'image/jpeg' });
-    const text = `Gravity Fitness receipt for ${customer.displayName || 'member'} - ${membership.planName || 'membership'}.`;
-    if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-      await navigator.share({ title: 'Gravity Fitness Receipt', text, files: [file] });
-      return;
-    }
+    const text = `Gravity Fitness receipt for ${customer.displayName || 'member'} - ${membership.planName || 'membership'}. Receipt image has been downloaded; attach it in this chat.`;
     const url = URL.createObjectURL(blob); const link = document.createElement('a');
     link.href = url; link.download = file.name; document.body.appendChild(link); link.click(); link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-    const phone = phoneDigits(customer.phone);
-    if (phone) window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text + ' Receipt image has been downloaded; attach it here.')}`, '_blank', 'noopener');
-    core()?.flash('Receipt downloaded. Attach the image in WhatsApp.', 'ok');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+    core()?.flash(`WhatsApp opened for ${customer.displayName || 'this member'} using the saved mobile number. Attach the downloaded receipt image.`, 'ok');
   }
 
   function fromDetail(detail) {
